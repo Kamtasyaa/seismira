@@ -69,20 +69,28 @@ pub struct MapWidget {
     lines_pending: Option<Option<Arc<RegionLines>>>,
     /// Yüklü sınırların bölge → köşe aralığı.
     line_ranges: std::collections::HashMap<seismira_core::region::RegionId, std::ops::Range<u32>>,
+    /// Yüklü dolguların bölge → indeks aralığı.
+    fill_ranges: std::collections::HashMap<seismira_core::region::RegionId, std::ops::Range<u32>>,
     /// Bu karede vurgulanacak bölgeler (çizim sırasıyla).
     region_styles: Vec<RegionStyle>,
 }
 
-/// Bir bölge sınırının bu karedeki görünümü.
+/// Bir bölgenin bu karedeki görünümü: sınır (koyu konturla, yüksek
+/// kontrast) ve dolgu (düşük kontrast; yanıp sönme genelde burada).
 #[derive(Clone, Copy, Debug)]
 pub struct RegionStyle {
     pub id: seismira_core::region::RegionId,
-    pub color: Color32,
-    /// Opaklık (yanıp sönme), 0–1.
-    pub alpha: f32,
-    /// Kalınlık (point).
-    pub width: f32,
+    /// Sınır rengi (opaklık dahil).
+    pub line: Color32,
+    /// Sınır kalınlığı (point); 0 ise sınır çizilmez.
+    pub line_width: f32,
+    /// Dolgu rengi (opaklık dahil); tam saydamsa dolgu çizilmez.
+    pub fill: Color32,
 }
+
+/// Sınırın altındaki koyu kontur (kontrast için): renk ve ek kalınlık.
+const HALO: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 190);
+const HALO_EXTRA: f32 = 2.5;
 
 /// Sarsıntı ızgarası katmanının opaklığı (görsel ayar): sınırlar ve
 /// şehir kutuları okunur kalsın.
@@ -119,6 +127,7 @@ impl MapWidget {
             grid_time: None,
             lines_pending: None,
             line_ranges: Default::default(),
+            fill_ranges: Default::default(),
             region_styles: Vec::new(),
         }
     }
@@ -214,7 +223,8 @@ impl MapWidget {
                 .get_mut::<region_lines::RegionLinesGpu>()
                 .expect("az önce eklendi");
             g.upload(&rs.device, lines.as_deref());
-            self.line_ranges = lines.map(|l| l.ranges.clone()).unwrap_or_default();
+            self.line_ranges = lines.as_ref().map(|l| l.ranges.clone()).unwrap_or_default();
+            self.fill_ranges = lines.map(|l| l.fill_ranges.clone()).unwrap_or_default();
         }
     }
 
@@ -305,10 +315,13 @@ impl MapWidget {
             .grid_spec
             .zip(self.grid_time)
             .map(|(spec, t)| (self.grid_uniforms(rect, &spec, t), 2));
-        let regions = self.region_draws(rect);
+        let (regions, fills) = self.region_draws(rect);
         MapPaint {
             lod,
             regions,
+            fills,
+            // Dolgu, ızgaradan sonra (kara, göller, ızgara, dolgu, sınırlar).
+            fills_before: 2,
             region_copies: 0..n_copies + 2,
             grid,
             // Izgara [0, 1) dışına taşabilir: bir kopya öncesi ve sonrası da.
@@ -328,30 +341,62 @@ impl MapWidget {
         }
     }
 
-    fn region_draws(&self, rect: Rect) -> Vec<region_lines::RegionDraw> {
+    fn region_draws(
+        &self,
+        rect: Rect,
+    ) -> (Vec<region_lines::RegionDraw>, Vec<region_lines::FillDraw>) {
         let v = &self.view;
         let (first_copy, _) = v.copies(rect);
-        self.region_styles
-            .iter()
-            .filter_map(|st| {
-                let range = self.line_ranges.get(&st.id)?.clone();
-                Some(region_lines::RegionDraw {
-                    range,
-                    uniforms: region_lines::LineUniforms {
-                        scale: [
-                            (2.0 * v.scale / f64::from(rect.width())) as f32,
-                            (-2.0 * v.scale / f64::from(rect.height())) as f32,
-                        ],
-                        center: [v.center[0] as f32, v.center[1] as f32],
-                        viewport: [rect.width(), rect.height()],
-                        half_width: st.width / 2.0,
+        let scale = [
+            (2.0 * v.scale / f64::from(rect.width())) as f32,
+            (-2.0 * v.scale / f64::from(rect.height())) as f32,
+        ];
+        let center = [v.center[0] as f32, v.center[1] as f32];
+        let line =
+            |range: std::ops::Range<u32>, color: Color32, width: f32| region_lines::RegionDraw {
+                range,
+                uniforms: region_lines::LineUniforms {
+                    scale,
+                    center,
+                    viewport: [rect.width(), rect.height()],
+                    half_width: width / 2.0,
+                    first_copy: (first_copy - 1) as f32,
+                    color: color.to_normalized_gamma_f32(),
+                },
+            };
+        let mut lines = Vec::new();
+        let mut fills = Vec::new();
+        for st in &self.region_styles {
+            if st.fill.a() > 0
+                && let Some(r) = self.fill_ranges.get(&st.id)
+            {
+                fills.push(region_lines::FillDraw {
+                    range: r.clone(),
+                    uniforms: region_lines::FillUniforms {
+                        scale,
+                        center,
+                        color: st.fill.to_normalized_gamma_f32(),
                         first_copy: (first_copy - 1) as f32,
-                        color: st.color.gamma_multiply(st.alpha).to_normalized_gamma_f32(),
+                        _pad: [0.0; 3],
                     },
-                })
-            })
-            .take(region_lines::MAX_REGION_DRAWS)
-            .collect()
+                });
+            }
+        }
+        // Önce tüm konturlar, sonra renkli çizgiler: komşu bölgenin konturu
+        // bir önceki bölgenin rengini örtmesin.
+        for st in self.region_styles.iter().filter(|s| s.line_width > 0.0) {
+            if let Some(r) = self.line_ranges.get(&st.id) {
+                lines.push(line(r.clone(), HALO, st.line_width + HALO_EXTRA));
+            }
+        }
+        for st in self.region_styles.iter().filter(|s| s.line_width > 0.0) {
+            if let Some(r) = self.line_ranges.get(&st.id) {
+                lines.push(line(r.clone(), st.line, st.line_width));
+            }
+        }
+        lines.truncate(region_lines::MAX_REGION_DRAWS);
+        fills.truncate(region_lines::MAX_REGION_DRAWS);
+        (lines, fills)
     }
 
     fn grid_uniforms(&self, rect: Rect, spec: &GridSpec, t: f64) -> grid_gpu::GridUniforms {

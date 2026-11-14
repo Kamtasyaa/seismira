@@ -291,15 +291,26 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   açılır) GPU'ya bir kez yüklenir; her parça ekran ölçeğinde kalınlığı
   olan bir dörtgen (kare uçlu). Her karede yalnızca bölge başına renk /
   kalınlık / opaklık (uniform dilimi) güncellenir.
-- Durum → görünüm: Uyarı: beyaz, 2,5 pt, yanıp söner. Sarsıntı: o ana
-  kadarki en yüksek Shindo rengi, 3 pt, yanıp söner (nihai en yüksek < 3
-  ise 1,5 pt sabit). Yatışmış (bölgedeki en geç t_bitiş geçti): nihai
-  Shindo rengi, 2 pt sabit. Güçlü olan üstte çizilir.
-- Yanıp sönme: duvar saatine bağlı, 1 Hz, opaklık %35–%100 (kosinüs).
-  Görünüm → "Hareketi azalt": yanıp sönme yok, +1 pt kalın sabit çizgi
-  (ayar kaydedilir).
-- Henüz yok: yatışmış bölgenin hafif dolgusu (Bölüm 9), bölge kartı
-  (bölgeye tıklama), hızlı oynatmada en az ~1 s görünme kuralı.
+- Kullanıcı kararı (2026-11-15): Bölüm 9'daki "sınır yanıp söner" yerine
+  İL ALANI Shindo renginde düşük kontrastla yanıp söner; sınır yüksek
+  kontrastlı (koyu kontur + renkli çizgi) ve sabittir.
+- Dolgu: Admin-1 halkaları (dış + delik bayrağı, `.sout` v2) etkilenen
+  bölgeler için arka planda earcut ile üçgenlenir; kara, göller ve ızgaranın
+  üstünde, sınır katmanlarının altında çizilir.
+- Durum → görünüm:
+  - Uyarı: beyaz sınır 2 pt; beyaz dolgu %4–%14 yanıp söner. Yalnızca P
+    dalgasının ulaştığı bölgelerde (bölgedeki ilk P varışı; kullanıcı
+    kararı 2026-11-15: kapsam 41 ile kadar çıkabiliyor, uzaktakiler
+    gereksiz yanmasın). Bildirimdeki uyarı listesi değişmedi.
+  - Sarsıntı: o ana kadarki en yüksek Shindo rengi; sınır 2,5 pt, dolgu
+    %8–%30 yanıp söner. Nihai en yüksek < 3 ise yalnızca 1,5 pt sınır.
+  - Yatışmış (bölgedeki en geç t_bitiş geçti): nihai Shindo rengi, sınır
+    2 pt, dolgu %12 sabit (Bölüm 9 "çok hafif aynı renkle dolar").
+  - Sınırların altında siyah %75 kontur (+2,5 pt). Güçlü olan üstte.
+- Yanıp sönme: duvar saatine bağlı, 1 Hz, kosinüs. Görünüm → "Hareketi
+  azalt": dolgu orta opaklıkta sabit (ayar kaydedilir).
+- Henüz yok: bölge kartı (bölgeye tıklama), hızlı oynatmada en az ~1 s
+  görünme kuralı.
 - Gözlem: Marmara Mw 7.5'te uyarı kapsamı 41 bölge (Bulgaristan ve
   Yunanistan dahil; Shindo 4 tahmini geniş). JMA ölçütüyle tutarlı ama
   dünya ölçeğinde çok beyaz çizgi var.

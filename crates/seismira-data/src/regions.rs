@@ -16,7 +16,7 @@ use crate::geotiff::GeoTiff;
 use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 use seismira_core::raster::{self, Encoded, Grid, LayerInfo, Raster, Scale};
-use seismira_core::region::{BUILT_BIT, Outlines, RegionInfo, write_infos, write_outlines};
+use seismira_core::region::{BUILT_BIT, Outlines, RegionInfo, Ring, write_infos, write_outlines};
 use shapefile::dbase::FieldValue;
 use shapefile::{PolygonRing, Shape};
 use std::fs::File;
@@ -86,14 +86,16 @@ pub fn run(shp: &Path, vs30: &Path, ghsl: &Path, out_raster: &Path, out_info: &P
         outlines.push(
             poly.rings()
                 .iter()
-                .map(|ring| {
-                    ring.points()
+                .map(|ring| Ring {
+                    hole: matches!(ring, PolygonRing::Inner(_)),
+                    points: ring
+                        .points()
                         .iter()
                         .map(|p| {
                             let (x, y) = seismira_core::mercator::to_unit(p.x, p.y);
                             [x as f32, y as f32]
                         })
-                        .collect()
+                        .collect(),
                 })
                 .collect(),
         );

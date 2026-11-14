@@ -143,6 +143,8 @@ pub struct RegionSummary {
     pub id: RegionId,
     /// Bölgedeki en yüksek son Shindo.
     pub max: Shindo,
+    /// Bölgedeki ilk P varışı (s).
+    pub t_first_p: f64,
     /// Bölgedeki ilk S varışı (s).
     pub t_first_s: f64,
     /// En yüksek Shindo'ya ilk ulaşılan an (kademeli yükselişle): en
@@ -165,7 +167,7 @@ pub struct RegionSummary {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RegionState {
     Quiet,
-    /// Uyarı yayımlandı, S henüz ulaşmadı.
+    /// Uyarı yayımlandı, P bölgeye ulaştı, S henüz ulaşmadı.
     Warning,
     /// Sarsıntı sürüyor; o ana kadar ulaşılan en yüksek Shindo.
     Shaking(Shindo),
@@ -193,7 +195,9 @@ impl RegionSummary {
                 RegionState::Shaking(s)
             };
         }
-        if t_alert.is_some_and(|a| t >= a) {
+        // Uyarı yalnızca P dalgası bölgeye ulaştıktan sonra görünür
+        // (kullanıcı kararı 2026-11-15: uzak bölgeler gereksiz yanmasın).
+        if t_alert.is_some_and(|a| t >= a) && t >= self.t_first_p {
             RegionState::Warning
         } else {
             RegionState::Quiet
@@ -215,21 +219,26 @@ pub fn summarize(
     let rise = crate::shaking::RISE_STEP_S;
     // Bölge başına: (tüm hücreler, yerleşim hücreleri) özetleri.
     let mut acc: HashMap<RegionId, (RegionSummary, Option<RegionSummary>)> = HashMap::new();
-    let update =
-        |e: &mut RegionSummary, s: Shindo, ts: f64, peak: f64, end: f64, at: (f64, f64)| {
-            e.t_end = e.t_end.max(end);
-            for k in 1..=s as usize {
-                let tk = ts + (k - 1) as f64 * rise;
-                e.class_times[k] = e.class_times[k].min(tk);
-            }
-            e.cells += 1;
-            e.t_first_s = e.t_first_s.min(ts);
-            if s > e.max || (s == e.max && peak < e.t_peak) {
-                e.max = s;
-                e.t_peak = peak;
-                e.at = at;
-            }
-        };
+    let update = |e: &mut RegionSummary,
+                  s: Shindo,
+                  (tp, ts): (f64, f64),
+                  peak: f64,
+                  end: f64,
+                  at: (f64, f64)| {
+        e.t_end = e.t_end.max(end);
+        e.t_first_p = e.t_first_p.min(tp);
+        for k in 1..=s as usize {
+            let tk = ts + (k - 1) as f64 * rise;
+            e.class_times[k] = e.class_times[k].min(tk);
+        }
+        e.cells += 1;
+        e.t_first_s = e.t_first_s.min(ts);
+        if s > e.max || (s == e.max && peak < e.t_peak) {
+            e.max = s;
+            e.t_peak = peak;
+            e.at = at;
+        }
+    };
     for row in 0..grid.spec.height {
         for col in 0..grid.spec.width {
             let i = (row * grid.spec.width + col) as usize;
@@ -245,12 +254,14 @@ pub fn summarize(
                 continue;
             }
             let ts = f64::from(grid.t_s[i]);
+            let tp = f64::from(grid.t_p[i]);
             let s = Shindo::ALL[class as usize];
             let peak = ts + f64::from(class.saturating_sub(Shindo::S1 as u8)) * rise;
             let at = grid.spec.center(col, row);
             let end = f64::from(grid.t_end[i]);
             let fresh = RegionSummary {
                 t_end: f64::NEG_INFINITY,
+                t_first_p: tp,
                 id,
                 max: s,
                 t_first_s: ts,
@@ -261,9 +272,9 @@ pub fn summarize(
                 class_times: [f64::INFINITY; 10],
             };
             let e = acc.entry(id).or_insert((fresh, None));
-            update(&mut e.0, s, ts, peak, end, at);
+            update(&mut e.0, s, (tp, ts), peak, end, at);
             if raw & BUILT_BIT != 0 {
-                update(e.1.get_or_insert(fresh), s, ts, peak, end, at);
+                update(e.1.get_or_insert(fresh), s, (tp, ts), peak, end, at);
             }
         }
     }
@@ -271,6 +282,7 @@ pub fn summarize(
         .into_values()
         .map(|(all, built)| match built {
             Some(b) => RegionSummary {
+                t_first_p: all.t_first_p,
                 t_first_s: all.t_first_s,
                 cells: all.cells,
                 built_cells: b.cells,
@@ -283,16 +295,82 @@ pub fn summarize(
     out
 }
 
-/// Bölge sınır halkaları (`.sout`): bölge `i` için `regions[i - 1]`,
-/// her halka Web Mercator birim karesinde kapalı bir nokta dizisi.
+/// Bir sınır halkası (Web Mercator birim karesinde, kapalı).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Ring {
+    /// Dış halka değil, delik (ör. Lesotho'yu çevreleyen Güney Afrika
+    /// bölgelerinde).
+    pub hole: bool,
+    pub points: Vec<[f32; 2]>,
+}
+
+/// Bölge sınır halkaları (`.sout`): bölge `i` için `regions[i - 1]`.
 ///
 /// Biçim: `"SOUT" u32 sürüm u32 bölge sayısı`, ardından tek bir zstd
 /// çerçevesi: her bölge için `u32 halka sayısı`, her halka için
-/// `u32 nokta sayısı` ve `[f32; 2] × n`.
-pub type Outlines = Vec<Vec<Vec<[f32; 2]>>>;
+/// `u32 nokta sayısı` (en üst bit: delik) ve `[f32; 2] × n`.
+pub type Outlines = Vec<Vec<Ring>>;
 
 const OUT_MAGIC: &[u8; 4] = b"SOUT";
-const OUT_VERSION: u32 = 1;
+const OUT_VERSION: u32 = 2;
+const HOLE_FLAG: u32 = 1 << 31;
+
+/// Bölge dolgusu için üçgen ağı: halkalar dış halka + içindeki delikler
+/// olarak gruplanır (delik, ilk noktasını içeren dış halkaya bağlanır) ve
+/// earcut ile üçgenlenir. Dönen: köşeler ve üçgen indeksleri.
+pub fn fill_mesh(rings: &[Ring]) -> (Vec<[f32; 2]>, Vec<u32>) {
+    let outers: Vec<&Ring> = rings
+        .iter()
+        .filter(|r| !r.hole && r.points.len() >= 3)
+        .collect();
+    let mut groups: Vec<Vec<&Ring>> = outers.iter().map(|o| vec![*o]).collect();
+    for h in rings.iter().filter(|r| r.hole && r.points.len() >= 3) {
+        let p = h.points[0];
+        if let Some(i) = outers.iter().position(|o| point_in_ring(&o.points, p)) {
+            groups[i].push(h);
+        }
+    }
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+    let mut earcut = earcut::Earcut::new();
+    let mut tris: Vec<u32> = Vec::new();
+    for g in groups {
+        let mut flat: Vec<[f64; 2]> = Vec::new();
+        let mut holes: Vec<u32> = Vec::new();
+        for (k, r) in g.iter().enumerate() {
+            if k > 0 {
+                holes.push(flat.len() as u32);
+            }
+            // Kapalı halkanın tekrar eden son noktası earcut'a verilmez.
+            let pts = match r.points.as_slice() {
+                [first, .., last] if first == last => &r.points[..r.points.len() - 1],
+                all => all,
+            };
+            flat.extend(pts.iter().map(|p| [f64::from(p[0]), f64::from(p[1])]));
+        }
+        earcut.earcut(flat.iter().copied(), &holes, &mut tris);
+        let base = vertices.len() as u32;
+        vertices.extend(flat.iter().map(|p| [p[0] as f32, p[1] as f32]));
+        indices.extend(tris.iter().map(|&i| base + i));
+    }
+    (vertices, indices)
+}
+
+/// Çift-tek kuralıyla nokta halka içinde mi?
+fn point_in_ring(ring: &[[f32; 2]], p: [f32; 2]) -> bool {
+    let mut inside = false;
+    let mut j = ring.len() - 1;
+    for i in 0..ring.len() {
+        let (a, b) = (ring[i], ring[j]);
+        if (a[1] > p[1]) != (b[1] > p[1])
+            && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]
+        {
+            inside = !inside;
+        }
+        j = i;
+    }
+    inside
+}
 
 pub fn write_outlines(
     outlines: &Outlines,
@@ -303,8 +381,9 @@ pub fn write_outlines(
     for rings in outlines {
         raw.extend_from_slice(&(rings.len() as u32).to_le_bytes());
         for ring in rings {
-            raw.extend_from_slice(&(ring.len() as u32).to_le_bytes());
-            for p in ring {
+            let n = ring.points.len() as u32 | if ring.hole { HOLE_FLAG } else { 0 };
+            raw.extend_from_slice(&n.to_le_bytes());
+            for p in &ring.points {
                 raw.extend_from_slice(&p[0].to_le_bytes());
                 raw.extend_from_slice(&p[1].to_le_bytes());
             }
@@ -346,14 +425,18 @@ pub fn read_outlines(r: &mut impl Read) -> io::Result<Outlines> {
         let n_rings = u32_at(&raw)? as usize;
         let mut rings = Vec::with_capacity(n_rings);
         for _ in 0..n_rings {
-            let n_pts = u32_at(&raw)? as usize;
-            let mut ring = Vec::with_capacity(n_pts);
+            let head = u32_at(&raw)?;
+            let n_pts = (head & !HOLE_FLAG) as usize;
+            let mut points = Vec::with_capacity(n_pts);
             for _ in 0..n_pts {
                 let x = f32::from_bits(u32_at(&raw)?);
                 let y = f32::from_bits(u32_at(&raw)?);
-                ring.push([x, y]);
+                points.push([x, y]);
             }
-            rings.push(ring);
+            rings.push(Ring {
+                hole: head & HOLE_FLAG != 0,
+                points,
+            });
         }
         out.push(rings);
     }
@@ -415,6 +498,7 @@ mod tests {
                 NO_DATA,
             ],
             jma: vec![4.6, 3.0, 5.6, f32::NAN],
+            t_p: vec![5.0, 6.0, 4.0, f32::NAN],
             t_s: vec![10.0, 12.0, 8.0, f32::NAN],
             t_end: vec![40.0, 30.0, 50.0, f32::NAN],
         };
@@ -427,6 +511,7 @@ mod tests {
         assert_eq!(s[0].t_first_s, 8.0);
         assert_eq!(s[0].cells, 2);
         assert_eq!(s[0].t_end, 50.0);
+        assert_eq!(s[0].t_first_p, 4.0);
         // 6- = S1'den 6 adım: 8 + 6·0,4.
         assert!((s[0].t_peak - (8.0 + 6.0 * crate::shaking::RISE_STEP_S)).abs() < 1e-9);
         assert_eq!(s[1].max, Shindo::S3);
@@ -444,10 +529,14 @@ mod tests {
 
     #[test]
     fn sinir_dosyasi_gidis_donus() {
+        let ring = |hole, points: Vec<[f32; 2]>| Ring { hole, points };
         let o: Outlines = vec![
-            vec![vec![[0.1, 0.2], [0.3, 0.4], [0.1, 0.2]]],
+            vec![ring(false, vec![[0.1, 0.2], [0.3, 0.4], [0.1, 0.2]])],
             vec![],
-            vec![vec![[0.5, 0.5]], vec![[0.6, 0.6], [0.7, 0.7]]],
+            vec![
+                ring(false, vec![[0.5, 0.5]]),
+                ring(true, vec![[0.6, 0.6], [0.7, 0.7]]),
+            ],
         ];
         let mut buf = Vec::new();
         write_outlines(&o, &mut buf, |b| {
@@ -458,6 +547,44 @@ mod tests {
         })
         .unwrap();
         assert_eq!(read_outlines(&mut buf.as_slice()).unwrap(), o);
+    }
+
+    #[test]
+    fn delikli_dolgu_agi() {
+        // 4×4 kare, ortasında 2×2 delik: alan 16 − 4 = 12.
+        let sq = |x0: f32, y0: f32, s: f32| {
+            vec![
+                [x0, y0],
+                [x0 + s, y0],
+                [x0 + s, y0 + s],
+                [x0, y0 + s],
+                [x0, y0],
+            ]
+        };
+        let rings = vec![
+            Ring {
+                hole: false,
+                points: sq(0.0, 0.0, 4.0),
+            },
+            Ring {
+                hole: true,
+                points: sq(1.0, 1.0, 2.0),
+            },
+            // Başka bir dış halka (ada): alan 1.
+            Ring {
+                hole: false,
+                points: sq(10.0, 0.0, 1.0),
+            },
+        ];
+        let (v, idx) = fill_mesh(&rings);
+        let area: f32 = idx
+            .chunks(3)
+            .map(|t| {
+                let (a, b, c) = (v[t[0] as usize], v[t[1] as usize], v[t[2] as usize]);
+                ((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])).abs() / 2.0
+            })
+            .sum();
+        assert!((area - 13.0).abs() < 1e-4, "{area}");
     }
 
     #[test]
@@ -475,6 +602,7 @@ mod tests {
         let r = RegionSummary {
             id: 1,
             max: Shindo::S5Upper,
+            t_first_p: 6.0,
             t_first_s: 10.0,
             t_peak: class_times[Shindo::S5Upper as usize],
             cells: 1,
@@ -484,6 +612,9 @@ mod tests {
             class_times,
         };
         assert_eq!(r.state(5.0, Some(8.0), None), RegionState::Quiet);
+        // Uyarı yayımlandı ama P henüz ulaşmadı → sessiz.
+        assert_eq!(r.state(5.5, Some(4.0), None), RegionState::Quiet);
+        assert_eq!(r.state(6.0, Some(4.0), None), RegionState::Warning);
         assert_eq!(r.state(9.0, Some(8.0), None), RegionState::Warning);
         assert_eq!(r.state(9.0, None, None), RegionState::Quiet);
         assert_eq!(

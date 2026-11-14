@@ -227,6 +227,10 @@ pub struct MapPaint {
     pub copies: Range<u32>,
     /// Vurgulanan bölge sınırları (tüm katmanların üstünde).
     pub regions: Vec<super::region_lines::RegionDraw>,
+    /// Bölge dolguları (ızgaranın üstünde, sınır katmanlarının altında).
+    pub fills: Vec<super::region_lines::FillDraw>,
+    /// Dolgu kaçıncı harita katmanından önce çizilir.
+    pub fills_before: usize,
     pub region_copies: Range<u32>,
 }
 
@@ -255,6 +259,7 @@ impl CallbackTrait for MapPaint {
         }
         if let Some(lines) = resources.get::<super::region_lines::RegionLinesGpu>() {
             lines.write_uniforms(queue, &self.regions);
+            lines.write_fill_uniforms(queue, &self.fills);
         }
         Vec::new()
     }
@@ -275,6 +280,12 @@ impl CallbackTrait for MapPaint {
                 && *before == i
             {
                 g.draw(pass, self.copies.clone());
+            }
+            if i == self.fills_before
+                && !self.fills.is_empty()
+                && let Some(lines) = resources.get::<super::region_lines::RegionLinesGpu>()
+            {
+                lines.draw_fills(pass, &self.fills, self.region_copies.clone());
             }
             let Some((_, layer)) = layers.iter().find(|(id, _)| *id == draw.layer) else {
                 continue;

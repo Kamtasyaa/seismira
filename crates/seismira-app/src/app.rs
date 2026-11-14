@@ -29,9 +29,11 @@ const STORAGE_REDUCE_MOTION: &str = "reduce_motion";
 /// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
 const BLINK_HZ: f64 = 1.0;
 
-/// Bölge sınırlarının bu karedeki görünümü (Bölüm 9). `t` simülasyon
-/// zamanı, `wall` duvar saati (yanıp sönme simülasyon hızından bağımsız).
-/// Dönen ikinci değer: yanıp sönen sınır var mı (sürekli çizim gerekir).
+/// Bölgelerin bu karedeki görünümü (Bölüm 9; 2026-11-15 kullanıcı
+/// isteğiyle: il ALANI düşük kontrastla yanıp söner, sınır yüksek
+/// kontrastlı ve sabittir). `t` simülasyon zamanı, `wall` duvar saati
+/// (yanıp sönme simülasyon hızından bağımsız). Dönen ikinci değer: yanıp
+/// sönen bölge var mı (sürekli çizim gerekir).
 fn region_styles(
     results: &[compute::RegionResult],
     alert: Option<&Alert>,
@@ -40,40 +42,61 @@ fn region_styles(
     reduce_motion: bool,
 ) -> (Vec<crate::map::RegionStyle>, bool) {
     use seismira_core::region::RegionState;
-    // Yumuşak opaklık dalgası %35–%100; "Hareketi azalt" açıkken sabit.
+    // 0–1 arası yumuşak dalga (kosinüs); "Hareketi azalt" açıkken ortada sabit.
     let pulse = if reduce_motion {
-        1.0
+        0.5
     } else {
-        (0.675 + 0.325 * (std::f64::consts::TAU * BLINK_HZ * wall).cos()) as f32
+        (0.5 + 0.5 * (std::f64::consts::TAU * BLINK_HZ * wall).cos()) as f32
     };
-    let extra = if reduce_motion { 1.0 } else { 0.0 };
+    // Dolgu opaklığı: yanıp sönen %8–%30, yatışmış %12 sabit (Bölüm 9
+    // "çok hafif aynı renkle dolar"). Görsel ayar.
+    let blink_fill = |c: Color32| c.gamma_multiply(0.08 + 0.22 * pulse);
     let mut out = Vec::new();
     let mut blinking = false;
     for r in results {
         let s = &r.summary;
         let t_alert = alert.filter(|a| a.regions.contains(&s.id)).map(|a| a.t);
-        let style = match s.state(t, t_alert, s.t_end.is_finite().then_some(s.t_end)) {
+        let end = s.t_end.is_finite().then_some(s.t_end);
+        // (sıra, sınır rengi, kalınlık, dolgu, yanıp sönüyor mu)
+        let style = match s.state(t, t_alert, end) {
             RegionState::Quiet => None,
-            RegionState::Warning => Some((0u8, Color32::WHITE, 2.5 + extra, true)),
+            // Uyarıda beyaz dolgu daha da hafif (%4–%14): kapsam geniş
+            // olabilir (ör. 41 il) ve tüm haritayı grileştirmesin.
+            RegionState::Warning => Some((
+                0u8,
+                Color32::WHITE,
+                2.0,
+                Color32::WHITE.gamma_multiply(0.04 + 0.10 * pulse),
+                true,
+            )),
             RegionState::Shaking(now) => {
+                let c = shindo_style::color(now);
                 // Nihai en yüksek Shindo'su 3'ün altındaki bölgeler yanıp sönmez.
-                let blink = s.max >= Shindo::S3;
-                let w = if blink { 3.0 + extra } else { 1.5 };
-                Some((1 + now as u8, shindo_style::color(now), w, blink))
+                if s.max >= Shindo::S3 {
+                    Some((1 + now as u8, c, 2.5, blink_fill(c), true))
+                } else {
+                    Some((1 + now as u8, c, 1.5, Color32::TRANSPARENT, false))
+                }
             }
             RegionState::Settled(max) => {
-                Some((1 + max as u8, shindo_style::color(max), 2.0, false))
+                let c = shindo_style::color(max);
+                let fill = if max >= Shindo::S3 {
+                    c.gamma_multiply(0.12)
+                } else {
+                    Color32::TRANSPARENT
+                };
+                Some((1 + max as u8, c, 2.0, fill, false))
             }
         };
-        if let Some((order, color, width, blink)) = style {
+        if let Some((order, line, width, fill, blink)) = style {
             blinking |= blink && !reduce_motion;
             out.push((
                 order,
                 crate::map::RegionStyle {
                     id: s.id,
-                    color,
-                    alpha: if blink { pulse } else { 1.0 },
-                    width,
+                    line,
+                    line_width: width,
+                    fill,
                 },
             ));
         }
