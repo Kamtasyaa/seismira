@@ -17,6 +17,7 @@ use eframe::egui::{
 use skrifa::{FontRef, MetadataProvider as _};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
 use std::sync::{Arc, Mutex};
 
 use crate::i18n::Lang;
@@ -72,25 +73,6 @@ fn cjk_order(lang: Lang) -> [&'static str; 4] {
             "cjk/NotoSansTC-Regular.otf",
         ],
     }
-}
-
-/// Uygulama verilerinin (`assets/`) bulunduğu klasör.
-///
-/// Sıra: `SEISMIRA_ASSETS` ortam değişkeni, çalıştırılabilir dosyanın
-/// yanındaki `assets/`, geliştirme sırasında depo kökündeki `assets/`.
-pub fn assets_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("SEISMIRA_ASSETS") {
-        return PathBuf::from(dir);
-    }
-    if let Ok(exe) = std::env::current_exe()
-        && let Some(dir) = exe.parent()
-    {
-        let candidate = dir.join("assets");
-        if candidate.is_dir() {
-            return candidate;
-        }
-    }
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets"))
 }
 
 /// Yazı tiplerini kurar. Dil değişince yeniden çağrılır (CJK sırası için).
@@ -185,7 +167,7 @@ mod tests {
 
     #[test]
     fn listedeki_tum_yazi_tipleri_depoda() {
-        let dir = assets_dir().join("fonts");
+        let dir = crate::paths::assets_dir().join("fonts");
         for rel in SCRIPT_FONTS {
             let bytes = std::fs::read(dir.join(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"));
             assert!(FontRef::from_index(&bytes, 0).is_ok(), "{rel} okunamadı");
@@ -194,7 +176,7 @@ mod tests {
 
     #[test]
     fn yazi_sistemleri_dogru_dosyaya_duser() {
-        let fonts = BundledFonts::new(assets_dir().join("fonts"), Lang::Tr);
+        let fonts = BundledFonts::new(crate::paths::assets_dir().join("fonts"), Lang::Tr);
         let find = |ch: char| {
             fonts
                 .order

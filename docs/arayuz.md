@@ -89,6 +89,16 @@ ekstrapolasyon yapılmaz.
   olarak hesaplanan noktaların izdüşümüdür.
 - egui yalnızca dışbükey çokgen doldurur. Kara çokgenleri veri
   hazırlamada üçgenlenir (earcut) ve hazır mesh olarak saklanır.
+- Uygulama (Faz 1): geometri `.smap` dosyalarından GPU tamponlarına bir
+  kez yüklenir (egui-wgpu paint callback, map/gpu.rs). Her karede
+  yalnızca merkez/ölçek/renk uniform'u değişir. Yatay tekrar instancing
+  ile (her örnek bir dünya kopyası). Çizgiler 1 piksel (LineStrip,
+  primitive restart); kalın/yanıp sönen sınırlar Faz 4'te ayrıca çizilir.
+  MSAA 4x.
+- Ayrıntı düzeyi eşikleri (dünya genişliği, point; görsel ayar):
+  < 1500 → 110m, < 5000 → 50m, üstü → 10m. İl/eyalet sınırları 5000'den
+  itibaren 10m verisinden çizilir (50m Admin-1 yalnızca birkaç ülkeyi
+  kapsar).
 - Ayrıntı düzeyi: Natural Earth 1:110m, 1:50m, 1:10m yakınlaştırmaya
   göre. Şehir ölçeğinde kıyı kaba kalır; yüksek çözünürlüklü kıyı
   bölge paketlerinde (OSM kara çokgenleri, ODbL).

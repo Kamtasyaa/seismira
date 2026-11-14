@@ -33,3 +33,15 @@ attribution = "Noto Sans CJK © 2014-2021 Adobe, SIL Open Font License 1.1."
 modified = false
 license_checked = "2026-11-14"
 files = "assets/fonts/cjk/*.otf (depoda değil; scripts/fetch_fonts.py ile indirilir)"
+
+[[dataset]]
+id = "natural-earth"
+name = "Natural Earth v5.1.2 (kara, göller, ülke ve Admin-1 sınırları; 1:110m, 1:50m, 1:10m)"
+url = "https://www.naturalearthdata.com/"
+license = "Public Domain"
+license_url = "https://www.naturalearthdata.com/about/terms-of-use/"
+attribution = "Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com."
+modified = true            # Web Mercator'a izdüşüm, üçgenleme, ikili biçim
+license_checked = "2026-11-14"
+note = "Sınırlar Natural Earth'ün varsayılan gösterimidir; siyasi görüş bildirmez."
+files = "data/map/ne_*.smap (scripts/prepare_data.py ile üretilir)"

@@ -9,13 +9,20 @@ publish.workspace = true
 name = "seismira"
 path = "src/main.rs"
 
+[features]
+# Geliştirme aracı: SEISMIRA_SCREENSHOT=dosya.png ile harita yüklendikten
+# sonra pencerenin görüntüsünü kaydedip çıkar (bkz. src/devshot.rs).
+screenshot = ["dep:image"]
+
 [lints]
 workspace = true
 
 [dependencies]
-eframe = { version = "0.37", default-features = false, features = ["accesskit", "wgpu", "glow", "wayland", "x11", "persistence"] }
+bytemuck = { version = "1.25.2", features = ["derive"] }
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "wgpu", "wayland", "x11", "persistence"] }
 env_logger = "0.11.11"
 fluent-templates = "0.15"
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 log = "0.4"
 seismira-core.workspace = true
 skrifa = "0.44"

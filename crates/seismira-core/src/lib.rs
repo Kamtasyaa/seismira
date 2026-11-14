@@ -3,6 +3,9 @@
 //! Bu crate arayüzden tamamen bağımsızdır: egui, eframe, wgpu veya
 //! herhangi bir pencere / çizim kütüphanesine bağımlılık EKLENMEZ.
 
+pub mod mapfile;
+pub mod mercator;
+
 /// Çekirdek sürümü (Cargo.toml'dan).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

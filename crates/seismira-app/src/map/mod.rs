@@ -1,0 +1,249 @@
+//! Harita bileşeni: kaydırma, yakınlaştırma, yatay tekrar, merkez üssü seçimi.
+
+mod gpu;
+pub mod view;
+
+use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
+use seismira_core::mapfile::MapFile;
+use seismira_core::mercator;
+use std::path::PathBuf;
+use std::sync::mpsc::{Receiver, TryRecvError, channel};
+
+use gpu::{Draw, LOD_FILES, LayerId, MapGpu, MapPaint, Uniforms};
+use view::MapView;
+
+/// Harita renkleri (koyu tema). Okyanus, panel arka planından koyudur.
+mod colors {
+    use eframe::egui::Color32;
+    pub const OCEAN: Color32 = crate::theme::MAP_BG;
+    pub const LAND: Color32 = Color32::from_rgb(0x1F, 0x26, 0x31);
+    pub const ADMIN0: Color32 = Color32::from_rgb(0x55, 0x61, 0x73);
+    pub const ADMIN1: Color32 = Color32::from_rgb(0x33, 0x3D, 0x4B);
+    pub const EPICENTER: Color32 = Color32::from_rgb(0xFF, 0x4D, 0x4D);
+}
+
+/// Ayrıntı düzeyi eşikleri (dünya genişliği, point). Natural Earth
+/// ölçekleri yaklaşık 1:110M, 1:50M, 1:10M haritalar için tasarlanmıştır;
+/// eşikler görsel olarak ayarlanmıştır.
+const LOD_50M_FROM: f64 = 1_500.0;
+const LOD_10M_FROM: f64 = 5_000.0;
+/// İl/eyalet sınırları bu ölçekten itibaren çizilir (dünya ölçeğinde
+/// yalnızca etkilenen bölgeler çizilecek, CLAUDE.md Bölüm 9).
+const ADMIN1_FROM: f64 = 5_000.0;
+
+enum Load {
+    /// Arka plan iş parçacığı dosyaları okuyor.
+    Loading(Receiver<(usize, Result<MapFile, String>)>),
+    Done,
+}
+
+/// Haritanın bir karedeki çıktısı.
+pub struct MapOutput {
+    /// İmlecin altındaki nokta (boylam, enlem).
+    pub hover: Option<(f64, f64)>,
+    /// Bu karede tıklanarak seçilen nokta (boylam, enlem).
+    pub clicked: Option<(f64, f64)>,
+}
+
+pub struct MapWidget {
+    view: MapView,
+    load: Load,
+    /// Hangi ayrıntı düzeyleri bellekte, GPU'ya yüklenmeyi bekliyor.
+    pending: Vec<(usize, MapFile)>,
+    loaded: [bool; 3],
+    errors: Vec<String>,
+    gpu_ready: bool,
+}
+
+impl MapWidget {
+    pub fn new(data_dir: PathBuf, view: MapView) -> Self {
+        let (tx, rx) = channel();
+        std::thread::Builder::new()
+            .name("harita-yükle".into())
+            .spawn(move || {
+                // Kabadan inceye: önce dünya görünümü hazır olsun.
+                for (lod, name) in LOD_FILES.iter().enumerate() {
+                    let path = data_dir.join("map").join(format!("{name}.smap"));
+                    let result = std::fs::File::open(&path)
+                        .map(std::io::BufReader::new)
+                        .and_then(|mut f| MapFile::read(&mut f))
+                        .map_err(|e| format!("{}: {e}", path.display()));
+                    if tx.send((lod, result)).is_err() {
+                        return;
+                    }
+                }
+            })
+            .expect("iş parçacığı başlatılamadı");
+        Self {
+            view,
+            load: Load::Loading(rx),
+            pending: Vec::new(),
+            loaded: [false; 3],
+            errors: Vec::new(),
+            gpu_ready: false,
+        }
+    }
+
+    /// Kaba harita yüklendi mi (ekranda bir şey var mı)?
+    pub fn is_ready(&self) -> bool {
+        self.loaded.iter().any(|&l| l)
+    }
+
+    pub fn errors(&self) -> &[String] {
+        &self.errors
+    }
+
+    fn poll_loader(&mut self) {
+        if let Load::Loading(rx) = &self.load {
+            loop {
+                match rx.try_recv() {
+                    Ok((lod, Ok(map))) => self.pending.push((lod, map)),
+                    Ok((_, Err(e))) => {
+                        log::error!("harita verisi okunamadı: {e}");
+                        self.errors.push(e);
+                    }
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        self.load = Load::Done;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /// GPU kaynaklarını kurar ve bekleyen ayrıntı düzeylerini yükler.
+    fn sync_gpu(&mut self, frame: &eframe::Frame, msaa: u32) {
+        let Some(rs) = frame.wgpu_render_state() else {
+            return;
+        };
+        let mut renderer = rs.renderer.write();
+        let resources = &mut renderer.callback_resources;
+        if resources.get::<MapGpu>().is_none() {
+            resources.insert(MapGpu::new(&rs.device, rs.target_format, msaa));
+        }
+        self.gpu_ready = true;
+        let gpu = resources.get_mut::<MapGpu>().expect("az önce eklendi");
+        for (lod, map) in self.pending.drain(..) {
+            gpu.upload(&rs.device, lod, &map);
+            self.loaded[lod] = gpu.has_lod(lod);
+            log::info!("harita yüklendi: {}", LOD_FILES[lod]);
+        }
+    }
+
+    /// Ölçeğe uygun ve yüklenmiş en iyi ayrıntı düzeyi.
+    fn pick_lod(&self) -> Option<usize> {
+        let wanted = if self.view.scale >= LOD_10M_FROM {
+            2
+        } else if self.view.scale >= LOD_50M_FROM {
+            1
+        } else {
+            0
+        };
+        // İstenen yüklenmediyse en yakın yüklenmiş olanı kullan.
+        (0..=wanted)
+            .rev()
+            .chain(wanted + 1..3)
+            .find(|&l| self.loaded[l])
+    }
+
+    pub fn ui(&mut self, ui: &mut egui::Ui, frame: &eframe::Frame, msaa: u32) -> MapOutput {
+        self.poll_loader();
+        self.sync_gpu(frame, msaa);
+        if matches!(self.load, Load::Loading(_)) {
+            // Yükleme bitene kadar kanal kontrol edilsin.
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(50));
+        }
+
+        let rect = ui.max_rect();
+        let response = ui.allocate_rect(rect, Sense::click_and_drag());
+        self.view.normalize(rect);
+
+        // Girdi: sürükle = kaydır, tekerlek / iki parmak = yakınlaştır.
+        if response.dragged() {
+            self.view.pan(rect, response.drag_delta());
+        }
+        if let Some(p) = response.hover_pos() {
+            let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
+            let factor = f64::from(zoom) * (f64::from(scroll) * 0.0025).exp();
+            if (factor - 1.0).abs() > 1e-6 {
+                self.view.zoom_at(rect, p, factor);
+            }
+        }
+
+        let painter = ui.painter_at(rect);
+        painter.rect_filled(rect, 0.0, colors::OCEAN);
+        if let Some(lod) = self.pick_lod() {
+            painter.add(gpu::paint_callback(rect, self.paint(rect, lod)));
+        }
+
+        let to_lonlat = |p: Pos2| {
+            let w = self.view.screen_to_world(rect, p);
+            mercator::from_unit(w[0], w[1])
+        };
+        MapOutput {
+            hover: response.hover_pos().map(to_lonlat),
+            clicked: if response.clicked() {
+                response.interact_pointer_pos().map(to_lonlat)
+            } else {
+                None
+            },
+        }
+    }
+
+    fn paint(&self, rect: Rect, lod: usize) -> MapPaint {
+        let v = &self.view;
+        let (first_copy, n_copies) = v.copies(rect);
+        let uniforms = |color: Color32| Uniforms {
+            scale: [
+                (2.0 * v.scale / f64::from(rect.width())) as f32,
+                (-2.0 * v.scale / f64::from(rect.height())) as f32,
+            ],
+            center: [v.center[0] as f32, v.center[1] as f32],
+            color: color.to_normalized_gamma_f32(),
+            first_copy: first_copy as f32,
+            _pad: [0.0; 3],
+        };
+        let mut layers = vec![
+            (LayerId::Land, colors::LAND),
+            (LayerId::Lakes, colors::OCEAN),
+        ];
+        if v.scale >= ADMIN1_FROM {
+            layers.push((LayerId::Admin1, colors::ADMIN1));
+        }
+        layers.push((LayerId::Admin0, colors::ADMIN0));
+        MapPaint {
+            lod,
+            draws: layers
+                .into_iter()
+                .map(|(layer, color)| Draw {
+                    layer,
+                    uniforms: uniforms(color),
+                    copies: 0..n_copies,
+                })
+                .collect(),
+        }
+    }
+
+    /// Merkez üssü işareti (×), görünen tüm dünya kopyalarında.
+    pub fn draw_epicenter(&self, ui: &egui::Ui, rect: Rect, lonlat: (f64, f64)) {
+        let (x, y) = mercator::to_unit(lonlat.0, lonlat.1);
+        let (first, n) = self.view.copies(rect);
+        let painter = ui.painter_at(rect);
+        let r = 7.0;
+        for k in first..first + n as i32 {
+            let c = self.view.world_to_screen(rect, [x + f64::from(k), y]);
+            for (a, b) in [
+                (Vec2::new(-r, -r), Vec2::new(r, r)),
+                (Vec2::new(-r, r), Vec2::new(r, -r)),
+            ] {
+                painter.line_segment(
+                    [c + a, c + b],
+                    Stroke::new(5.0, Color32::from_black_alpha(160)),
+                );
+                painter.line_segment([c + a, c + b], Stroke::new(2.5, colors::EPICENTER));
+            }
+        }
+    }
+}

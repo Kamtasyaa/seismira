@@ -38,5 +38,5 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked
       - name: Test
         run: cargo test --workspace --locked
-      - name: Release derlemesi
-        run: cargo build --workspace --release --locked
+      # Release (LTO) derlemesi CI süresini ~3 katına çıkarıyor; paketleme
+      # fazında (Faz 10) ayrı bir iş olarak geri gelecek.

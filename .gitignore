@@ -6,3 +6,6 @@
 
 # CJK yazı tipleri büyük; scripts/fetch_fonts.py ile indirilir.
 /assets/fonts/cjk/*.otf
+
+# Üretilmiş harita verisi: scripts/prepare_data.py ile yeniden üretilir.
+/data/map/

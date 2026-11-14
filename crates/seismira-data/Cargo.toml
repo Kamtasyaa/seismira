@@ -9,4 +9,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+anyhow = "1.0.104"
+earcut = "0.4"
 seismira-core.workspace = true
+shapefile = "0.9"

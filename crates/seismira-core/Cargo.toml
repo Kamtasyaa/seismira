@@ -7,3 +7,6 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+bytemuck = { version = "1.25.2", features = ["derive"] }

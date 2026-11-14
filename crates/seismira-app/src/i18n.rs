@@ -72,6 +72,28 @@ impl Lang {
     }
 }
 
+impl Lang {
+    /// Ondalık sayı, dilin ondalık ayracıyla ("41,01" / "41.01").
+    pub fn num(self, v: f64, decimals: usize) -> String {
+        let s = format!("{v:.decimals$}");
+        match self.t("decimal-separator").as_str() {
+            "." => s,
+            sep => s.replacen('.', sep, 1),
+        }
+    }
+
+    /// Enlem/boylam: "41,01° K, 28,97° D".
+    pub fn lonlat(self, lon: f64, lat: f64) -> String {
+        let ns = self.t(if lat >= 0.0 { "hemi-n" } else { "hemi-s" });
+        let ew = self.t(if lon >= 0.0 { "hemi-e" } else { "hemi-w" });
+        format!(
+            "{}° {ns}, {}° {ew}",
+            self.num(lat.abs(), 2),
+            self.num(lon.abs(), 2)
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,6 +134,12 @@ mod tests {
         assert_eq!(Lang::from_code("tr-TR"), Some(Lang::Tr));
         assert_eq!(Lang::from_code("en_US.UTF-8"), Some(Lang::En));
         assert_eq!(Lang::from_code("de-DE"), None);
+    }
+
+    #[test]
+    fn koordinat_bicimi() {
+        assert_eq!(Lang::Tr.lonlat(28.974, 41.012), "41,01° K, 28,97° D");
+        assert_eq!(Lang::En.lonlat(-70.6, -33.45), "33.45° S, 70.60° W");
     }
 
     #[test]

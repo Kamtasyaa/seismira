@@ -16,7 +16,18 @@ panel-notifications = Bildirimler
 notifications-empty = Henüz bildirim yok.
 
 timeline = Zaman çizgisi
-map-placeholder = Harita bir sonraki adımda eklenecek.
 
 text-test-title = Çok dilli yazı testi
 text-test-note = Sağdan sola yazılarda (Arapça, İbranice) çok kelimeli metinlerin kelime sırası şu an hatalıdır; bilinen sorun, ayrıntı docs/arayuz.md.
+
+map-loading = Harita yükleniyor…
+map-missing = Harita verisi bulunamadı. Depo kökünde şu komutu çalıştırın:
+epicenter = Merkez üssü
+epicenter-hint = Haritaya tıklayarak merkez üssünü seçin. Sürükleyerek kaydırın, tekerlekle yakınlaştırın.
+
+# Sayı ve koordinat biçimi
+decimal-separator = ,
+hemi-n = K
+hemi-s = G
+hemi-e = D
+hemi-w = B

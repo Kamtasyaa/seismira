@@ -81,7 +81,10 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
 
 - Dil: Rust (stable).
 - Arayüz: egui + eframe, çizim arka ucu wgpu (Vulkan / DirectX 12 /
-  Metal). Eski donanım için OpenGL yedeği açık kalsın.
+  Metal). Eski donanım için OpenGL yedeği wgpu'nun kendi GL arka ucuyla
+  sağlanır (WGPU_BACKEND=opengl). eframe'in ayrı glow çizicisi
+  KULLANILMAZ: harita, geometriyi GPU'da tutan wgpu paint callback ile
+  çizilir ve glow bunu desteklemez (2026-11-14 kararı).
 - Paralel hesap: rayon. İptal: AtomicBool ile işbirlikçi iptal.
 - Büyük veri okuma: memmap2.
 - Coğrafi hesap: saf Rust (ör. geo, geographiclib-rs). PROJ ve GDAL
@@ -101,9 +104,13 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
   GeoTIFF, CSV) uygulamanın hızlı okuduğu kompakt ikili biçime
   çevirir. Tek seferlik üretimler için yardımcı Python betiği
   kabul edilir (ör. seyahat süresi tablosu).
-- data/: işlenmiş veriler ve data/SOURCES.toml (her veri setinin
-  kaynağı, lisansı, atıf metni, "değiştirildi" notu). Uygulamadaki
-  "Veri Kaynakları" sayfası bu dosyadan üretilir.
+- data/: data/SOURCES.toml (her veri setinin kaynağı, lisansı, atıf
+  metni, "değiştirildi" notu; "Veri Kaynakları" sayfası bundan üretilir)
+  ve işlenmiş veriler. Ham (data/raw/) ve üretilmiş (data/map/ vb.) veri
+  depoya GİRMEZ: kaynaklar sürüm + SHA256 ile sabitlenir, tek komutla
+  yeniden üretilir: `python3 scripts/prepare_data.py`.
+- assets/: uygulamayla gelen dosyalar (yazı tipleri). CJK yazı tipleri
+  depoda değil, aynı betikle indirilir.
 - docs/: bilim, veri, doğrulama belgeleri.
 
 ## 6–10. Girdiler, harita, bölge vurgusu, arayüz (docs/arayuz.md)

@@ -53,3 +53,22 @@ Lisans kuralları:
 - Lisansı yeniden dağıtıma izin vermeyen veri kullanılmaz; alternatifi
   bulunur ya da kullanıcıya sorulur.
 
+## Uygulama notları: veri hazırlama hattı
+
+- Tek komut: `python3 scripts/prepare_data.py` (depo kökünden). Yazı
+  tiplerini ve Natural Earth'ü indirip SHA256 ile doğrular, ardından
+  `seismira-data natural-earth` ile `data/map/ne_{110m,50m,10m}.smap`
+  dosyalarını üretir.
+- Natural Earth sürümü: v5.1.2 (GitHub nvkelso/natural-earth-vector
+  etiketi). Lisans 2026-11-14'te yeniden kontrol edildi: kamu malı, atıf
+  isteğe bağlı ("Made with Natural Earth.").
+- `.smap` biçimi: seismira-core/src/mapfile.rs. Koordinatlar Web Mercator
+  birim karesinde f32; kara ve göller önceden üçgenlenmiş, sınırlar
+  line strip. Boyutlar: 110m 0.2 MB, 50m 2.0 MB, 10m 17.9 MB.
+- Natural Earth geometrisi ±180°'de zaten bölünmüş; araç meridyeni geçen
+  kenarları sayar ve uyarır (Antarktika'nın kutup kapanış kenarı hariç).
+- 10m Admin-1 sınır dosyasında boş (NullShape) kayıtlar var; atlanır.
+- Çokgen delikleri dosyadaki sıraya göre değil, nokta-çokgen testiyle
+  içinde bulundukları dış halkaya bağlanır. (Sıraya güvenince 10m karada
+  Hazar Denizi kara olarak dolmuştu; 2026-11-14'te düzeltildi.) Sahipsiz
+  delik kalırsa araç hata verir.
