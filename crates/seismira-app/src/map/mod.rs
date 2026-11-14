@@ -2,7 +2,10 @@
 
 mod gpu;
 mod grid_gpu;
+mod region_lines;
 pub mod view;
+
+pub use region_lines::RegionLines;
 
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
 use seismira_core::grid::{GridSpec, ShakeGrid};
@@ -62,6 +65,23 @@ pub struct MapWidget {
     grid_spec: Option<GridSpec>,
     /// Bu karede ızgara gösterilecekse simülasyon zamanı.
     grid_time: Option<f64>,
+    /// GPU'ya yüklenmeyi bekleyen bölge sınırları (`Some(None)`: kaldır).
+    lines_pending: Option<Option<Arc<RegionLines>>>,
+    /// Yüklü sınırların bölge → köşe aralığı.
+    line_ranges: std::collections::HashMap<seismira_core::region::RegionId, std::ops::Range<u32>>,
+    /// Bu karede vurgulanacak bölgeler (çizim sırasıyla).
+    region_styles: Vec<RegionStyle>,
+}
+
+/// Bir bölge sınırının bu karedeki görünümü.
+#[derive(Clone, Copy, Debug)]
+pub struct RegionStyle {
+    pub id: seismira_core::region::RegionId,
+    pub color: Color32,
+    /// Opaklık (yanıp sönme), 0–1.
+    pub alpha: f32,
+    /// Kalınlık (point).
+    pub width: f32,
 }
 
 /// Sarsıntı ızgarası katmanının opaklığı (görsel ayar): sınırlar ve
@@ -97,7 +117,20 @@ impl MapWidget {
             grid_pending: None,
             grid_spec: None,
             grid_time: None,
+            lines_pending: None,
+            line_ranges: Default::default(),
+            region_styles: Vec::new(),
         }
+    }
+
+    /// Etkilenen bölgelerin sınırları (ya da `None`: kaldır).
+    pub fn set_region_lines(&mut self, lines: Option<Arc<RegionLines>>) {
+        self.lines_pending = Some(lines);
+    }
+
+    /// Bu karede vurgulanacak bölgeler (sonraki en üstte çizilir).
+    pub fn set_region_styles(&mut self, styles: Vec<RegionStyle>) {
+        self.region_styles = styles;
     }
 
     /// Yeni sarsıntı ızgarası (ya da `None`: kaldır). Bir sonraki karede
@@ -168,6 +201,20 @@ impl MapWidget {
                 None => g.loaded = None,
             }
             self.grid_spec = g.loaded.as_ref().map(|(_, s)| *s);
+        }
+        if let Some(lines) = self.lines_pending.take() {
+            if resources.get::<region_lines::RegionLinesGpu>().is_none() {
+                resources.insert(region_lines::RegionLinesGpu::new(
+                    &rs.device,
+                    rs.target_format,
+                    msaa,
+                ));
+            }
+            let g = resources
+                .get_mut::<region_lines::RegionLinesGpu>()
+                .expect("az önce eklendi");
+            g.upload(&rs.device, lines.as_deref());
+            self.line_ranges = lines.map(|l| l.ranges.clone()).unwrap_or_default();
         }
     }
 
@@ -258,8 +305,11 @@ impl MapWidget {
             .grid_spec
             .zip(self.grid_time)
             .map(|(spec, t)| (self.grid_uniforms(rect, &spec, t), 2));
+        let regions = self.region_draws(rect);
         MapPaint {
             lod,
+            regions,
+            region_copies: 0..n_copies + 2,
             grid,
             // Izgara [0, 1) dışına taşabilir: bir kopya öncesi ve sonrası da.
             copies: if self.grid_spec.is_some() {
@@ -276,6 +326,32 @@ impl MapWidget {
                 })
                 .collect(),
         }
+    }
+
+    fn region_draws(&self, rect: Rect) -> Vec<region_lines::RegionDraw> {
+        let v = &self.view;
+        let (first_copy, _) = v.copies(rect);
+        self.region_styles
+            .iter()
+            .filter_map(|st| {
+                let range = self.line_ranges.get(&st.id)?.clone();
+                Some(region_lines::RegionDraw {
+                    range,
+                    uniforms: region_lines::LineUniforms {
+                        scale: [
+                            (2.0 * v.scale / f64::from(rect.width())) as f32,
+                            (-2.0 * v.scale / f64::from(rect.height())) as f32,
+                        ],
+                        center: [v.center[0] as f32, v.center[1] as f32],
+                        viewport: [rect.width(), rect.height()],
+                        half_width: st.width / 2.0,
+                        first_copy: (first_copy - 1) as f32,
+                        color: st.color.gamma_multiply(st.alpha).to_normalized_gamma_f32(),
+                    },
+                })
+            })
+            .take(region_lines::MAX_REGION_DRAWS)
+            .collect()
     }
 
     fn grid_uniforms(&self, rect: Rect, spec: &GridSpec, t: f64) -> grid_gpu::GridUniforms {

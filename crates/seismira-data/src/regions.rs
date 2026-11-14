@@ -16,7 +16,7 @@ use crate::geotiff::GeoTiff;
 use anyhow::{Context, Result, bail};
 use rayon::prelude::*;
 use seismira_core::raster::{self, Encoded, Grid, LayerInfo, Raster, Scale};
-use seismira_core::region::{BUILT_BIT, RegionInfo, write_infos};
+use seismira_core::region::{BUILT_BIT, Outlines, RegionInfo, write_infos, write_outlines};
 use shapefile::dbase::FieldValue;
 use shapefile::{PolygonRing, Shape};
 use std::fs::File;
@@ -39,6 +39,8 @@ pub const BUILT_FRACTION: f64 = 0.01;
 type Crossing = (u32, f64, u16);
 
 pub fn run(shp: &Path, vs30: &Path, ghsl: &Path, out_raster: &Path, out_info: &Path) -> Result<()> {
+    let out_outlines = out_raster.with_extension("sout");
+    let mut outlines: Outlines = Vec::new();
     let grid = Raster::open(std::fs::read(vs30)?)?.grid;
     let mut built = GeoTiff::open(ghsl)?;
     let (gw, gh) = built.size();
@@ -75,9 +77,26 @@ pub fn run(shp: &Path, vs30: &Path, ghsl: &Path, out_raster: &Path, out_info: &P
         });
         let poly = match shape {
             Shape::Polygon(p) => p,
-            Shape::NullShape => continue,
+            Shape::NullShape => {
+                outlines.push(Vec::new());
+                continue;
+            }
             other => bail!("beklenmeyen şekil: {}", other.shapetype()),
         };
+        outlines.push(
+            poly.rings()
+                .iter()
+                .map(|ring| {
+                    ring.points()
+                        .iter()
+                        .map(|p| {
+                            let (x, y) = seismira_core::mercator::to_unit(p.x, p.y);
+                            [x as f32, y as f32]
+                        })
+                        .collect()
+                })
+                .collect(),
+        );
         let mut largest: Option<(usize, (f64, f64))> = None;
         for ring in poly.rings() {
             let pts = ring.points();
@@ -247,6 +266,16 @@ pub fn run(shp: &Path, vs30: &Path, ghsl: &Path, out_raster: &Path, out_info: &P
     )?;
     drop(out);
     write_infos(&infos, &mut BufWriter::new(File::create(out_info)?))?;
+    write_outlines(
+        &outlines,
+        &mut BufWriter::new(File::create(&out_outlines)?),
+        |b| zstd::bulk::compress(b, 19),
+    )?;
+    println!(
+        "{}: {:.1} MB",
+        out_outlines.display(),
+        std::fs::metadata(&out_outlines)?.len() as f64 / 1e6
+    );
     println!(
         "dolu hücre {filled_cells}, yerleşim {built_cells}; {}: {:.1} MB; {}: {:.0} KB",
         out_raster.display(),

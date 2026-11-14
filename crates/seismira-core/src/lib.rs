@@ -4,6 +4,7 @@
 //! herhangi bir pencere / çizim kütüphanesine bağımlılık EKLENMEZ.
 
 pub mod cities;
+pub mod duration;
 pub mod geo;
 pub mod gmpe;
 pub mod grid;
@@ -18,6 +19,7 @@ pub mod sim;
 pub mod site;
 pub mod source;
 pub mod traveltime;
+pub mod warning;
 
 /// Çekirdek sürümü (Cargo.toml'dan).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

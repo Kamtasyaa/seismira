@@ -280,3 +280,26 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   Ankara 5- kaldı (2 799 yerleşim hücresinden 1'i 5-; gerçek bir yerleşim
   yerinin yumuşak zemini, istasyon davranışıyla uyumlu). Raster 8,3 MB
   (~10 milyon yerleşim hücresi, karanın %4,6'sı).
+
+## Erken uyarı ve bölge sınırı vurgusu (Faz 4 adım 4, 2026-11-14)
+
+- Bildirim: "Erken uyarı (varsayımsal sistem): Kocaeli, Sakarya, … ve N bölge
+  daha" (t_uyarı'da; kapsamdaki bölgeler en güçlüden). Şehir kartında
+  "Erken uyarı süresi: X s" ya da "Kör bölge".
+- Sınırlar: etkilenen bölgelerin Natural Earth Admin-1 halkaları
+  (`data/regions/admin1.sout`, 6,4 MB, ilk depremde arka planda ~120 ms'de
+  açılır) GPU'ya bir kez yüklenir; her parça ekran ölçeğinde kalınlığı
+  olan bir dörtgen (kare uçlu). Her karede yalnızca bölge başına renk /
+  kalınlık / opaklık (uniform dilimi) güncellenir.
+- Durum → görünüm: Uyarı: beyaz, 2,5 pt, yanıp söner. Sarsıntı: o ana
+  kadarki en yüksek Shindo rengi, 3 pt, yanıp söner (nihai en yüksek < 3
+  ise 1,5 pt sabit). Yatışmış (bölgedeki en geç t_bitiş geçti): nihai
+  Shindo rengi, 2 pt sabit. Güçlü olan üstte çizilir.
+- Yanıp sönme: duvar saatine bağlı, 1 Hz, opaklık %35–%100 (kosinüs).
+  Görünüm → "Hareketi azalt": yanıp sönme yok, +1 pt kalın sabit çizgi
+  (ayar kaydedilir).
+- Henüz yok: yatışmış bölgenin hafif dolgusu (Bölüm 9), bölge kartı
+  (bölgeye tıklama), hızlı oynatmada en az ~1 s görünme kuralı.
+- Gözlem: Marmara Mw 7.5'te uyarı kapsamı 41 bölge (Bulgaristan ve
+  Yunanistan dahil; Shindo 4 tahmini geniş). JMA ölçütüyle tutarlı ama
+  dünya ölçeğinde çok beyaz çizgi var.

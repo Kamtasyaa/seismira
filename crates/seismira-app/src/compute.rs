@@ -21,6 +21,10 @@ pub type Vs30 = Vs30Map<memmap2::Mmap>;
 pub struct Regions {
     pub map: seismira_core::region::RegionMap<Vec<u8>>,
     pub infos: Vec<seismira_core::region::RegionInfo>,
+    /// Sınır halkaları (`admin1.sout`, ~6 MB): ilk gerektiğinde arka
+    /// planda açılır.
+    outlines_path: std::path::PathBuf,
+    outlines: std::sync::OnceLock<Option<seismira_core::region::Outlines>>,
 }
 
 impl Regions {
@@ -35,7 +39,33 @@ impl Regions {
         let infos = std::fs::File::open(&info)
             .and_then(|f| seismira_core::region::read_infos(&mut std::io::BufReader::new(f)))
             .map_err(|e| err(&info, e))?;
-        Ok(Arc::new(Self { map, infos }))
+        Ok(Arc::new(Self {
+            map,
+            infos,
+            outlines_path: dir.join("admin1.sout"),
+            outlines: std::sync::OnceLock::new(),
+        }))
+    }
+
+    /// Sınır halkaları (ilk çağrıda dosyadan okunur; arayüz iş parçacığında
+    /// çağrılmamalı).
+    pub fn outlines(&self) -> Option<&seismira_core::region::Outlines> {
+        self.outlines
+            .get_or_init(|| {
+                let started = std::time::Instant::now();
+                let r = std::fs::File::open(&self.outlines_path)
+                    .and_then(|f| {
+                        seismira_core::region::read_outlines(&mut std::io::BufReader::new(f))
+                    })
+                    .inspect_err(|e| log::error!("{}: {e}", self.outlines_path.display()))
+                    .ok();
+                log::info!(
+                    "bölge sınırları okundu ({} ms)",
+                    started.elapsed().as_millis()
+                );
+                r
+            })
+            .as_ref()
     }
 
     pub fn info(
@@ -80,8 +110,9 @@ pub enum JobMsg {
     Cities(CityResults),
     /// Sarsıntı ızgarası (önce kaba ön sonuç, sonra ince; sonraki öncekinin yerine geçer).
     Grid(Arc<seismira_core::grid::ShakeGrid>),
-    /// İnce ızgaradan bölge özetleri (kimliğe göre sıralı).
-    Regions(Vec<RegionResult>),
+    /// İnce ızgaradan bölge özetleri (kimliğe göre sıralı) ve bu
+    /// bölgelerin sınır geometrisi.
+    Regions(Vec<RegionResult>, Option<Arc<crate::map::RegionLines>>),
 }
 
 pub struct Job {
@@ -234,10 +265,16 @@ fn shake_grid(
         if tx.send(JobMsg::Grid(g)).is_err() {
             return;
         }
-        if let Some(r) = summaries
-            && tx.send(JobMsg::Regions(r)).is_err()
-        {
-            return;
+        if let Some(r) = summaries {
+            let lines = regions.and_then(|reg| reg.outlines()).map(|o| {
+                Arc::new(crate::map::RegionLines::build(
+                    o,
+                    r.iter().map(|x| x.summary.id),
+                ))
+            });
+            if tx.send(JobMsg::Regions(r, lines)).is_err() {
+                return;
+            }
         }
         ctx.request_repaint();
     }

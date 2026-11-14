@@ -6,6 +6,7 @@ disclaimer-close = Close notice
 menu-view = View
 menu-disclaimer = Educational notice
 menu-shake-grid = Shaking area
+menu-reduce-motion = Reduce motion
 menu-text-test = Text test
 menu-language = Language
 
@@ -101,3 +102,9 @@ hypo-along = Hypocenter, along strike
 hypo-down = Hypocenter, down dip
 rupture-size = Rupture: { $l } × { $w } km, top edge at { $ztor } km depth
 model-limit = Estimate limit: 300 km from fault
+
+# Erken uyarı (Faz 4)
+early-warning = Early warning (hypothetical system): { $regions }
+early-warning-more = { $regions } and { $n } more regions
+tip-lead-time = Warning time: { $s } s
+tip-blind-zone = Blind zone: warning arrives after shaking

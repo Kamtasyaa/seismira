@@ -6,6 +6,7 @@ disclaimer-close = Uyarıyı kapat
 menu-view = Görünüm
 menu-disclaimer = Eğitim uyarısı
 menu-shake-grid = Sarsıntı alanı
+menu-reduce-motion = Hareketi azalt
 menu-text-test = Yazı testi
 menu-language = Dil
 
@@ -101,3 +102,9 @@ hypo-along = Odak, doğrultu boyunca
 hypo-down = Odak, eğim boyunca
 rupture-size = Kırılma: { $l } × { $w } km, üst kenar { $ztor } km derinlikte
 model-limit = Tahmin sınırı: faya 300 km
+
+# Erken uyarı (Faz 4)
+early-warning = Erken uyarı (varsayımsal sistem): { $regions }
+early-warning-more = { $regions } ve { $n } bölge daha
+tip-lead-time = Erken uyarı süresi: { $s } s
+tip-blind-zone = Kör bölge: uyarı sarsıntıdan sonra geliyor

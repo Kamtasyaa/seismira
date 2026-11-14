@@ -13,12 +13,16 @@
 //! Zamanla değişen görünüm (S ulaştı mı, kademeli yükseliş) bu değerlerin
 //! saf fonksiyonudur; çizim tarafında hesaplanır.
 
+use crate::duration;
 use crate::gmpe::cy14;
 use crate::intensity::Shindo;
 use crate::shaking::Scenario;
 use crate::site::{REFERENCE_VS30, Site, Vs30Source};
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Bir hücrenin sonucu: (sınıf, aletsel şiddet, S varışı, bitiş).
+type Cell = (u8, f32, f32, f32);
 
 /// Veri yok: su, buz, model dışı.
 pub const NO_DATA: u8 = u8::MAX;
@@ -132,6 +136,9 @@ pub struct ShakeGrid {
     pub jma: Vec<f32>,
     /// S varışı (s); veri yoksa NaN.
     pub t_s: Vec<f32>,
+    /// Sarsıntının bittiği an (s): tepe anı + D5-95 (Afshari & Stewart 2016;
+    /// Bölüm 7.3 "t_bitiş"); veri yoksa NaN.
+    pub t_end: Vec<f32>,
 }
 
 impl ShakeGrid {
@@ -159,7 +166,7 @@ pub fn compute(
 ) -> Option<ShakeGrid> {
     let spec = domain.spec(step);
     let (w, h) = (spec.width as usize, spec.height as usize);
-    let rows: Vec<Option<Vec<(u8, f32, f32)>>> = (0..spec.height)
+    let rows: Vec<Option<Vec<Cell>>> = (0..spec.height)
         .into_par_iter()
         .map(|row| {
             if cancel.load(Ordering::Relaxed) {
@@ -173,7 +180,7 @@ pub fn compute(
                             let by = (row * step + step / 2).min(domain.h - 1) as usize;
                             let v = win[by * domain.w as usize + bx];
                             if v.is_nan() {
-                                return (NO_DATA, f32::NAN, f32::NAN);
+                                return (NO_DATA, f32::NAN, f32::NAN, f32::NAN);
                             }
                             Site {
                                 vs30: f64::from(v),
@@ -188,9 +195,13 @@ pub fn compute(
                         },
                     };
                     let r = scenario.site(spec.center(col, row), || site);
-                    match (r.motion, r.t_s) {
-                        (Some(m), Some(ts)) => (m.shindo() as u8, m.jma as f32, ts as f32),
-                        _ => (NO_DATA, f32::NAN, f32::NAN),
+                    match (r.motion, r.t_s, r.t_peak()) {
+                        (Some(m), Some(ts), Some(peak)) => {
+                            let q = &scenario.quake;
+                            let (d, _) = duration::d595(q.mw, r.dist.rrup, r.vs30_used, q.fault);
+                            (m.shindo() as u8, m.jma as f32, ts as f32, (peak + d) as f32)
+                        }
+                        _ => (NO_DATA, f32::NAN, f32::NAN, f32::NAN),
                     }
                 })
                 .collect();
@@ -202,12 +213,14 @@ pub fn compute(
         class: Vec::with_capacity(w * h),
         jma: Vec::with_capacity(w * h),
         t_s: Vec::with_capacity(w * h),
+        t_end: Vec::with_capacity(w * h),
     };
     for row in rows {
-        for (c, j, t) in row? {
+        for (c, j, t, e) in row? {
             grid.class.push(c);
             grid.jma.push(j);
             grid.t_s.push(t);
+            grid.t_end.push(e);
         }
     }
     Some(grid)
@@ -268,6 +281,8 @@ mod tests {
         assert_eq!(g.class[i], m.shindo() as u8);
         assert!((f64::from(g.jma[i]) - m.jma).abs() < 1e-4);
         assert!((f64::from(g.t_s[i]) - r.t_s.unwrap()).abs() < 1e-3);
+        // Sarsıntı tepe anından sonra biter (D5-95 > 0).
+        assert!(g.t_end[i] > g.t_s[i]);
         // Köşeler model dışı (Rrup > 300 km).
         assert_eq!(g.class[0], NO_DATA);
         // 40 hücrelik (~37 km) adımda faya en yakın hücre bile birkaç km uzakta.

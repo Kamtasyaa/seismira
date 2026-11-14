@@ -58,15 +58,33 @@ Her nokta (şehir, ızgara hücresi) için:
   2016; dalma-batma için uygun model bul, doğrula).
 
 Erken uyarı (VARSAYIMSAL sistem; arayüzde böyle etiketlenir, çünkü
-çoğu ülkede kamuya açık bir sistem yok):
-- t_uyarı = P'nin merkez üssünden D uzaklıktaki sanal istasyona
-  varışı + işlem gecikmesi. Varsayılan D = 25 km, gecikme = 5 s
-  (varsayım; yayımlanmış erken uyarı performans çalışmalarından
-  doğrula). İleri seviyede: yoğun ağ / seyrek ağ / sistem yok.
-- Uyarı ölçütü (JMA ölçütü, doğrula): tahmini en yüksek Shindo 5- ve
-  üzeriyse, Shindo 4 ve üzeri beklenen bölgelere uyarı verilir.
+çoğu ülkede kamuya açık bir sistem yok). Uygulama: `seismira-core/src/warning.rs`
+(Faz 4, 2026-11-14).
+- Uyarı ölçütü (JMA, DOĞRULANDI 2026-11-14): "最大震度が５弱以上 … と予想
+  された場合に、震度４以上 … が予想される地域を対象に" (jma.go.jp
+  faq25): tahmini en yüksek Shindo 5- ve üstüyse, Shindo 4 ve üstü
+  beklenen bölgelere uyarı. Ayrıca "地震波が２点以上の地震観測点で観測され"
+  (JMA EEW ayrıntıları): en az iki istasyonda gözlem.
+- t_uyarı = P'nin merkez üssünden D uzaklıktaki sanal (ikinci) istasyona
+  varışı + işlem gecikmesi. D = 20 km: K-NET aralığı ~20 km (NIED; ilk
+  kurulumda ~25 km); bu aralıkta ikinci en yakın istasyon tipik olarak bu
+  mesafede ya da daha yakındadır (önceki taslakta 25 km idi). Gecikme =
+  5 s: JMA gecikmeyi sayı olarak vermiyor ("可能な限り素早く"); VARSAYIM,
+  yayımlanmış performans çalışmalarından doğrulanacak. İleri seviyede:
+  yoğun ağ / seyrek ağ / sistem yok (henüz yok).
+- Bölge değeri: bölgenin yerleşim hücrelerindeki en yüksek tahmini Shindo
+  (docs/arayuz.md "İl değeri").
 - Her şehir için iki değer gösterilir: "S − P" ve "erken uyarı
-  süresi" (t_S − t_uyarı). Sıfır veya negatifse "kör bölge".
+  süresi" (t_S − t_uyarı). Sıfır veya negatifse "kör bölge". (Uyarı
+  süresi, uyarı yayımlandıysa ve şehirde Shindo ≥ 4 ise gösterilir.)
+
+Sarsıntı süresi (Faz 4, 2026-11-14): `seismira-core/src/duration.rs`,
+Afshari & Stewart (2016) D5-95, havza terimi yok. pygmm 0.9.1 ile 810
+karşılaştırmada ln farkı < 1e-6 (`data/test/as16_ref.csv`). t_bitiş =
+t_tepe + D5-95 (t_tepe şimdilik kademeli yükselişin tepe anı; Faz 5'te alt
+fay zamanlaması). Girdiler model aralığına (M 3–7,9, Rrup 0–200 km, Vs30
+200–1000) çekilir; süre yalnızca bölge sınırının "yatışmış" durumuna
+geçişinde kullanılır (doğrula: makalenin veri aralığı).
 
 ### 7.4 Yer hareketi (GMPE)
 

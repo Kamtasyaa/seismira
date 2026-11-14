@@ -24,6 +24,64 @@ const S_COLOR: Color32 = Color32::from_rgb(0xFF, 0x8A, 0x45);
 const RING_POINTS: usize = 256;
 
 const STORAGE_LANG: &str = "lang";
+const STORAGE_REDUCE_MOTION: &str = "reduce_motion";
+
+/// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
+const BLINK_HZ: f64 = 1.0;
+
+/// Bölge sınırlarının bu karedeki görünümü (Bölüm 9). `t` simülasyon
+/// zamanı, `wall` duvar saati (yanıp sönme simülasyon hızından bağımsız).
+/// Dönen ikinci değer: yanıp sönen sınır var mı (sürekli çizim gerekir).
+fn region_styles(
+    results: &[compute::RegionResult],
+    alert: Option<&Alert>,
+    t: f64,
+    wall: f64,
+    reduce_motion: bool,
+) -> (Vec<crate::map::RegionStyle>, bool) {
+    use seismira_core::region::RegionState;
+    // Yumuşak opaklık dalgası %35–%100; "Hareketi azalt" açıkken sabit.
+    let pulse = if reduce_motion {
+        1.0
+    } else {
+        (0.675 + 0.325 * (std::f64::consts::TAU * BLINK_HZ * wall).cos()) as f32
+    };
+    let extra = if reduce_motion { 1.0 } else { 0.0 };
+    let mut out = Vec::new();
+    let mut blinking = false;
+    for r in results {
+        let s = &r.summary;
+        let t_alert = alert.filter(|a| a.regions.contains(&s.id)).map(|a| a.t);
+        let style = match s.state(t, t_alert, s.t_end.is_finite().then_some(s.t_end)) {
+            RegionState::Quiet => None,
+            RegionState::Warning => Some((0u8, Color32::WHITE, 2.5 + extra, true)),
+            RegionState::Shaking(now) => {
+                // Nihai en yüksek Shindo'su 3'ün altındaki bölgeler yanıp sönmez.
+                let blink = s.max >= Shindo::S3;
+                let w = if blink { 3.0 + extra } else { 1.5 };
+                Some((1 + now as u8, shindo_style::color(now), w, blink))
+            }
+            RegionState::Settled(max) => {
+                Some((1 + max as u8, shindo_style::color(max), 2.0, false))
+            }
+        };
+        if let Some((order, color, width, blink)) = style {
+            blinking |= blink && !reduce_motion;
+            out.push((
+                order,
+                crate::map::RegionStyle {
+                    id: s.id,
+                    color,
+                    alpha: if blink { pulse } else { 1.0 },
+                    width,
+                },
+            ));
+        }
+    }
+    // Güçlü olan üstte (ortak sınırlarda).
+    out.sort_by_key(|(o, _)| *o);
+    (out.into_iter().map(|(_, s)| s).collect(), blinking)
+}
 
 /// Şehir bildirimleri (bildirim akışında yer alır).
 #[derive(Clone, Copy, Debug)]
@@ -40,6 +98,42 @@ struct CityEvent {
     /// kullanılır (admin1 adları GeoNames'te İngilizce ve bazen boş).
     region_main: usize,
     kind: CityEventKind,
+}
+
+/// Varsayımsal erken uyarı (Bölüm 7.3; `seismira_core::warning`).
+#[derive(Clone, Debug)]
+struct Alert {
+    t: f64,
+    /// Uyarı kapsamındaki bölgeler, en güçlüden başlayarak.
+    regions: Vec<seismira_core::region::RegionId>,
+}
+
+/// Uyarı yayımlanır mı, hangi bölgelere? (JMA ölçütü)
+fn early_warning(
+    results: &[compute::RegionResult],
+    tt: &seismira_core::traveltime::TravelTimes,
+    depth_km: f64,
+) -> Option<Alert> {
+    use seismira_core::warning;
+    let max = results.iter().map(|r| r.summary.max).max()?;
+    if !warning::issued(max) {
+        return None;
+    }
+    let t = warning::System::DENSE.alert_time(tt, depth_km)?;
+    let mut covered: Vec<_> = results
+        .iter()
+        .filter(|r| warning::region_covered(r.summary.max))
+        .collect();
+    covered.sort_by(|a, b| {
+        b.summary
+            .max
+            .cmp(&a.summary.max)
+            .then(a.summary.t_first_s.total_cmp(&b.summary.t_first_s))
+    });
+    Some(Alert {
+        t,
+        regions: covered.iter().map(|r| r.summary.id).collect(),
+    })
 }
 
 /// Bölge Shindo bildirimi (ızgaradan; bölge kimliği rasterı ile).
@@ -162,6 +256,8 @@ pub struct SeismiraApp {
     show_disclaimer: bool,
     /// Sarsıntı alanı (ızgara) katmanı görünsün mü (Görünüm menüsü).
     show_grid: bool,
+    /// "Hareketi azalt": yanıp sönme yok, sabit kalın çizgi (Bölüm 3).
+    reduce_motion: bool,
     map: MapWidget,
     /// Sağ paneldeki taslak deprem.
     draft: panel::Draft,
@@ -176,6 +272,9 @@ pub struct SeismiraApp {
     /// GeoNames admin1 adlarıyla şehirlerden üretilir.
     regions: Option<Arc<compute::Regions>>,
     region_events: Vec<RegionEvent>,
+    /// Bölge sonuçları (durum ve vurgu için) ve varsayımsal erken uyarı.
+    region_results: Vec<compute::RegionResult>,
+    alert: Option<Alert>,
     /// Şehir hesabı (arka planda) ve sonuçları.
     job: Option<compute::Job>,
     results: Option<CityResults>,
@@ -232,6 +331,10 @@ impl SeismiraApp {
             show_text_test: false,
             show_disclaimer: true,
             show_grid: true,
+            reduce_motion: cc
+                .storage
+                .and_then(|s| s.get_string(STORAGE_REDUCE_MOTION))
+                .is_some_and(|v| v == "1"),
             map: MapWidget::new(paths::data_dir(), initial_view()),
             draft: panel::Draft::default(),
             sim: None,
@@ -241,6 +344,8 @@ impl SeismiraApp {
             vs30,
             regions,
             region_events: Vec::new(),
+            region_results: Vec::new(),
+            alert: None,
             job: None,
             results: None,
             ranked: Vec::new(),
@@ -308,6 +413,7 @@ impl SeismiraApp {
             ui.menu_button(t("menu-view"), |ui| {
                 ui.checkbox(&mut self.show_disclaimer, t("menu-disclaimer"));
                 ui.checkbox(&mut self.show_grid, t("menu-shake-grid"));
+                ui.checkbox(&mut self.reduce_motion, t("menu-reduce-motion"));
                 ui.checkbox(&mut self.show_text_test, t("menu-text-test"));
             });
             ui.menu_button(t("menu-language"), |ui| {
@@ -325,6 +431,20 @@ impl SeismiraApp {
     fn map_area(&mut self, ui: &mut egui::Ui, frame: &eframe::Frame) {
         let lang = self.lang;
         let rect = ui.max_rect();
+        if self.sim.is_some() {
+            let wall = ui.input(|i| i.time);
+            let (styles, blinking) = region_styles(
+                &self.region_results,
+                self.alert.as_ref(),
+                self.clock.t,
+                wall,
+                self.reduce_motion,
+            );
+            self.map.set_region_styles(styles);
+            if blinking {
+                ui.ctx().request_repaint();
+            }
+        }
         self.map.set_grid_time(
             self.sim
                 .as_ref()
@@ -549,6 +669,20 @@ impl SeismiraApp {
                     text,
                 ));
             }
+            // Erken uyarı süresi (uyarı yayımlandıysa ve şehirde Shindo ≥ 4).
+            if let (Some(alert), Some(ts), Some(m)) = (&self.alert, r.t_s, r.motion)
+                && seismira_core::warning::region_covered(m.shindo())
+            {
+                let lead = seismira_core::warning::lead_time(ts, alert.t);
+                lines.push(if lead > 0.0 {
+                    (
+                        lang.t_args("tip-lead-time", &[("s", lang.num(lead, 1))]),
+                        text,
+                    )
+                } else {
+                    (lang.t("tip-blind-zone"), text)
+                });
+            }
             lines.push((
                 lang.t_args("tip-distance", &[("d", lang.num(r.dist.rrup, 0))]),
                 weak,
@@ -614,10 +748,14 @@ impl SeismiraApp {
     fn cancel_sim(&mut self) {
         self.job = None; // Drop → arka plan hesabı iptal
         self.map.set_grid(None);
+        self.map.set_region_lines(None);
+        self.map.set_region_styles(Vec::new());
         self.results = None;
         self.ranked.clear();
         self.city_events.clear();
         self.region_events.clear();
+        self.region_results.clear();
+        self.alert = None;
         self.sim = None;
         self.clock = Clock {
             speed: self.clock.speed,
@@ -837,6 +975,38 @@ impl SeismiraApp {
                 });
             }
         }
+        if let (Some(alert), Some(regions)) = (&self.alert, &self.regions)
+            && alert.t <= now
+        {
+            const SHOWN: usize = 6;
+            let names: Vec<String> = alert
+                .regions
+                .iter()
+                .take(SHOWN)
+                .filter_map(|&id| regions.info(id))
+                .map(|i| match lang {
+                    Lang::Tr => i.name_tr.clone(),
+                    Lang::En => i.name_en.clone(),
+                })
+                .collect();
+            let mut list = names.join(", ");
+            if alert.regions.len() > SHOWN {
+                list = lang.t_args(
+                    "early-warning-more",
+                    &[
+                        ("regions", list),
+                        ("n", (alert.regions.len() - SHOWN).to_string()),
+                    ],
+                );
+            }
+            notes.push(Note {
+                t: alert.t,
+                text: lang.t_args("early-warning", &[("regions", list)]),
+                color: Color32::WHITE,
+                badge: None,
+                at: sim.quake.epicenter,
+            });
+        }
         notes.sort_by(|a, b| b.t.total_cmp(&a.t)); // en yenisi üstte
         let mut focus = None;
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -966,7 +1136,15 @@ impl eframe::App for SeismiraApp {
                         self.results = Some(results);
                     }
                     compute::JobMsg::Grid(grid) => self.map.set_grid(Some(grid)),
-                    compute::JobMsg::Regions(r) => self.region_events = region_events(&r),
+                    compute::JobMsg::Regions(r, lines) => {
+                        self.map.set_region_lines(lines);
+                        self.region_events = region_events(&r);
+                        self.alert = match (&self.travel_times, &self.sim) {
+                            (Ok(tt), Some(sim)) => early_warning(&r, tt, sim.quake.depth_km),
+                            _ => None,
+                        };
+                        self.region_results = r;
+                    }
                 }
             }
             if done {
@@ -1013,6 +1191,10 @@ impl eframe::App for SeismiraApp {
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         storage.set_string(STORAGE_LANG, self.lang.code().to_owned());
+        storage.set_string(
+            STORAGE_REDUCE_MOTION,
+            if self.reduce_motion { "1" } else { "0" }.to_owned(),
+        );
     }
 }
 

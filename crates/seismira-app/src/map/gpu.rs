@@ -225,6 +225,9 @@ pub struct MapPaint {
     /// (kara ve göllerin üstünde, sınırların altında).
     pub grid: Option<(super::grid_gpu::GridUniforms, usize)>,
     pub copies: Range<u32>,
+    /// Vurgulanan bölge sınırları (tüm katmanların üstünde).
+    pub regions: Vec<super::region_lines::RegionDraw>,
+    pub region_copies: Range<u32>,
 }
 
 impl CallbackTrait for MapPaint {
@@ -249,6 +252,9 @@ impl CallbackTrait for MapPaint {
             (&self.grid, resources.get::<super::grid_gpu::GridGpu>())
         {
             queue.write_buffer(&grid.uniforms, 0, bytemuck::bytes_of(u));
+        }
+        if let Some(lines) = resources.get::<super::region_lines::RegionLinesGpu>() {
+            lines.write_uniforms(queue, &self.regions);
         }
         Vec::new()
     }
@@ -281,6 +287,12 @@ impl CallbackTrait for MapPaint {
             pass.set_vertex_buffer(0, layer.vertices.slice(..));
             pass.set_index_buffer(layer.indices.slice(..), wgpu::IndexFormat::Uint32);
             pass.draw_indexed(0..layer.index_count, 0, draw.copies.clone());
+        }
+        if !self.regions.is_empty()
+            && let Some(lines) = resources.get::<super::region_lines::RegionLinesGpu>()
+        {
+            // Bölge sınırları ızgara gibi [0, 1) dışına taşabilir: kopya aralığı aynı.
+            lines.draw(pass, &self.regions, self.region_copies.clone());
         }
     }
 }
