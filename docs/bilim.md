@@ -95,6 +95,32 @@ Erken uyarı (VARSAYIMSAL sistem; arayüzde böyle etiketlenir, çünkü
   ESRM20 site modeli; Japonya için J-SHIS.
 - Havza derinliği (Z1.0): modelin kendi Vs30 ilişkisinden varsayılan.
 
+#### Saha koşulu: uygulama (Faz 4, 2026-11-14)
+
+- Kaynak: USGS Küresel Vs30 Mozaiği 2026 (docs/veri.md), 30″, medyan ve
+  log standart sapma. `seismira-core/src/site.rs`.
+- Saklama: u8, medyan 80–2500 m/s logaritmik (en büyük kuantalama
+  hatası %0,7), SD 0–1,25 doğrusal (adım 0,005). Ham değer aralığı
+  83,6–2197 m/s ve SD 0,10–0,525; hiçbir değer kırpılmadı.
+- Şehirler: veri hazırlamada 5×5 hücrelik pencerede yapılaşma (GHSL)
+  ağırlıklı medyan (ESRM20 exposure2site yaklaşımı, Weatherill vd. 2023);
+  pencerede yapılaşma yoksa aşağıdaki nokta kuralı.
+- Hücre su / buz / buzul ise (kıyı şehirleri) ≤ 3 hücre (≈ 2,8 km)
+  içinde en yakın kara hücresi; yoksa referans 400 m/s. Kaynak şehir
+  kartında yazılır (harita / en yakın kara / referans).
+- CY14 aralığı 180–1500 m/s. Dışındaki harita değeri uca çekilir ve
+  kartta "model sınırına çekildi" diye AÇIKÇA yazılır (Bölüm 6: sessiz
+  ekstrapolasyon yok). Neden kırpma, "model dışı" değil: yumuşak deltalar
+  (< 180) en çok sarsılan yerler; onları boş bırakmak yanıltıcı olur.
+  CY14'ün doğrusal olmayan zemin terimi düşük Vs30'da doygunluğa
+  yaklaştığı için kırpmanın etkisi sınırlıdır (doğrula: 150 m/s'de
+  kırpılmış ve kırpılmamış tahmin farkı).
+- Vs30 belirsizliği (SD katmanı) şimdilik okunur ama σ'ya eklenmez;
+  Faz 4 belirsizlik adımında ele alınacak.
+- Performans: Vs30 yalnızca yer hareketi hesaplanacak sahalarda (Rrup ≤
+  300 km) okunur; dosya belleğe eşlenir, döşemeler (2°×2°) gerektikçe
+  açılır ve önbelleğe alınır.
+
 ### 7.6 Şiddet dönüşümü
 
 - JMA Shindo: PGV'den aletsel şiddet (Midorikawa vd. 1999 veya
@@ -223,8 +249,8 @@ Erken uyarı (VARSAYIMSAL sistem; arayüzde böyle etiketlenir, çünkü
   km; Ztor 0–20 km; Vs30 180–1500 m/s. pygmm de aynı sınırlarla uyarıyor.
   Bölüm 6'daki kabuk sınırları (4.0–8.5 / 8.0) bununla uyumlu.
 - Test: pygmm 0.9.1 ile 1944 karşılaştırma, fark 0 (docs/dogrulama.md).
-- Faz 3–4 arası zemin: sabit Vs30 = 400 m/s (J-SHIS mühendislik ana
-  kayası tanımı). GEÇİCİ; Faz 4'te Vs30 haritası.
+- Faz 3–4 arası zemin sabit 400 m/s idi; Faz 4'ten itibaren Vs30
+  haritası (Bölüm 7.5 "Saha koşulu: uygulama").
 
 ### 7.6 Şiddet dönüşümü (Faz 3)
 

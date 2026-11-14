@@ -12,3 +12,6 @@
 
 # Tek seferlik veri üretimi araçları (ObsPy vb.)
 /.venv/
+
+# Üretilmiş Vs30 rasterı (~150 MB): scripts/prepare_data.py ile.
+/data/vs30/

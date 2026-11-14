@@ -49,7 +49,8 @@ struct CityEvent {
 ///   ya da başkentse; en erken 10 bölge.
 /// - Shindo: bölgedeki en yüksek Shindo; 5- ve üstü bölgeler ile en güçlü
 ///   3 bölge (daha düşükler haritada ve şehir kartında görünür). Olay
-///   zamanı, o şehre S'nin varışı.
+///   zamanı, o şehrin kutusunun son değere vardığı an (S varışından sonra
+///   kademeli yükselme, `shaking::RISE_STEP_S`).
 fn city_events(layer: &CityLayer, results: &CityResults) -> Vec<CityEvent> {
     use std::collections::HashMap;
     let jma = |i: usize| results.sites[i].motion.map(|m| m.jma).unwrap_or(f64::MIN);
@@ -102,7 +103,7 @@ fn city_events(layer: &CityLayer, results: &CityResults) -> Vec<CityEvent> {
         if k >= 3 && m.shindo() < Shindo::S5Lower {
             break;
         }
-        if let Some(t) = r.t_s {
+        if let Some(t) = r.t_peak() {
             out.push(CityEvent {
                 t,
                 city: best,
@@ -130,6 +131,8 @@ pub struct SeismiraApp {
     clock: Clock,
     travel_times: Result<Arc<TravelTimes>, String>,
     cities: Result<CityLayer, String>,
+    /// Vs30 haritası; yoksa referans zemin kullanılır (kartta belirtilir).
+    vs30: Option<Arc<compute::Vs30>>,
     /// Şehir hesabı (arka planda) ve sonuçları.
     job: Option<compute::Job>,
     results: Option<CityResults>,
@@ -173,6 +176,10 @@ impl SeismiraApp {
         if let Err(e) = &cities {
             log::error!("{e}");
         }
+        // Vs30 (~150 MB) belleğe eşlenir; açılışta yalnızca başlık okunur.
+        let vs30 = compute::load_vs30(&paths::data_dir().join("vs30").join("vs30.sras"))
+            .inspect_err(|e| log::warn!("Vs30 haritası yok, referans zemin kullanılacak: {e}"))
+            .ok();
         Self {
             lang,
             assets,
@@ -184,6 +191,7 @@ impl SeismiraApp {
             clock: Clock::default(),
             travel_times,
             cities,
+            vs30,
             job: None,
             results: None,
             ranked: Vec::new(),
@@ -222,6 +230,16 @@ impl SeismiraApp {
             self.clock.playing = false;
         }
         self
+    }
+
+    /// Geliştirme: `SEISMIRA_CARD=şehir adı` o şehrin kartını imleç olmadan
+    /// gösterir (ekran görüntüsü testleri için).
+    fn dev_card(&self, rect: egui::Rect) -> Option<(usize, egui::Pos2)> {
+        let name = std::env::var("SEISMIRA_CARD").ok()?;
+        let layer = self.cities.as_ref().ok()?;
+        let i = layer.cities.iter().position(|c| c.name == name)?;
+        let c = &layer.cities[i];
+        Some((i, self.map.to_screen(rect, (c.lon, c.lat))))
     }
 
     fn set_lang(&mut self, ctx: &egui::Context, lang: Lang) {
@@ -331,6 +349,8 @@ impl SeismiraApp {
                 .draw_epicenter(ui, rect, self.draft.quake.epicenter);
         }
         if let (Some(i), Some(p)) = (hovered_city, hover_pos) {
+            self.city_card(ui, rect, i, p);
+        } else if let Some((i, p)) = self.dev_card(rect) {
             self.city_card(ui, rect, i, p);
         }
 
@@ -478,7 +498,21 @@ impl SeismiraApp {
                 weak,
             ));
             if r.motion.is_some() {
-                lines.push((lang.t("tip-ref-soil"), weak));
+                use seismira_core::site::Vs30Source;
+                let v = lang.num(r.site.vs30, 0);
+                let key = match r.site.source {
+                    Vs30Source::Map => "tip-vs30-map",
+                    Vs30Source::Nearby => "tip-vs30-nearby",
+                    Vs30Source::Reference => "tip-vs30-reference",
+                    Vs30Source::Built => "tip-vs30-built",
+                };
+                lines.push((lang.t_args(key, &[("v", v)]), weak));
+                if (r.vs30_used - r.site.vs30).abs() > 0.5 {
+                    lines.push((
+                        lang.t_args("tip-vs30-clamped", &[("v", lang.num(r.vs30_used, 0))]),
+                        weak,
+                    ));
+                }
             }
         }
         let painter = ui.painter_at(rect);
@@ -553,7 +587,9 @@ impl SeismiraApp {
             self.job = Some(compute::Job::spawn(
                 self.draft.quake,
                 layer.cities.clone(),
+                layer.sites.clone(),
                 tt,
+                self.vs30.clone(),
                 ctx.clone(),
             ));
         }

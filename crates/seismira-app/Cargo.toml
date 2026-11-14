@@ -25,6 +25,7 @@ fluent-bundle = "0.16"
 fluent-templates = "0.15"
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 log = "0.4"
+memmap2 = "0.9.12"
 seismira-core.workspace = true
 skrifa = "0.44"
 sys-locale = "0.3"

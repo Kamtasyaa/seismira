@@ -88,7 +88,11 @@ tip-pgv = PGV: { $v } cm/s
 tip-arrivals = P: T+{ $p }, S: T+{ $s } (S − P: { $sp } s)
 tip-distance = Distance to fault: { $d } km
 tip-outside-model = The ground-motion model is not valid at this distance.
-tip-ref-soil = Site: reference Vs30 = 400 m/s (provisional)
+tip-vs30-map = Site: Vs30 ≈ { $v } m/s (USGS map)
+tip-vs30-nearby = Site: Vs30 ≈ { $v } m/s (nearest land cell)
+tip-vs30-built = Site: Vs30 ≈ { $v } m/s (USGS map, weighted by built-up area)
+tip-vs30-reference = Site: reference Vs30 = { $v } m/s (no map value)
+tip-vs30-clamped = Clamped to the model limit: { $v } m/s
 no-gmpe = No ground-motion model for this tectonic setting yet (Phase 5); only waves are shown.
 no-gmpe-short = No intensity estimate for this setting yet.
 advanced = Advanced

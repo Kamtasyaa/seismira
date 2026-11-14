@@ -127,3 +127,34 @@ ve az istasyona dayanıyor. Bölgesel model değişikliğine gerek görülmedi.
   az tahmin ediyor (Kahramanmaraş pozitif olay terimi; İzmit negatifti).
   B'de 0–25 km'deki +0.46, tek düzlemli merkezlenmiş fayın gerçek çok
   parçalı (~350 km, iki yönlü) kırılmayı temsil etmemesinden.
+
+## Faz 4: Vs30 haritasıyla tüm zincir (C), 2026-11-14
+
+C = bizim fay geometrimiz (varsayılan, hiposantr ortada) + bizim Vs30
+haritamız (USGS 2026 mozaiği, `data/vs30/vs30.sras`, model aralığına
+kırpılmış). A ve B istasyonun ShakeMap Vs30'unu kullanır (yukarıdakilerle
+aynı). Komut: yukarıdaki komutlara `--vs30 data/vs30/vs30.sras` eklenir.
+
+| Olay | ort. ln(göz/tah) | std ln | ort. ΔI | \|ΔI\| < 1 | B'deki ΔI |
+|---|---|---|---|---|---|
+| İzmit 1999 (31 ist.) | −0.55 | 0.61 | −0.44 | %81 | −0.39 |
+| Kahramanmaraş 2023 (191 ist.) | +0.10 | 0.67 | +0.08 | %91 | +0.17 |
+
+Harita Vs30'u / istasyon Vs30'u (ShakeMap stationlist):
+
+| Olay | ort. ln oran | std ln | kaynak (harita / komşu / referans) |
+|---|---|---|---|
+| İzmit 1999 | −0.09 (×0.91) | 0.32 | 33 / 2 / 0 |
+| Kahramanmaraş 2023 | −0.26 (×0.77) | 0.40 | 261 / 1 / 0 |
+
+- Değerlendirme: İki olay da ölçüt içinde (%80 üstü |ΔI| < 1). İzmit'te
+  harita biraz daha yumuşak zemin veriyor → biraz daha fazla tahmin
+  (−0.39 → −0.44; asıl neden yine olay terimi ve geometri, bkz. yukarı),
+  saçılım azaldı (0.66 → 0.61). Kahramanmaraş'ta sapma yarıya indi
+  (+0.17 → +0.08), saçılım biraz arttı (0.64 → 0.67).
+- SAPMA NOTU (kullanıcıya bildirildi): Kahramanmaraş istasyonlarında
+  harita Vs30'u ShakeMap istasyon Vs30'undan ortalama %23 düşük. ShakeMap
+  istasyon Vs30'u kısmen ölçülmüş (AFAD saha karakterizasyonu) olabilir;
+  harita topoğrafik eğim vekiline dayanıyor (doğrula: Türkiye bölgesinde
+  2026 mozaiğine hangi bölgesel harita girdi). Faz 6'da ESRM20 site
+  modeli ile Türkiye için yeniden karşılaştırılacak.

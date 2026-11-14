@@ -88,7 +88,11 @@ tip-pgv = PGV: { $v } cm/s
 tip-arrivals = P: T+{ $p }, S: T+{ $s } (S − P: { $sp } s)
 tip-distance = Faya uzaklık: { $d } km
 tip-outside-model = Bu mesafede yer hareketi modeli geçerli değil.
-tip-ref-soil = Zemin: referans Vs30 = 400 m/s (geçici)
+tip-vs30-map = Zemin: Vs30 ≈ { $v } m/s (USGS haritası)
+tip-vs30-nearby = Zemin: Vs30 ≈ { $v } m/s (en yakın kara hücresi)
+tip-vs30-built = Zemin: Vs30 ≈ { $v } m/s (USGS haritası, yerleşim ağırlıklı)
+tip-vs30-reference = Zemin: referans Vs30 = { $v } m/s (harita değeri yok)
+tip-vs30-clamped = Hesapta model sınırına çekildi: { $v } m/s
 no-gmpe = Bu tektonik ortam için yer hareketi modeli henüz yok (Faz 5); yalnızca dalgalar gösterilir.
 no-gmpe-short = Bu ortam için şiddet hesabı henüz yok.
 advanced = İleri seviye

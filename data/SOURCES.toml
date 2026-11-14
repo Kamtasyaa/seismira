@@ -86,3 +86,26 @@ attribution = "U.S. Geological Survey, ShakeMap (atlas)."
 modified = false
 license_checked = "2026-11-14"
 files = "data/validation/izmit1999/*"
+
+[[dataset]]
+id = "usgs-global-vs30-2026"
+name = "The U.S. Geological Survey Global Vs30 Mosaic (medyan + log standart sapma, 30″)"
+url = "https://doi.org/10.5066/P1NV6UNM"
+license = "CC0-1.0"
+attribution = "U.S. Geological Survey, 2026, The U.S. Geological Survey Global Vs30 Mosaic: U.S. Geological Survey data release, doi:10.5066/P1NV6UNM. Yöntem: Heath, D.C., Wald, D.J., Worden, C.B., Thompson, E.M., Smoczyk, G.M. (2020). A Global Hybrid VS30 Map with a Topographic Slope-Based Default and Regional Map Insets. Earthquake Spectra 36(3), 1570-1584."
+modified = true            # u8 kuantalama (log/doğrusal), 2°×2° döşeme, zstd sıkıştırma, özel değer kodları
+license_checked = "2026-11-14"
+snapshot = "version.json map_version 1.0, generated 2025-08-20; vs30_mosaic_median_30c.tif sha256 00bd29b764f91cd085433e0c2ac07fd0c3607fe5ba5e3ebe98ae3afc08ee8cb3; vs30_mosaic_sd_30c.tif sha256 4e752c232ff0af65d2619683c7a3d16bd2c7191575b2768c0460c271290a4392; version.json sha256 1c22b760b6764169b53ecacca730e052af4daa7daeb98b396301c28a5fda005a"
+note = "ScienceBase betik indirmelerini engelliyor (403); dosyalar tarayıcıdan indirilip data/raw/vs30/ altına konur."
+files = "data/vs30/vs30.sras (seismira-data vs30; scripts/prepare_data.py)"
+
+[[dataset]]
+id = "ghsl-built-s-2020"
+name = "GHSL GHS-BUILT-S R2023A, 2020, EPSG:4326 30″ (yapılaşmış alan; yalnızca şehir zemini hesabında ağırlık)"
+url = "https://ghsl.jrc.ec.europa.eu/"
+license = "CC-BY-4.0"
+attribution = "Pesaresi, M., Politis, P. (2023): GHS-BUILT-S R2023A - GHS built-up surface grid, derived from Sentinel2 composite and Landsat, multitemporal (1975-2030). European Commission, Joint Research Centre (JRC). (c) European Union, 1995-2026."
+modified = true            # dağıtılmaz; yalnızca şehir başına Vs30 ağırlığı olarak kullanılır (data/cities/cities15000.ssit)
+license_checked = "2026-11-14"
+snapshot = "GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.zip sha256 3dda6099f02b45e31548a4f2e75b82249b32c815238065db703b477bdcba8aa2"
+files = "data/cities/cities15000.ssit (seismira-data city-sites; scripts/fetch_ghsl.py)"

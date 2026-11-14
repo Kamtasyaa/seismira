@@ -10,8 +10,10 @@ pub mod intensity;
 pub mod mapfile;
 pub mod mercator;
 pub mod quake;
+pub mod raster;
 pub mod shaking;
 pub mod sim;
+pub mod site;
 pub mod source;
 pub mod traveltime;
 

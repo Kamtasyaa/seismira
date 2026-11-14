@@ -11,3 +11,4 @@ workspace = true
 [dependencies]
 bytemuck = { version = "1.25.2", features = ["derive"] }
 geographiclib-rs = "0.2.7"
+ruzstd = "0.9.1"

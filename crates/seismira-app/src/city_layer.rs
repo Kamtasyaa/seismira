@@ -17,6 +17,9 @@ const MAX_BOXES: usize = 300;
 
 pub struct CityLayer {
     pub cities: Arc<Vec<City>>,
+    /// Şehir başına zemin (yapılaşma ağırlıklı Vs30, `.ssit`); yoksa
+    /// hesap Vs30 haritasından noktasal okur.
+    pub sites: Option<Arc<Vec<seismira_core::site::Site>>>,
 }
 
 /// Bir karede çizilen şehirler (fare ile seçme için).
@@ -30,8 +33,25 @@ impl CityLayer {
         let cities = seismira_core::cities::read(&mut std::io::BufReader::new(file))
             .map_err(|e| format!("{}: {e}", path.display()))?;
         log::info!("{} şehir yüklendi", cities.len());
+        let site_path = path.with_extension("ssit");
+        let sites = std::fs::File::open(&site_path)
+            .and_then(|f| seismira_core::site::read_sites(&mut std::io::BufReader::new(f)))
+            .inspect_err(|e| log::warn!("{}: {e}", site_path.display()))
+            .ok()
+            .filter(|s| {
+                let ok = s.len() == cities.len();
+                if !ok {
+                    log::warn!(
+                        "{}: şehir sayısı uyuşmuyor, kullanılmıyor",
+                        site_path.display()
+                    );
+                }
+                ok
+            })
+            .map(Arc::new);
         Ok(Self {
             cities: Arc::new(cities),
+            sites,
         })
     }
 
@@ -84,14 +104,13 @@ impl CityLayer {
 
         let mut occupied: Vec<Rect> = Vec::new();
         let mut placed: Vec<bool> = vec![false; self.cities.len()];
-        let mut candidates: Vec<(usize, Pos2)> = Vec::new();
+        // (şehir, nokta, varsa kutu): fare ile seçme için.
+        let mut candidates: Vec<(usize, Pos2, Option<Rect>)> = Vec::new();
 
-        // Şehrin Shindo'su (S ulaşmışsa ve model geçerliyse).
+        // Şehrin o anki Shindo'su (S ulaştıktan sonra kademeli yükselir).
         let shindo_at = |i: usize| -> Option<Shindo> {
             let (results, _, t) = sim?;
-            let r = &results.sites[i];
-            let m = r.motion?;
-            (t >= r.t_s? && m.shindo() >= Shindo::S1).then(|| m.shindo())
+            results.sites[i].shindo_at(t)
         };
         // P ulaştı, S henüz değil.
         let p_only = |i: usize| -> bool {
@@ -126,7 +145,7 @@ impl CityLayer {
                 shindo_style::draw_box(&painter, box_rect.center(), s);
                 occupied.push(box_rect);
                 placed[i] = true;
-                candidates.push((i, p));
+                candidates.push((i, p, Some(box_rect)));
                 drawn += 1;
             }
         }
@@ -157,22 +176,39 @@ impl CityLayer {
             if p_only(i) {
                 painter.circle_stroke(p, 5.0, Stroke::new(1.5, p_color));
             }
-            painter.circle_filled(p, 2.5, dot);
+            match shindo_at(i) {
+                // Kutusu komşu kutuyla çakıştığı için çizilmedi: nokta Shindo
+                // renginde (değer fare ile kartta; renk tek taşıyıcı değil).
+                Some(s) => {
+                    painter.circle_filled(p, 4.0, shindo_style::color(s));
+                    painter.circle_stroke(p, 4.0, Stroke::new(1.0, Color32::from_gray(20)));
+                }
+                None => {
+                    painter.circle_filled(p, 2.5, dot);
+                }
+            }
             painter.galley(label_rect.min, galley, text);
             occupied.push(label_rect);
             occupied.push(dot_rect);
-            candidates.push((i, p));
+            candidates.push((i, p, None));
             labels += 1;
         }
 
-        // 3) Fare altındaki şehir (en yakın, 10 point içinde).
+        // 3) Fare altındaki şehir: üstündeki Shindo kutusu ya da noktaya en
+        // yakın (10 point içinde).
         let hovered = hover.and_then(|h| {
             candidates
                 .iter()
-                .map(|&(i, p)| (i, p.distance(h)))
-                .filter(|&(_, d)| d < 10.0)
-                .min_by(|a, b| a.1.total_cmp(&b.1))
-                .map(|(i, _)| i)
+                .find(|(_, _, b)| b.is_some_and(|b| b.expand(1.0).contains(h)))
+                .map(|&(i, _, _)| i)
+                .or_else(|| {
+                    candidates
+                        .iter()
+                        .map(|&(i, p, _)| (i, p.distance(h)))
+                        .filter(|&(_, d)| d < 10.0)
+                        .min_by(|a, b| a.1.total_cmp(&b.1))
+                        .map(|(i, _)| i)
+                })
         });
         Drawn { hovered }
     }

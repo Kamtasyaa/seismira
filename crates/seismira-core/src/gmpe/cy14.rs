@@ -46,6 +46,12 @@ pub struct Input {
 /// Modelin mesafe sınırı (km, Rrup).
 pub const MAX_RRUP_KM: f64 = 300.0;
 
+/// Modelin Vs30 geçerlilik aralığı (m/s), uçlar dahil (CY14; pygmm de
+/// aynı sınırlarla uyarıyor). Harita değeri bu aralık dışındaysa
+/// [`crate::shaking`] değeri uca çeker ve bunu sonuçta işaretler.
+pub const VS30_MIN: f64 = 180.0;
+pub const VS30_MAX: f64 = 1500.0;
+
 /// Modelin yayımlanmış geçerlilik aralığı içinde mi?
 pub fn in_range(i: &Input) -> bool {
     let mw_max = if i.fault == FaultType::StrikeSlip {
@@ -56,7 +62,7 @@ pub fn in_range(i: &Input) -> bool {
     (3.5..=mw_max).contains(&i.mw)
         && (0.0..=MAX_RRUP_KM).contains(&i.rrup)
         && (0.0..=20.0).contains(&i.ztor)
-        && (180.0..1500.0).contains(&i.vs30)
+        && (VS30_MIN..=VS30_MAX).contains(&i.vs30)
 }
 
 #[derive(Clone, Debug)]

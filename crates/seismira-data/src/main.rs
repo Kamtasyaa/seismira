@@ -5,6 +5,8 @@
 //! ```text
 //! seismira-data natural-earth <girdi klasörü> <çıktı klasörü>
 //! seismira-data geonames <cities15000.txt> <admin1CodesASCII.txt> <çıktı.scty>
+//! seismira-data vs30 <median.tif> <sd.tif> <çıktı.sras>
+//! seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>
 //! ```
 
 use anyhow::{Context, Result, bail};
@@ -12,6 +14,10 @@ use seismira_core::mapfile::{Layer, LayerKind, MapFile, RESTART};
 use seismira_core::mercator;
 use shapefile::{Point, Polygon, PolygonRing, Polyline, Shape, ShapeReader};
 use std::path::Path;
+
+mod city_sites;
+mod geotiff;
+mod vs30;
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -25,9 +31,20 @@ fn main() -> Result<()> {
         [cmd, cities, admin1, output] if cmd == "geonames" => {
             geonames(Path::new(cities), Path::new(admin1), Path::new(output))
         }
+        [cmd, median, sd, output] if cmd == "vs30" => {
+            vs30::convert(Path::new(median), Path::new(sd), Path::new(output))
+        }
+        [cmd, cities, vs30, ghsl, output] if cmd == "city-sites" => city_sites::run(
+            Path::new(cities),
+            Path::new(vs30),
+            Path::new(ghsl),
+            Path::new(output),
+        ),
         _ => bail!(
             "kullanım:\n  seismira-data natural-earth <girdi> <çıktı klasörü>\n  \
-             seismira-data geonames <cities15000.txt> <admin1CodesASCII.txt> <çıktı.scty>"
+             seismira-data geonames <cities15000.txt> <admin1CodesASCII.txt> <çıktı.scty>\n  \
+             seismira-data vs30 <median.tif> <sd.tif> <çıktı.sras>\n  \
+             seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>"
         ),
     }
 }
@@ -38,14 +55,27 @@ fn main() -> Result<()> {
 /// fay(SS|RS|NS)`. Gözlenen RotD50 yerine iki yatay bileşenin geometrik
 /// ortalaması kullanılır (Boore 2010: ikisi pratikte çok yakın). İki
 /// karşılaştırma yapılır: (A) ShakeMap'in mesafeleriyle (yalnızca GMPE ve
-/// dönüşüm), (B) bizim fay geometrimizle (tüm zincir). Şiddet farkı, aynı
-/// dönüşümle (Midorikawa vd. 1999) gözlenen ve tahmin edilen PGV'den.
+/// dönüşüm), (B) bizim fay geometrimizle, (C) `--vs30 <dosya.sras>`
+/// verilirse bizim geometri + bizim Vs30 haritamız (uygulamanın tüm
+/// zinciri). A ve B istasyonun ShakeMap Vs30'unu kullanır. Şiddet farkı,
+/// aynı dönüşümle (Midorikawa vd. 1999) gözlenen ve tahmin edilen PGV'den.
 fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
     use seismira_core::gmpe::{Imt, cy14};
     use seismira_core::intensity::jma_from_pgv_rotd50;
     use seismira_core::quake::{FaultType, Quake};
     use seismira_core::source::Fault;
 
+    let mut args = args.to_vec();
+    let vs30_map = match args.iter().position(|a| a == "--vs30") {
+        Some(i) => {
+            let path = args.get(i + 1).context("--vs30 dosya yolu")?.clone();
+            args.drain(i..i + 2);
+            let bytes = std::fs::read(&path).with_context(|| path.clone())?;
+            Some(seismira_core::site::Vs30Map::open(bytes)?)
+        }
+        None => None,
+    };
+    let args = args.as_slice();
     let (base, along) = match args {
         [b @ .., a] if args.len() == 8 => (b, Some(a.parse::<f64>()?)),
         b => (b, None),
@@ -74,8 +104,11 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
 
     let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(stations)?)?;
     let feats = json["features"].as_array().context("features yok")?;
-    // kod, gözlenen, A, B (ln PGV), ShakeMap Rrup (km)
-    let mut rows: Vec<(String, f64, f64, f64, f64)> = Vec::new();
+    // kod, gözlenen, A, B, C (ln PGV), ShakeMap Rrup (km)
+    let mut rows: Vec<(String, f64, f64, f64, f64, Option<f64>)> = Vec::new();
+    // ln(harita Vs30 / istasyon Vs30), harita kaynağı
+    let mut vs_ratio: Vec<f64> = Vec::new();
+    let mut vs_src = [0usize; 4];
     let mut missing = 0usize;
     for f in feats {
         let p = &f["properties"];
@@ -106,7 +139,7 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
             coords[0].as_f64().context("boylam")?,
             coords[1].as_f64().context("enlem")?,
         );
-        let predict = |rrup: f64, rjb: f64, rx: f64, ztor: f64| {
+        let predict = |rrup: f64, rjb: f64, rx: f64, ztor: f64, vs30: f64| {
             cy14::predict(
                 Imt::Pgv,
                 &cy14::Input {
@@ -130,9 +163,19 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         // (Tavan bloğu terimi cos δ ile çarpılır; dik faylarda etkisi ~0.)
         let rx = d["rx"].as_f64().unwrap_or(-rjb);
         // ShakeMap kırılması yüzeyden başlıyor (rupture.json): Ztor = 0.
-        let a = predict(rrup, rjb, rx, 0.0);
+        let a = predict(rrup, rjb, rx, 0.0, vs30);
         let od = ours.distances(site);
-        let b = predict(od.rrup, od.rjb, od.rx, ours.ztor);
+        let b = predict(od.rrup, od.rjb, od.rx, ours.ztor, vs30);
+        let c = match &vs30_map {
+            Some(m) => {
+                let s = m.site(site.0, site.1)?;
+                vs_src[s.source as usize] += 1;
+                vs_ratio.push((s.vs30 / vs30).ln());
+                let v = s.vs30.clamp(cy14::VS30_MIN, cy14::VS30_MAX);
+                predict(od.rrup, od.rjb, od.rx, ours.ztor, v)
+            }
+            None => None,
+        };
         if let (Some(a), Some(b)) = (a, b) {
             rows.push((
                 p["code"].as_str().unwrap_or("?").to_string(),
@@ -140,6 +183,7 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
                 a,
                 b,
                 rrup,
+                c,
             ));
         }
     }
@@ -155,17 +199,26 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
     );
     println!("| karşılaştırma | ort. ln(göz/tah) | std ln | ort. ΔI (JMA) | |ΔI| < 1 oranı |");
     println!("|---|---|---|---|---|");
-    for (label, k) in [
+    let pick = |r: &(String, f64, f64, f64, f64, Option<f64>), k: usize| match k {
+        0 => Some(r.2),
+        1 => Some(r.3),
+        _ => r.5,
+    };
+    let mut comps = vec![
         ("A: ShakeMap mesafeleri", 0),
         ("B: bizim fay geometrimiz", 1),
-    ] {
+    ];
+    if vs30_map.is_some() {
+        comps.push(("C: bizim geometri + bizim Vs30", 2));
+    }
+    for (label, k) in comps {
         let res: Vec<f64> = rows
             .iter()
-            .map(|r| r.1 - if k == 0 { r.2 } else { r.3 })
+            .filter_map(|r| Some(r.1 - pick(r, k)?))
             .collect();
         let di: Vec<f64> = rows
             .iter()
-            .map(|r| to_i(r.1) - to_i(if k == 0 { r.2 } else { r.3 }))
+            .filter_map(|r| Some(to_i(r.1) - to_i(pick(r, k)?)))
             .collect();
         let n = res.len() as f64;
         let mean = res.iter().sum::<f64>() / n;
@@ -178,7 +231,22 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         );
     }
     // Mesafeye göre (ShakeMap Rrup) ortalama ΔI: uzak alan eğilimi.
-    println!("\n| Rrup (km) | n | ort. ΔI (A) | ort. ΔI (B) |\n|---|---|---|---|");
+    if !vs_ratio.is_empty() {
+        let n = vs_ratio.len() as f64;
+        let m = vs_ratio.iter().sum::<f64>() / n;
+        let sd = (vs_ratio.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+        println!(
+            "\nVs30 harita/istasyon: ort. ln oran {m:+.2} (×{:.2}), std {sd:.2}; \
+             kaynak: harita {}, komşu {}, referans {}",
+            m.exp(),
+            vs_src[0],
+            vs_src[1],
+            vs_src[2]
+        );
+    }
+    println!(
+        "\n| Rrup (km) | n | ort. ΔI (A) | ort. ΔI (B) | ort. ΔI (C) |\n|---|---|---|---|---|"
+    );
     for (lo, hi) in [
         (0.0, 25.0),
         (25.0, 50.0),
@@ -194,7 +262,19 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         let n = sel.len() as f64;
         let a = sel.iter().map(|r| to_i(r.1) - to_i(r.2)).sum::<f64>() / n;
         let b = sel.iter().map(|r| to_i(r.1) - to_i(r.3)).sum::<f64>() / n;
-        println!("| {lo:.0}–{hi:.0} | {} | {a:+.2} | {b:+.2} |", sel.len());
+        let c: Vec<f64> = sel
+            .iter()
+            .filter_map(|r| Some(to_i(r.1) - to_i(r.5?)))
+            .collect();
+        let c = if c.is_empty() {
+            "–".to_string()
+        } else {
+            format!("{:+.2}", c.iter().sum::<f64>() / c.len() as f64)
+        };
+        println!(
+            "| {lo:.0}–{hi:.0} | {} | {a:+.2} | {b:+.2} | {c} |",
+            sel.len()
+        );
     }
     Ok(())
 }

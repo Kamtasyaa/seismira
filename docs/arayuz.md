@@ -215,3 +215,18 @@ ters 40°/90°) da doğrulanacak değerlerdir.
 Doğrultu önizlemesi şimdilik yalnızca YÖN gösterir (ekranda sabit
 uzunluk); kırılma uzunluğu Faz 3'te kaynak geometrisiyle gelecek.
 Taslak değişince (haritaya tıklama dahil) çalışan simülasyon iptal edilir.
+
+## Shindo kutusunun kademeli yükselişi (2026-11-14, kullanıcı isteği)
+
+S dalgası şehre ulaşınca kutu son değeri hemen göstermez: 1'den başlar,
+her `RISE_STEP_S` = 0,4 s'de bir sınıf artar (1 → 2 → 3 → 4 → 5- …) ve son
+değerde durur. Güçlü sarsıntı daha çok adım, yani daha geç tepe demektir
+(7 için ~3,2 s). Simülasyon zamanının saf fonksiyonudur
+(`SiteResult::shindo_at`); geri sarma ve hızlandırma tutarlıdır. Bölge
+bildirimi, kutunun son değere vardığı anda (`t_peak`) düşer. Şehir kartı
+tahmin olarak her zaman son değeri gösterir. Bu GÖRSEL bir kabuldür; Faz 5'te
+alt fay zamanlaması (t_tepe) ile fiziksel tepe zamanına bağlanacak.
+
+Kutusu komşu kutuyla çakıştığı için çizilmeyen şehirlerde (kalabalık
+azaltma) nokta o anki Shindo renginde çizilir; değer fare ile kartta
+okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
