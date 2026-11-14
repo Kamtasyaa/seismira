@@ -1,0 +1,13 @@
+# Her veri setinin kaynağı, lisansı ve atıf metni.
+# Uygulamadaki "Veri Kaynakları ve Lisanslar" sayfası bu dosyadan üretilir.
+# Kurallar: docs/veri.md. Lisans, veri indirilmeden önce YENİDEN kontrol edilir.
+#
+# Örnek kayıt biçimi:
+# [[dataset]]
+# id = "natural-earth-110m"
+# name = "Natural Earth 1:110m"
+# url = "https://www.naturalearthdata.com/"
+# license = "Public Domain"
+# attribution = "Made with Natural Earth."
+# modified = true            # türetilmişse "değiştirildi" notu gösterilir
+# license_checked = "YYYY-MM-DD"

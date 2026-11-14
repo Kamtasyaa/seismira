@@ -1,0 +1,158 @@
+# Arayüz, harita ve çizim
+
+> CLAUDE.md v3’ten ayrıldı (Faz 0, 2026-11-14). Bölüm numaraları atıflar
+> bozulmasın diye korunmuştur. "(doğrula)" işaretleri hâlâ geçerlidir.
+
+## 3. Platform, metin, erişilebilirlik
+
+- Windows, Linux ve macOS'ta BİREBİR AYNI görünüm ve davranış.
+- Temel veri uygulamayla gelir; uygulama internetsiz çalışır.
+- Tema: koyu, haritayı öne çıkaran, modern ve sade.
+
+### 3.1 Metin ve diller
+
+- Tüm metin UTF-8. Her yazı sistemi sorunsuz görünmeli: Latin, Kiril,
+  Yunan, Arap, İbrani, Devanagari ve diğer Hint yazıları, Tay, Çince,
+  Japonca, Korece vb.
+- Yazı tipleri gömülür: Noto ailesiyle yedek (fallback) zinciri.
+- Çince, Japonca ve Korece aynı kod noktalarını farklı gliflerle
+  çizer; CJK yazı tipi sırası arayüz diline göre değişmeli.
+- KRİTİK TEST (Faz 1): seçilen egui sürümü karmaşık yazı
+  şekillendirmeyi (Arapça birleşme, sağdan sola yazım, Devanagari
+  birleşik harfleri) doğru yapıyor mu? Yapmıyorsa şekillendirme
+  kütüphanesi (ör. cosmic-text, parley, rustybuzz) entegre et.
+- Çeviri altyapısı FAZ 1'DEN İTİBAREN kurulur (Fluent veya eşdeğeri).
+  Koda gömülü arayüz metni yazılmaz. Başlangıç: Türkçe ve İngilizce.
+- Şehir ve bölge adları kullanıcının dilinde gösterilebilir
+  (GeoNames alternatif adları, Natural Earth yerelleştirilmiş adları).
+
+### 3.2 Erişilebilirlik
+
+- Yanıp sönen hiçbir öğe saniyede 3'ten fazla parlamaz (ışığa duyarlı
+  epilepsi riski, WCAG 2.3.1). Bizim sınırımız: yaklaşık 1 Hz,
+  yumuşak geçişli.
+- "Hareketi azalt" ayarı: tüm yanıp sönmeler kapanır, yerine sabit
+  kalın çizgi gelir.
+- Renk tek bilgi taşıyıcı olmaz: Shindo kutusunda rakam, tsunami
+  kategorisinde etiket bulunur.
+
+
+## 6. Kullanıcı girdileri (sağ panel)
+
+Ana ayarlar:
+- Hazır senaryolar (Bölüm 14'teki gerçek depremler)
+- Konum: haritaya tıklayarak veya enlem/boylam girerek
+- Büyüklük (Mw)
+- Odak derinliği (km)
+- Tektonik ortam: sığ kabuk / dalma-batma arayüzü / levha içi
+  (konuma göre otomatik öneri; kullanıcı değiştirebilir)
+- Fay tipi: doğrultu atımlı / normal / ters
+- Fay doğrultusu (strike), eğimi (dip), kayma açısı (rake).
+  Varsayılanlar fay tipinden ve dalma-batmada Slab2'den gelir.
+- Ayar sırasında haritada doğrultuyu gösteren ince bir önizleme
+  çizgisi olur (bu, sonuçtaki kırılma izi değildir).
+
+"İleri seviye" (katlanabilir):
+- Odağın fay üzerindeki konumu, kırılma yönü
+- Kırılma uzunluğu ve genişliği (varsayılan: otomatik)
+- Zemin etkisi açık/kapalı
+- Erken uyarı sistemi varsayımı (Bölüm 7.3)
+
+Görünüm:
+- Şiddet ölçeği: Shindo / MMI / ikisi birlikte
+- Katmanlar: bölge sınırı vurgusu, sıvılaşma, heyelan, tsunami
+- Simülasyon sonunda fay izini göster (varsayılan: kapalı)
+- Hareketi azalt
+
+Geçerlilik kuralları (yaklaşık değerler; her modelin yayımlanmış
+aralığından doğrula, kodda sabit olarak tut):
+
+| Ortam | Mw | Odak derinliği | Not |
+|---|---|---|---|
+| Sığ kabuk | 4.0 – ~8.5 (ters/normal ~8.0) | 0 – ~35 km | |
+| Dalma-batma arayüzü | ~4.5 – 9.5 | ~5 – ~60 km | yalnızca ters fay |
+| Levha içi | ~4.5 – ~8.0 | ~30 – ~300 km | |
+| Derin odak | | > ~300 km | modeller geçersiz, "kaba tahmin" etiketi |
+
+Aralık dışı girdi engellenir ya da açıkça uyarılır. Sessiz
+ekstrapolasyon yapılmaz.
+
+
+## 8. Harita ve çizim
+
+- İzdüşüm: Web Mercator, ±85° ile sınırlı, yatayda dünya tekrar eder.
+- 180° meridyeni: geometri veri hazırlamada ±180°'de bölünür.
+  Pasifik'i geçen halka ve tsunami doğru çizilmeli.
+- Dalga halkaları ekran dairesi DEĞİLDİR: merkez üssünden jeodezik
+  olarak hesaplanan noktaların izdüşümüdür.
+- egui yalnızca dışbükey çokgen doldurur. Kara çokgenleri veri
+  hazırlamada üçgenlenir (earcut) ve hazır mesh olarak saklanır.
+- Ayrıntı düzeyi: Natural Earth 1:110m, 1:50m, 1:10m yakınlaştırmaya
+  göre. Şehir ölçeğinde kıyı kaba kalır; yüksek çözünürlüklü kıyı
+  bölge paketlerinde (OSM kara çokgenleri, ODbL).
+- Izgara katmanları enlem/boylam ızgarasında hesaplanır, Mercator'a
+  göre yeniden örneklenerek tek doku olarak çizilir.
+- Sınırlar Natural Earth'ün varsayılan gösterimidir, siyasi görüş
+  bildirmez; Veri Kaynakları sayfasında belirtilir.
+
+## 9. Bölge sınırı vurgusu (il / eyalet / bölge)
+
+Birim: birinci düzey idari bölge (Türkiye'de il, ABD ve Meksika'da
+eyalet, Japonya'da prefektörlük, Fransa ve İtalya'da bölge).
+
+Her bölgenin durumu simülasyon zamanının saf fonksiyonudur (ileri-geri
+sarmada tutarlı kalır):
+- Uyarı: t ≥ t_uyarı, bölge uyarı ölçütünü sağlıyor ve S henüz
+  ulaşmadı → sınır BEYAZ yanıp söner.
+- Sarsıntı: bölgedeki ilk hücreye S ulaştı → sınır, o ana kadar
+  bölgede ulaşılan en yüksek Shindo'nun renginde yanıp söner; değer
+  arttıkça renk güncellenir.
+- Yatışmış: bölgedeki sarsıntı bitti → yanıp sönme durur, sınır sabit
+  renkte kalır, bölge çok hafif aynı renkle dolar.
+- Nihai en yüksek Shindo'su 3'ün altında kalan bölgeler yanıp sönmez;
+  yalnızca ince sabit renkli sınır alır (eşik ayarlanabilir).
+- Tsunami ayrı kanaldır: uyarı yürürlükteyken kıyı çizgisi (deniz
+  tarafında kalın bant) sarı / kırmızı / mor yanıp söner. Böylece
+  Shindo renkleriyle karışmaz.
+
+Yanıp sönme kuralları:
+- Yumuşak opaklık dalgası (~%35–%100), yaklaşık 1 Hz, asla 2 Hz üstü.
+- Duvar saatine bağlıdır, simülasyon hızından bağımsızdır.
+- Tüm öğeler aynı fazda yanıp söner.
+- Hızlı oynatmada bir durum çok kısa sürerse görsel en az ~1 saniye
+  ekranda kalır (yalnızca sunum; simülasyon durumu değişmez).
+- "Hareketi azalt" açıkken yanıp sönme yok, sabit kalın çizgi var.
+
+Uygulama notları:
+- Veri hazırlamada, sarsıntı ızgarasıyla hizalı bir bölge kimliği
+  rasterı (u16) üretilir; bölge değerleri buradan toplanır.
+- Çizimde yalnızca opaklık değişir, geometri yeniden üretilmez.
+- Dünya ölçeğinde yalnızca etkilenen bölgelerin sınırı çizilir.
+- Bölgeye tıklayınca bölge kartı açılır.
+- Japonya'da isteğe bağlı: JMA'nın kendi şiddet ve tsunami tahmin
+  bölgeleri.
+
+## 10. Arayüz düzeni
+
+- Orta: harita.
+- SAĞ panel: konfigürasyon (Bölüm 6) + "Başlat".
+- SOL ÜST: bildirim akışı, zaman sırasıyla. Örnekler:
+  "Erken uyarı: Kocaeli, Sakarya, İstanbul",
+  "P dalgası İstanbul'a ulaştı", "İzmit: Shindo 6+",
+  "Tsunami uyarısı: Marmara kıyısı (KIRMIZI)".
+  Öneme göre renklenir; tıklanınca harita oraya gider.
+- SOL (bildirimlerin altında, katlanabilir): şehir listesi, dalganın
+  ulaşma sırasıyla (Shindo, P varış, S varış, erken uyarı süresi).
+- ALT: zaman çizgisi. Oynat/duraklat, ileri-geri sar, "sonraki olaya
+  atla". Hızlar: 1x, 10x, 60x, 600x, 3600x (tsunami saatler sürer).
+- Şehir kartı: PGA/PGV, Vs30 ve zemin sınıfı, Shindo + MMI ve olası
+  aralık, tahmini hasar, S − P, erken uyarı süresi.
+- Bölge kartı: en yüksek Shindo, tahmini hasar (bölge düzeyi),
+  tsunami kategorisi ve varış süresi.
+- Köşede ölçek açıklaması (Shindo renkleri JMA paletinden; tsunami
+  sarı/kırmızı/mor).
+- Şehirler nüfusa ve yakınlaştırmaya göre gösterilir.
+- "Veri Kaynakları ve Lisanslar" sayfası (zorunlu).
+- Kalite ayarı: Düşük / Orta / Yüksek / Ultra (ızgara çözünürlüğü
+  değişir; akıcılık hiçbir ayarda bozulmaz).
+
