@@ -47,7 +47,9 @@ impl SiteResult {
         if t < ts || fin < Shindo::S1 {
             return None;
         }
-        let step = ((t - ts) / RISE_STEP_S).floor() as usize;
+        // Küçük tolerans: `t_peak` anında (ts + n·adım) kayan nokta hatası
+        // n − 1'e yuvarlamasın (macOS libm'de görüldü, CI 2026-11-14).
+        let step = ((t - ts) / RISE_STEP_S + 1e-9).floor() as usize;
         let k = (Shindo::S1 as usize + step).min(fin as usize);
         Some(Shindo::ALL[k])
     }
