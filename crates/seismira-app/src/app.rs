@@ -42,6 +42,43 @@ struct CityEvent {
     kind: CityEventKind,
 }
 
+/// Bölge Shindo bildirimi (ızgaradan; bölge kimliği rasterı ile).
+#[derive(Clone, Copy, Debug)]
+struct RegionEvent {
+    /// Bölgenin en yüksek Shindo'ya ulaştığı an.
+    t: f64,
+    region: seismira_core::region::RegionId,
+    shindo: Shindo,
+    best_city: Option<usize>,
+    at: (f64, f64),
+}
+
+/// Bölge bildirimleri: en yüksek Shindo'su 5- ve üstü olanlar ile en güçlü
+/// 3 bölge (daha düşükler haritada görünür). Kimlik sırasından bağımsız.
+fn region_events(results: &[compute::RegionResult]) -> Vec<RegionEvent> {
+    let mut v: Vec<_> = results
+        .iter()
+        .filter(|r| r.summary.max >= Shindo::S1)
+        .collect();
+    v.sort_by(|a, b| {
+        b.summary
+            .max
+            .cmp(&a.summary.max)
+            .then(a.summary.t_peak.total_cmp(&b.summary.t_peak))
+    });
+    v.iter()
+        .enumerate()
+        .take_while(|(k, r)| *k < 3 || r.summary.max >= Shindo::S5Lower)
+        .map(|(_, r)| RegionEvent {
+            t: r.summary.t_peak,
+            region: r.summary.id,
+            shindo: r.summary.max,
+            best_city: r.best_city,
+            at: r.summary.at,
+        })
+        .collect()
+}
+
 /// Bildirim akışına girecek şehir olayları. Kalabalığı önlemek için il /
 /// eyalet (GeoNames admin1) başına toplanır (Bölüm 10 örnekleri de bölge
 /// düzeyindedir; GeoNames büyük şehirlerin ilçelerini ayrı şehir sayar):
@@ -135,6 +172,10 @@ pub struct SeismiraApp {
     cities: Result<CityLayer, String>,
     /// Vs30 haritası; yoksa referans zemin kullanılır (kartta belirtilir).
     vs30: Option<Arc<compute::Vs30>>,
+    /// Bölge kimliği rasterı (il / eyalet); yoksa bölge bildirimleri
+    /// GeoNames admin1 adlarıyla şehirlerden üretilir.
+    regions: Option<Arc<compute::Regions>>,
+    region_events: Vec<RegionEvent>,
     /// Şehir hesabı (arka planda) ve sonuçları.
     job: Option<compute::Job>,
     results: Option<CityResults>,
@@ -182,6 +223,9 @@ impl SeismiraApp {
         let vs30 = compute::load_vs30(&paths::data_dir().join("vs30").join("vs30.sras"))
             .inspect_err(|e| log::warn!("Vs30 haritası yok, referans zemin kullanılacak: {e}"))
             .ok();
+        let regions = compute::Regions::load(&paths::data_dir().join("regions"))
+            .inspect_err(|e| log::warn!("bölge verisi yok: {e}"))
+            .ok();
         Self {
             lang,
             assets,
@@ -195,6 +239,8 @@ impl SeismiraApp {
             travel_times,
             cities,
             vs30,
+            regions,
+            region_events: Vec::new(),
             job: None,
             results: None,
             ranked: Vec::new(),
@@ -571,6 +617,7 @@ impl SeismiraApp {
         self.results = None;
         self.ranked.clear();
         self.city_events.clear();
+        self.region_events.clear();
         self.sim = None;
         self.clock = Clock {
             speed: self.clock.speed,
@@ -601,6 +648,7 @@ impl SeismiraApp {
                 layer.sites.clone(),
                 tt,
                 self.vs30.clone(),
+                self.regions.clone(),
                 ctx.clone(),
             ));
         }
@@ -739,6 +787,56 @@ impl SeismiraApp {
                 });
             }
         }
+        if let Some(regions) = &self.regions {
+            for e in self.region_events.iter().filter(|e| e.t <= now) {
+                let Some(info) = regions.info(e.region) else {
+                    continue;
+                };
+                let region = match lang {
+                    Lang::Tr => info.name_tr.clone(),
+                    Lang::En => info.name_en.clone(),
+                };
+                // "En yüksek: şehir" yalnızca şehrin Shindo'su bölgenin en
+                // yüksek değerine eşitse (bölge değeri ızgaradan gelir).
+                let city = self
+                    .cities
+                    .as_ref()
+                    .ok()
+                    .zip(e.best_city)
+                    .filter(|&(_, i)| {
+                        self.results.as_ref().is_some_and(|r| {
+                            r.sites[i].motion.is_some_and(|m| m.shindo() == e.shindo)
+                        })
+                    })
+                    .map(|(l, i)| l.cities[i].name.clone())
+                    .filter(|c| *c != region);
+                let text = match city {
+                    Some(city) => lang.t_args(
+                        "region-shindo",
+                        &[
+                            ("region", region),
+                            ("city", city),
+                            ("shindo", e.shindo.to_string()),
+                        ],
+                    ),
+                    None => lang.t_args(
+                        "city-shindo",
+                        &[("city", region), ("shindo", e.shindo.to_string())],
+                    ),
+                };
+                notes.push(Note {
+                    t: e.t,
+                    text,
+                    color: if e.shindo >= Shindo::S5Lower {
+                        Color32::from_rgb(0xFF, 0x9A, 0x6B)
+                    } else {
+                        ui.visuals().text_color()
+                    },
+                    badge: Some(e.shindo),
+                    at: e.at,
+                });
+            }
+        }
         notes.sort_by(|a, b| b.t.total_cmp(&a.t)); // en yenisi üstte
         let mut focus = None;
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -858,10 +956,17 @@ impl eframe::App for SeismiraApp {
                         if let Ok(layer) = &self.cities {
                             self.ranked = layer.rank_for_boxes(&results);
                             self.city_events = city_events(layer, &results);
+                            // Bölge verisi varsa Shindo bildirimleri bölge
+                            // özetinden gelir (JobMsg::Regions).
+                            if self.regions.is_some() {
+                                self.city_events
+                                    .retain(|e| matches!(e.kind, CityEventKind::PArrived));
+                            }
                         }
                         self.results = Some(results);
                     }
                     compute::JobMsg::Grid(grid) => self.map.set_grid(Some(grid)),
+                    compute::JobMsg::Regions(r) => self.region_events = region_events(&r),
                 }
             }
             if done {

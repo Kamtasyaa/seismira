@@ -12,6 +12,7 @@ pub mod mapfile;
 pub mod mercator;
 pub mod quake;
 pub mod raster;
+pub mod region;
 pub mod shaking;
 pub mod sim;
 pub mod site;

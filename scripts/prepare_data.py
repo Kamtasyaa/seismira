@@ -10,6 +10,8 @@ Adımlar:
 3. seismira-data ile harita dosyaları (data/map/*.smap) üretilir.
 4. Vs30 ham dosyaları doğrulanır (elle indirilir, bkz. fetch_vs30.py) ve
    data/vs30/vs30.sras üretilir (~1,5 dk, ~150 MB).
+5. Bölge kimliği rasterı (Natural Earth Admin-1, Vs30 ızgarasında) yoksa
+   üretilir: data/regions/admin1.sras + .sreg (~1 dk; depoda da var).
 
 Her adım tekrar çalıştırılabilir; var olan doğru dosyalar yeniden indirilmez.
 """
@@ -42,6 +44,17 @@ def main() -> int:
             "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
             "vs30", "data/raw/vs30/vs30_mosaic_median_30c.tif",
             "data/raw/vs30/vs30_mosaic_sd_30c.tif", str(vs30.relative_to(ROOT)),
+        )
+    regions = ROOT / "data" / "regions" / "admin1.sras"
+    if not regions.exists():
+        run(py, "scripts/fetch_ghsl.py")
+        regions.parent.mkdir(parents=True, exist_ok=True)
+        run(
+            "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+            "regions", "data/raw/natural-earth/v5.1.2/ne_10m_admin_1_states_provinces.shp",
+            str(vs30.relative_to(ROOT)),
+            "data/raw/ghsl/GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.tif",
+            "data/regions/admin1.sras", "data/regions/admin1.sreg",
         )
     print("Veri hazır.")
     return 0

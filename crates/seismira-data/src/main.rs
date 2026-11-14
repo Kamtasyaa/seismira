@@ -7,6 +7,7 @@
 //! seismira-data geonames <cities15000.txt> <admin1CodesASCII.txt> <çıktı.scty>
 //! seismira-data vs30 <median.tif> <sd.tif> <çıktı.sras>
 //! seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>
+//! seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>
 //! ```
 
 use anyhow::{Context, Result, bail};
@@ -17,6 +18,7 @@ use std::path::Path;
 
 mod city_sites;
 mod geotiff;
+mod regions;
 mod vs30;
 
 fn main() -> Result<()> {
@@ -40,11 +42,19 @@ fn main() -> Result<()> {
             Path::new(ghsl),
             Path::new(output),
         ),
+        [cmd, shp, vs30, ghsl, raster, info] if cmd == "regions" => regions::run(
+            Path::new(shp),
+            Path::new(vs30),
+            Path::new(ghsl),
+            Path::new(raster),
+            Path::new(info),
+        ),
         _ => bail!(
             "kullanım:\n  seismira-data natural-earth <girdi> <çıktı klasörü>\n  \
              seismira-data geonames <cities15000.txt> <admin1CodesASCII.txt> <çıktı.scty>\n  \
              seismira-data vs30 <median.tif> <sd.tif> <çıktı.sras>\n  \
-             seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>"
+             seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>\n  \
+             seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>"
         ),
     }
 }

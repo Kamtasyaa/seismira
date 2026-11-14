@@ -44,7 +44,7 @@ attribution = "Made with Natural Earth. Free vector and raster map data @ natura
 modified = true            # Web Mercator'a izdüşüm, üçgenleme, ikili biçim
 license_checked = "2026-11-14"
 note = "Sınırlar Natural Earth'ün varsayılan gösterimidir; siyasi görüş bildirmez."
-files = "data/map/ne_*.smap (scripts/prepare_data.py ile üretilir)"
+files = "data/map/ne_*.smap (scripts/prepare_data.py ile üretilir); data/regions/admin1.sras + admin1.sreg (Admin-1 çokgenleri → bölge kimliği rasterı, seismira-data regions)"
 
 [[dataset]]
 id = "ak135-traveltimes"
@@ -108,4 +108,4 @@ attribution = "Pesaresi, M., Politis, P. (2023): GHS-BUILT-S R2023A - GHS built-
 modified = true            # dağıtılmaz; yalnızca şehir başına Vs30 ağırlığı olarak kullanılır (data/cities/cities15000.ssit)
 license_checked = "2026-11-14"
 snapshot = "GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.zip sha256 3dda6099f02b45e31548a4f2e75b82249b32c815238065db703b477bdcba8aa2"
-files = "data/cities/cities15000.ssit (seismira-data city-sites; scripts/fetch_ghsl.py)"
+files = "data/cities/cities15000.ssit (seismira-data city-sites), data/regions/admin1.sras yerleşim biti (seismira-data regions); scripts/fetch_ghsl.py"

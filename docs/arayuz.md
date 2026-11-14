@@ -250,3 +250,33 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   koyu zeminle zeytin rengine dönüyordu).
 - Görünüm menüsü → "Sarsıntı alanı" ile kapatılabilir.
 - Bilinen: açık renkli (4, 5-) alanlar üstünde şehir adları zor okunuyor.
+
+## Bölge kimliği rasterı ve bölge bildirimleri (Faz 4 adım 3, 2026-11-14)
+
+- Kaynak: Natural Earth 1:10m Admin-1 çokgenleri (v5.1.2, 4596 bölge;
+  `name_tr`, `name_en`, `iso_3166_2`). `seismira-data regions`, Vs30
+  ızgarasında (30″) tarama çizgisi dolgusu: hücre merkezi çokgende ise o
+  bölge (çift-tek kuralı). Hücre merkezi içermeyen adacıklar temsil
+  noktasının hücresini alır. Çıktı `data/regions/admin1.sras` (iki bayt
+  katmanı, 3,3 MB) + `admin1.sreg` (159 KB), depoda.
+- Doğrulama (elle): Gölcük → Kocaeli (TR-41), Fatih → İstanbul (TR-34),
+  Kawasaki → Kanagawa (JP-14), Los Angeles → Kaliforniya (US-CA), Marmara
+  Denizi → yok.
+- Toplama (`region::summarize`): bölge başına en yüksek son Shindo, ilk
+  S varışı, en yüksek değere ilk ulaşma anı (kademeli yükselişle) ve konum.
+  Bildirimler bundan üretilir; ad arayüz dilinde (İstanbul / Istanbul).
+  "En yüksek: şehir" yalnızca şehrin Shindo'su bölgeninkine eşitse yazılır.
+- Fransa ve İtalya (kullanıcı kararı, 2026-11-14): Natural Earth Admin-1
+  olduğu gibi kullanılır (Fransa'da département, İtalya'da provincia);
+  Bölüm 9'daki "bölge" düzeyinin yerine geçer. Türkiye'deki il boyutuna
+  daha yakın, bildirimler daha yerel.
+- İl değeri (kullanıcı kararı, 2026-11-14): en yüksek Shindo YERLEŞİM
+  hücrelerinden (GHSL yapılaşma alanı ≥ hücrenin %1'i, ~7 000 m²; seçim).
+  İlk S varışı tüm hücrelerden. Gerekçe: JMA bölge değeri istasyonlardan
+  gelir, istasyonlar yerleşim yerlerindedir. Ölçüm (Marmara Mw 7.5,
+  29,784 D, 40,748 K, doğrultu 84°), tüm hücre → yerleşim: Kütahya 5- → 4
+  (5- olan 2 / ~18 bin hücrenin hiçbiri yerleşim değil), Bolu 5+ → 5-,
+  Düzce 6- → 5+; Kocaeli / Sakarya / Yalova 6+, İstanbul 5+ değişmedi.
+  Ankara 5- kaldı (2 799 yerleşim hücresinden 1'i 5-; gerçek bir yerleşim
+  yerinin yumuşak zemini, istasyon davranışıyla uyumlu). Raster 8,3 MB
+  (~10 milyon yerleşim hücresi, karanın %4,6'sı).

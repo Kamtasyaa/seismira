@@ -121,6 +121,10 @@ impl GeoTiff {
         })
     }
 
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
     /// Kaynak ızgara, verilen döşeme boyutuyla.
     pub fn grid(&self, tile: u32) -> Grid {
         Grid {
