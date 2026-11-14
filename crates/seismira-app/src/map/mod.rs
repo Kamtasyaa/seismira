@@ -247,3 +247,80 @@ impl MapWidget {
         }
     }
 }
+
+impl MapWidget {
+    /// Haritayı bir noktaya ortalar (ölçek değişmez).
+    pub fn center_on(&mut self, lonlat: (f64, f64)) {
+        let (x, y) = mercator::to_unit(lonlat.0, lonlat.1);
+        self.view.center = [x, y];
+    }
+
+    /// (boylam, enlem) çizgisini çizer. Ardışık noktalar arasında 180°
+    /// sıçraması açılır (x sürekli tutulur), çizgi görünen tüm dünya
+    /// kopyalarında tekrarlanır. Kutbu çevreleyen halka Mercator'da kapanmaz;
+    /// komşu kopyaya taşan uçlar da çizildiği için kesintisiz görünür.
+    pub fn draw_lonlat_line(&self, ui: &egui::Ui, rect: Rect, pts: &[(f64, f64)], stroke: Stroke) {
+        if pts.len() < 2 {
+            return;
+        }
+        let mut world: Vec<[f64; 2]> = Vec::with_capacity(pts.len());
+        for &(lon, lat) in pts {
+            let (mut x, y) = mercator::to_unit(lon, lat);
+            if let Some(prev) = world.last() {
+                x += (prev[0] - x).round();
+            }
+            world.push([x, y]);
+        }
+        let (first, n) = self.view.copies(rect);
+        // Açılmış çizgi [0, 1) dışına taşabilir: bir kopya öncesi/sonrası da.
+        let min_x = world.iter().map(|w| w[0]).fold(f64::INFINITY, f64::min);
+        let max_x = world.iter().map(|w| w[0]).fold(f64::NEG_INFINITY, f64::max);
+        let painter = ui.painter_at(rect);
+        let from = first - max_x.ceil() as i32;
+        let to = first + n as i32 - min_x.floor() as i32;
+        for k in from..=to {
+            let screen: Vec<Pos2> = world
+                .iter()
+                .map(|w| self.view.world_to_screen(rect, [w[0] + f64::from(k), w[1]]))
+                .collect();
+            let bb = Rect::from_points(&screen);
+            if bb.intersects(rect) {
+                painter.add(egui::Shape::line(screen, stroke));
+            }
+        }
+    }
+
+    /// Doğrultu önizlemesi: merkez üssünden fay doğrultusu yönünde ince
+    /// kesikli çizgi (Bölüm 6). Yalnızca YÖN gösterir, uzunluğu ekran
+    /// sabitidir; kırılma uzunluğu Faz 3'te kaynak geometrisiyle gelir.
+    pub fn draw_strike_preview(
+        &self,
+        ui: &egui::Ui,
+        rect: Rect,
+        epicenter: (f64, f64),
+        strike: f64,
+    ) {
+        // Yerel yönü bulmak için doğrultu boyunca 1 km ileri/geri noktalar.
+        let ahead = seismira_core::geo::destination(epicenter, strike, 1.0);
+        let (x0, y0) = mercator::to_unit(epicenter.0, epicenter.1);
+        let (mut x1, y1) = mercator::to_unit(ahead.0, ahead.1);
+        x1 += (x0 - x1).round();
+        let dir = Vec2::new((x1 - x0) as f32, (y1 - y0) as f32).normalized();
+        if !dir.x.is_finite() {
+            return;
+        }
+        let (first, n) = self.view.copies(rect);
+        let painter = ui.painter_at(rect);
+        let half = 60.0;
+        for k in first..first + n as i32 {
+            let c = self.view.world_to_screen(rect, [x0 + f64::from(k), y0]);
+            let pts = [c - dir * half, c + dir * half];
+            painter.add(egui::Shape::dashed_line(
+                &pts,
+                Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 255, 255, 150)),
+                6.0,
+                4.0,
+            ));
+        }
+    }
+}

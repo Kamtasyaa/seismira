@@ -200,3 +200,18 @@ kadar görünmez. Faz 3 başında egui'nin bidi desteği yeniden kontrol edilir;
 gelmemişse `unicode-bidi` ile kelime sırasını düzelten geçici bir katman
 yazılır. Tam çözüm (parley) son çaredir. Sağdan sola örnekleri regresyon
 testi olarak depoda tutulur.
+
+## Geçerlilik kuralları: uygulama durumu (Faz 2, 2026-11-14)
+
+Bölüm 6 tablosu `seismira-core/src/quake.rs` içinde sabit olarak duruyor
+ve henüz DOĞRULANMADI. Kural: Mw ve derinlik aralık dışıysa, arayüzde
+ters fay dışı seçilmişse ya da değer geçersizse Başlat kapalıdır (⛔).
+300 km'den derin odak engellenmez ama "kaba tahmin" uyarısı verilir (⚠).
+Faz 3'te CY14, Faz 5'te Parker vd. (2020) eklenirken her modelin
+yayımlanmış aralığı makaleden alınıp bu sabitler güncellenecek.
+Varsayılan eğim/kayma açıları (doğrultu atımlı 90°/0°, normal 55°/−90°,
+ters 40°/90°) da doğrulanacak değerlerdir.
+
+Doğrultu önizlemesi şimdilik yalnızca YÖN gösterir (ekranda sabit
+uzunluk); kırılma uzunluğu Faz 3'te kaynak geometrisiyle gelecek.
+Taslak değişince (haritaya tıklama dahil) çalışan simülasyon iptal edilir.

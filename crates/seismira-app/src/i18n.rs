@@ -4,7 +4,10 @@
 //! anahtarla tanımlanır ve [`Lang::t`] ile okunur. Dosyalar derleme anında
 //! programa gömülür.
 
+use fluent_bundle::FluentValue;
 use fluent_templates::{LanguageIdentifier, Loader, langid, static_loader};
+use std::borrow::Cow;
+use std::collections::HashMap;
 
 static_loader! {
     static LOCALES = {
@@ -73,6 +76,18 @@ impl Lang {
 }
 
 impl Lang {
+    /// Değişkenli çeviri: `{ $ad }` yerlerine verilen metinler konur.
+    /// Sayılar önceden [`Lang::num`] ile biçimlenip metin olarak verilir.
+    pub fn t_args(self, key: &str, args: &[(&'static str, String)]) -> String {
+        let map: HashMap<Cow<'static, str>, FluentValue> = args
+            .iter()
+            .map(|(k, v)| (Cow::Borrowed(*k), FluentValue::from(v.clone())))
+            .collect();
+        LOCALES
+            .try_lookup_with_args(&self.id(), key, &map)
+            .unwrap_or_else(|| format!("⟨{key}⟩"))
+    }
+
     /// Ondalık sayı, dilin ondalık ayracıyla ("41,01" / "41.01").
     pub fn num(self, v: f64, decimals: usize) -> String {
         let s = format!("{v:.decimals$}");
@@ -97,34 +112,54 @@ impl Lang {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
 
-    fn keys(lang: &str) -> BTreeSet<String> {
+    /// Anahtar → mesajdaki değişken adları (`{ $ad }`).
+    fn messages(lang: &str) -> BTreeMap<String, BTreeSet<String>> {
         let path = format!("{}/locales/{lang}/main.ftl", env!("CARGO_MANIFEST_DIR"));
         std::fs::read_to_string(&path)
             .unwrap()
             .lines()
             .filter_map(|l| {
-                let (k, _) = l.split_once(" =")?;
-                (!k.starts_with(' ') && !k.starts_with('#')).then(|| k.trim().to_string())
+                let (k, v) = l.split_once(" =")?;
+                if k.starts_with(' ') || k.starts_with('#') {
+                    return None;
+                }
+                let vars = v
+                    .split("{ $")
+                    .skip(1)
+                    .filter_map(|r| r.split_once(" }").map(|(n, _)| n.to_string()))
+                    .collect();
+                Some((k.trim().to_string(), vars))
             })
             .collect()
     }
 
     #[test]
-    fn tum_diller_ayni_anahtarlara_sahip() {
-        let tr = keys("tr");
-        let en = keys("en");
+    fn tum_diller_ayni_anahtar_ve_degiskenlere_sahip() {
+        let tr = messages("tr");
+        let en = messages("en");
         assert!(!tr.is_empty());
-        assert_eq!(tr, en, "tr ve en çeviri anahtarları farklı");
+        assert_eq!(
+            tr, en,
+            "tr ve en çeviri anahtarları ya da değişkenleri farklı"
+        );
     }
 
     #[test]
     fn her_anahtar_cozulur() {
         for lang in Lang::ALL {
-            for key in keys(lang.code()) {
-                let text = LOCALES.try_lookup(&lang.id(), &key);
-                assert!(text.is_some(), "{lang:?}: {key} çözülemedi");
+            for (key, vars) in messages(lang.code()) {
+                let args: Vec<(&'static str, String)> = vars
+                    .iter()
+                    .map(|v| (&*v.clone().leak(), "X".to_string()))
+                    .collect();
+                let text = lang.t_args(&key, &args);
+                assert!(!text.starts_with('⟨'), "{lang:?}: {key} çözülemedi");
+                assert!(
+                    !text.contains("{$"),
+                    "{lang:?}: {key} değişken eksik: {text}"
+                );
             }
         }
     }
@@ -140,6 +175,15 @@ mod tests {
     fn koordinat_bicimi() {
         assert_eq!(Lang::Tr.lonlat(28.974, 41.012), "41,01° K, 28,97° D");
         assert_eq!(Lang::En.lonlat(-70.6, -33.45), "33.45° S, 70.60° W");
+    }
+
+    #[test]
+    fn degiskenli_metin() {
+        let s = Lang::Tr.t_args(
+            "issue-mw",
+            &[("min", Lang::Tr.num(4.0, 1)), ("max", Lang::Tr.num(8.5, 1))],
+        );
+        assert!(s.contains("4,0") && s.contains("8,5"), "{s}");
     }
 
     #[test]

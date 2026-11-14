@@ -167,6 +167,29 @@ Erken uyarı (VARSAYIMSAL sistem; arayüzde böyle etiketlenir, çünkü
 - Aşama 3 (isteğe bağlı): sığ su denklemleri, wgpu compute shader.
 
 
+## Uygulama notları
+
+### 7.2 Seyahat süreleri (Faz 2)
+
+- Tablo: `scripts/gen_traveltime.py`, ObsPy 1.5.1 TauP, model "ak135",
+  faz listeleri "ttp" ve "tts"; her noktada en erken varış. Çıktı
+  `data/traveltime/ak135.ttt` (depoda; ObsPy kurulumu ağır olduğu için
+  tablo hazır tutulur).
+- Izgara: mesafe 0–2° (0.02° adım), 2–20° (0.1°), 20–100° (0.25°);
+  derinlik 0–40 km (1 km), 40–100 km (5 km), 100–700 km (10 km).
+- Doğrulama: ızgara dışı 4000 rastgele noktada (1000'i kaynağa yakın
+  0–3°, 0–60 km) TauP değeri `ak135_check.csv`'ye yazılır; Rust testi
+  çift doğrusal ara değerin en büyük hatasını ölçer (ölçüt < 1 s,
+  Bölüm 14). Sonuç aşağıda.
+- Halka yarıçapı: sabit derinlik için t(Δ) eğrisinde ters arama
+  (doğrusal). İlk varış mesafeyle azalmaz; ara değer gürültüsüne karşı
+  eğri kümülatif maksimumla düzlenir.
+- Yüzey geometrisi: halka noktaları WGS84 üzerinde jeodezik (Karney 2013,
+  geographiclib-rs). Episantr açısı ↔ km dönüşümü 6371 km yarıçapla
+  (ObsPy `kilometers2degrees` uzlaşımı; ak135 yarıçapı da 6371 km).
+  Not: Bu uzlaşım jeosentrik enlem düzeltmesi yapmaz; etkisi en fazla
+  ~0.2° enlem (~birkaç saniye varış). Gerekirse ileride düzeltilir.
+
 ## Açık doğrulama notları
 
 - (Faz 0 notu) 7.1'deki moment bağıntısı: M0 = 10^(1.5·Mw + 9.1) N·m,

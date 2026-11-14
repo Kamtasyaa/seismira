@@ -6,9 +6,11 @@ mod devshot;
 mod fonts;
 mod i18n;
 mod map;
+mod panel;
 mod paths;
 mod text_test;
 mod theme;
+mod timeline;
 
 /// Çoklu örnekleme (MSAA): harita çizgileri ve kıyılar için kenar yumuşatma.
 /// Harita çizim hattı da aynı örnek sayısını kullanmak zorundadır.

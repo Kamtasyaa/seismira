@@ -45,3 +45,13 @@ modified = true            # Web Mercator'a izdüşüm, üçgenleme, ikili biçi
 license_checked = "2026-11-14"
 note = "Sınırlar Natural Earth'ün varsayılan gösterimidir; siyasi görüş bildirmez."
 files = "data/map/ne_*.smap (scripts/prepare_data.py ile üretilir)"
+
+[[dataset]]
+id = "ak135-traveltimes"
+name = "ak135 ilk P / ilk S seyahat süresi tablosu (kendi üretimimiz)"
+url = "https://docs.obspy.org/packages/obspy.taup.html"
+license = "GPL-3.0-or-later (tablo bizim üretimimiz; model yayımlanmış)"
+attribution = "Kennett, B.L.N., Engdahl, E.R. & Buland, R. (1995). Constraints on seismic velocities in the Earth from traveltimes. GJI 122, 108-124. Hesap: ObsPy TauP (Krischer vd. 2015; Crotwell vd. 1999)."
+modified = false
+license_checked = "2026-11-14"
+files = "data/traveltime/ak135.ttt, data/traveltime/ak135_check.csv (scripts/gen_traveltime.py)"

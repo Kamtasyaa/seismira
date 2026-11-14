@@ -21,6 +21,7 @@ workspace = true
 bytemuck = { version = "1.25.2", features = ["derive"] }
 eframe = { version = "0.37", default-features = false, features = ["accesskit", "wgpu", "wayland", "x11", "persistence"] }
 env_logger = "0.11.11"
+fluent-bundle = "0.16"
 fluent-templates = "0.15"
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 log = "0.4"
