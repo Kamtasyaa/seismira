@@ -3,3 +3,6 @@
 .DS_Store
 # Ham, indirilen veri depoya girmez; yalnızca data/SOURCES.toml ve küçük işlenmiş dosyalar.
 /data/raw/
+
+# CJK yazı tipleri büyük; scripts/fetch_fonts.py ile indirilir.
+/assets/fonts/cjk/*.otf

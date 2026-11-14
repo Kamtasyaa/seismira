@@ -64,7 +64,8 @@ konu; kullanıcı isterse ileride eklenir).
 
 Uygulamada açık bir uyarı olmalı: "Bu bir eğitim simülasyonudur.
 Gerçek deprem bilgisi için AFAD, Kandilli, JMA veya USGS gibi resmi
-kurumları takip edin."
+kurumları takip edin." Alt çubukta durur; ✕ ile kapatılabilir ama her
+açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
 
 ## 3. Platform, metin, erişilebilirlik (ayrıntı: docs/arayuz.md)
 
@@ -107,8 +108,11 @@ kurumları takip edin."
 
 ## 6–10. Girdiler, harita, bölge vurgusu, arayüz (docs/arayuz.md)
 
-- Sağ panel: konfigürasyon + "Başlat". Sol üst: bildirim akışı. Sol:
-  şehir listesi. Alt: zaman çizgisi. Orta: harita (Web Mercator).
+- Sağ panel: konfigürasyon + "Başlat". Sol panel: YALNIZCA bildirim
+  akışı (şehir listesi yok, 2026-11-14 kullanıcı kararı). Alt: zaman
+  çizgisi + kapatılabilir eğitim uyarısı. Orta: harita (Web Mercator).
+- Kullanıcı haritayı serbestçe gezer ve depremi istediği yerden başlatır
+  (haritaya tıklayarak). Şehir seçerek konum belirleme YOK.
 - Geçerlilik aralığı dışındaki girdi engellenir ya da açıkça uyarılır;
   sessiz ekstrapolasyon YOK.
 - Bölge durumları simülasyon zamanının saf fonksiyonudur.
@@ -179,7 +183,7 @@ gerektiğini söyle, onay al, commit at.
   P/S halkaları. Zaman çizgisi (tüm hızlar). Bildirim akışı.
 - Faz 3: Kaynak geometrisi ve mesafe ölçüleri. CY14. Shindo
   dönüşümü (sabit referans zemin). Şehirler, Shindo kutuları, ölçek
-  açıklaması, şehir listesi. İlk doğrulama (bir kabuk depremi).
+  açıklaması. İlk doğrulama (bir kabuk depremi).
 - Faz 4: Vs30. Kademeli sarsıntı ızgarası. Bölge kimliği rasterı.
   Erken uyarı modeli. Bölge sınırı vurgusu ve yanıp sönme.
   Şehir ve bölge kartları. MMI. Belirsizlik aralığı.

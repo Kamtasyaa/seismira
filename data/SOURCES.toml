@@ -11,3 +11,25 @@
 # attribution = "Made with Natural Earth."
 # modified = true            # türetilmişse "değiştirildi" notu gösterilir
 # license_checked = "YYYY-MM-DD"
+
+[[dataset]]
+id = "noto-fonts"
+name = "Noto Sans yazı tipleri (Latin/Kiril/Yunan ve diğer yazı sistemleri)"
+url = "https://github.com/notofonts/notofonts.github.io"
+license = "OFL-1.1"
+license_file = "assets/fonts/OFL.txt"
+attribution = "Noto fonts © The Noto Project Authors, SIL Open Font License 1.1."
+modified = false
+license_checked = "2026-11-14"
+files = "assets/fonts/*.ttf (sürüm ve SHA256: scripts/fetch_fonts.py)"
+
+[[dataset]]
+id = "noto-cjk"
+name = "Noto Sans CJK (JP, KR, SC, TC; bölgesel alt küme OTF)"
+url = "https://github.com/notofonts/noto-cjk"
+license = "OFL-1.1"
+license_file = "assets/fonts/cjk/OFL.txt"
+attribution = "Noto Sans CJK © 2014-2021 Adobe, SIL Open Font License 1.1."
+modified = false
+license_checked = "2026-11-14"
+files = "assets/fonts/cjk/*.otf (depoda değil; scripts/fetch_fonts.py ile indirilir)"

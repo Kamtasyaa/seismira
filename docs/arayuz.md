@@ -41,7 +41,9 @@
 
 Ana ayarlar:
 - Hazır senaryolar (Bölüm 14'teki gerçek depremler)
-- Konum: haritaya tıklayarak veya enlem/boylam girerek
+- Konum: haritaya tıklayarak veya enlem/boylam girerek. Kullanıcı
+  haritayı serbestçe gezip depremi istediği yerden başlatır; şehir
+  listesinden konum seçme yoktur (2026-11-14 kullanıcı kararı).
 - Büyüklük (Mw)
 - Odak derinliği (km)
 - Tektonik ortam: sığ kabuk / dalma-batma arayüzü / levha içi
@@ -141,8 +143,9 @@ Uygulama notları:
   "P dalgası İstanbul'a ulaştı", "İzmit: Shindo 6+",
   "Tsunami uyarısı: Marmara kıyısı (KIRMIZI)".
   Öneme göre renklenir; tıklanınca harita oraya gider.
-- SOL (bildirimlerin altında, katlanabilir): şehir listesi, dalganın
-  ulaşma sırasıyla (Shindo, P varış, S varış, erken uyarı süresi).
+- SOL panel yalnızca bildirim akışıdır. (v3'teki "şehir listesi"
+  2026-11-14'te kullanıcı kararıyla kaldırıldı; şehir bilgileri haritada
+  şehre tıklanınca açılan şehir kartında ve bildirimlerde gösterilir.)
 - ALT: zaman çizgisi. Oynat/duraklat, ileri-geri sar, "sonraki olaya
   atla". Hızlar: 1x, 10x, 60x, 600x, 3600x (tsunami saatler sürer).
 - Şehir kartı: PGA/PGV, Vs30 ve zemin sınıfı, Shindo + MMI ve olası
@@ -156,3 +159,34 @@ Uygulama notları:
 - Kalite ayarı: Düşük / Orta / Yüksek / Ultra (ızgara çözünürlüğü
   değişir; akıcılık hiçbir ayarda bozulmaz).
 
+
+## Doğrulama notu: egui 0.37 karmaşık yazı testi (2026-11-14)
+
+Yöntem: egui_kittest (wgpu, ekran dışı) ile Noto yazı tipleri yüklenip
+örnek metinler PNG'ye çizildi, aynı metinler `pango-view` ile referans
+olarak çizilip karşılaştırıldı.
+
+| Yazı sistemi | egui 0.37 sonucu |
+|---|---|
+| Latin (Türkçe İ/ı/ş/ğ), Kiril, Yunan | Doğru; fi/fl bitişik harfleri ve kerning var (harfrust, PR #8031) |
+| Devanagari birleşik harfleri (क्ष, त्र, प्र) | Doğru |
+| Tay (üst/alt işaretler) | Doğru (satır kaydırma sözlüğü yok; kısa etiketlerde sorun değil) |
+| Çince, Japonca, Korece | Doğru (yazı tipi sırası dile göre ayarlanmalı, Bölüm 3.1) |
+| Arapça / İbranice tek kelime | Doğru (harfler bitişik, sağdan sola) |
+| Arapça / İbranice çok kelime | YANLIŞ: kelimeler soldan sağa diziliyor ("تل أبيب" → "أبيب تل") |
+| Arapça-Hint rakamları (٧٫٨) | YANLIŞ: ters sırada veya hiç çizilmiyor |
+| Karışık yön (Arapça + Latin) | YANLIŞ |
+
+Neden: epaint kaynak kodunda bidi (UAX #9) yok; `unicode.rs` içinde
+"TODO: heed bidi characters" notu var. Şekillendirme kelime kelime
+yapılıyor, kelimeler hep soldan sağa diziliyor.
+
+Durum: egui deposunda tam RTL/bidi desteği için açık PR'lar var (#8836,
+#8818, #8822, #8577; 2026-11 itibarıyla incelenmemiş).
+
+Karar (2026-11-14): egui 0.37 ile devam. Arayüz dilleri şimdilik TR/EN
+(soldan sağa), bu yüzden sorun Faz 3'e (şehir adları kullanıcının dilinde)
+kadar görünmez. Faz 3 başında egui'nin bidi desteği yeniden kontrol edilir;
+gelmemişse `unicode-bidi` ile kelime sırasını düzelten geçici bir katman
+yazılır. Tam çözüm (parley) son çaredir. Sağdan sola örnekleri regresyon
+testi olarak depoda tutulur.
