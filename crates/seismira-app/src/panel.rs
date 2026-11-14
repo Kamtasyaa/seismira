@@ -2,6 +2,8 @@
 
 use eframe::egui::{self, Color32, RichText};
 use seismira_core::quake::{FaultType, Issue, Quake, Setting};
+use seismira_core::shaking::has_gmpe;
+use seismira_core::source::Fault;
 
 use crate::i18n::Lang;
 
@@ -172,6 +174,54 @@ pub fn ui(
                 });
         });
 
+    egui::CollapsingHeader::new(t("advanced"))
+        .default_open(false)
+        .show(ui, |ui| {
+            egui::Grid::new("quake-adv")
+                .num_columns(2)
+                .spacing([10.0, 8.0])
+                .show(ui, |ui| {
+                    ui.label(t("hypo-along"));
+                    let mut pct = q.hypo_along * 100.0;
+                    if ui
+                        .add(
+                            egui::Slider::new(&mut pct, 0.0..=100.0)
+                                .integer()
+                                .suffix(" %"),
+                        )
+                        .changed()
+                    {
+                        q.hypo_along = pct / 100.0;
+                    }
+                    ui.end_row();
+                    ui.label(t("hypo-down"));
+                    let mut pct = q.hypo_down * 100.0;
+                    if ui
+                        .add(
+                            egui::Slider::new(&mut pct, 0.0..=100.0)
+                                .integer()
+                                .suffix(" %"),
+                        )
+                        .changed()
+                    {
+                        q.hypo_down = pct / 100.0;
+                    }
+                    ui.end_row();
+                });
+            let f = Fault::from_quake(q);
+            ui.label(
+                RichText::new(lang.t_args(
+                    "rupture-size",
+                    &[
+                        ("l", lang.num(f.length, 0)),
+                        ("w", lang.num(f.width, 0)),
+                        ("ztor", lang.num(f.ztor, 1)),
+                    ],
+                ))
+                .weak(),
+            );
+        });
+
     if draft.quake != before {
         action = Action::Changed;
     }
@@ -184,6 +234,9 @@ pub fn ui(
             ("⚠", WARN_COLOR)
         };
         ui.label(RichText::new(format!("{icon} {}", issue_text(lang, issue))).color(color));
+    }
+    if !has_gmpe(draft.quake.setting) {
+        ui.label(RichText::new(format!("ⓘ {}", t("no-gmpe"))).color(WARN_COLOR));
     }
     if !draft.has_epicenter {
         ui.label(RichText::new(t("start-needs-epicenter")).weak());

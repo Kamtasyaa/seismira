@@ -3,11 +3,16 @@
 //! Bu crate arayüzden tamamen bağımsızdır: egui, eframe, wgpu veya
 //! herhangi bir pencere / çizim kütüphanesine bağımlılık EKLENMEZ.
 
+pub mod cities;
 pub mod geo;
+pub mod gmpe;
+pub mod intensity;
 pub mod mapfile;
 pub mod mercator;
 pub mod quake;
+pub mod shaking;
 pub mod sim;
+pub mod source;
 pub mod traveltime;
 
 /// Çekirdek sürümü (Cargo.toml'dan).

@@ -55,3 +55,34 @@ attribution = "Kennett, B.L.N., Engdahl, E.R. & Buland, R. (1995). Constraints o
 modified = false
 license_checked = "2026-11-14"
 files = "data/traveltime/ak135.ttt, data/traveltime/ak135_check.csv (scripts/gen_traveltime.py)"
+
+[[dataset]]
+id = "geonames-cities15000"
+name = "GeoNames cities15000 + admin1CodesASCII (şehirler, nüfus, il/eyalet adları)"
+url = "https://download.geonames.org/export/dump/"
+license = "CC-BY-4.0"
+attribution = "GeoNames (www.geonames.org), CC BY 4.0."
+modified = true            # alan seçimi, nüfusa göre sıralama, admin1 ad eki temizliği, ikili biçim
+license_checked = "2026-11-14"
+snapshot = "2026-11-14; cities15000.zip sha256 f274b5e5f2cff6211cb10cc5b348254a6e00dde9449244d18c0f542beb7581e5; admin1CodesASCII.txt sha256 2e4867f5397acb056ea26377601b57af37cb4c81399770225018e9e439e91ad3"
+files = "data/cities/cities15000.scty (seismira-data geonames)"
+
+[[dataset]]
+id = "cy14-coefficients"
+name = "Chiou & Youngs (2014) GMPE katsayıları"
+url = "https://code.usgs.gov/ghsc/nshmp/nshmp-lib"
+license = "CC0-1.0 / ABD kamu malı"
+attribution = "Chiou & Youngs (2014), Earthquake Spectra 30(3). Katsayı dosyası: USGS nshmp-lib."
+modified = false
+license_checked = "2026-11-14"
+files = "crates/seismira-core/src/gmpe/cy14.csv"
+
+[[dataset]]
+id = "usgs-shakemap-izmit1999"
+name = "USGS ShakeMap, 1999 İzmit (usp0009d4z): istasyon listesi, kırılma, bilgi (yalnızca doğrulama)"
+url = "https://earthquake.usgs.gov/earthquakes/eventpage/usp0009d4z"
+license = "Public Domain (USGS)"
+attribution = "U.S. Geological Survey, ShakeMap (atlas)."
+modified = false
+license_checked = "2026-11-14"
+files = "data/validation/izmit1999/*"

@@ -190,6 +190,71 @@ Erken uyarı (VARSAYIMSAL sistem; arayüzde böyle etiketlenir, çünkü
   Not: Bu uzlaşım jeosentrik enlem düzeltmesi yapmaz; etkisi en fazla
   ~0.2° enlem (~birkaç saniye varış). Gerekirse ileride düzeltilir.
 
+### 7.1 Kaynak geometrisi (Faz 3)
+
+- Alan: Wells & Coppersmith (1994) Tablo 2A, tüm fay tipleri,
+  M = 4.07 + 0.98·log10(A) bağıntısının tersi (USGS nshmp-lib de alanı bu
+  tersten hesaplar; `RuptureScaling.lengthCa08`, kamu malı). Birincil
+  makale (BSSA, ücretli) okunamadı; katsayılar nshmp-lib'den teyit edildi.
+- Genişlik = min(√A, sismojenik taban / sin δ); doyunca L = A / W.
+  Sismojenik taban: 20 km (VARSAYIM; CLAUDE.md "15–25 km"). Hiposantr
+  tabandan derinse taban hiposantr + 1 km'ye iner.
+- Hiposantrın düzlemdeki konumu "İleri seviye" ayarı (varsayılan doğrultu
+  ve eğim boyunca ortada). Ztor ≥ 0 ve taban kısıtı konumu kaydırabilir.
+- Thingbaijam vd. (2017): erişilebilen kopya "tüm haklar saklı, metin ve
+  veri madenciliği / yapay zekâ yasak" notlu olduğu için kullanılmadı.
+- Dalma-batma ve levha içi ölçekleme (Strasser vd. 2010) Faz 5'te.
+- Mesafe ölçüleri NGA-West2 tanımlarıyla; saha, merkez üssü çevresinde
+  azimutal eşit uzaklık düzlemine taşınır (300 km içinde hatası ihmal
+  edilebilir). Testler: dikey/eğimli fay, tavan/taban bloğu, analitik
+  değerler (source.rs).
+
+### 7.4 CY14 (Faz 3)
+
+- Künye: Chiou & Youngs (2014), Earthquake Spectra 30(3), 1117-1153.
+- Katsayılar: USGS nshmp-lib `CY14.csv` (CC0), 2026-11-14 alındı.
+  Fonksiyonel biçim nshmp-lib `ChiouYoungs_2014.java` temel modeline göre
+  (USGS havza ölçeklemesi, CyberShake, PRVI hariç).
+- Seçimler: RotD50; Kaliforniya/küresel temel model (bölgesel düzeltme
+  yok); yönelim terimi yok; havza terimi 0 (ΔZ1 = 0); Vs30 "tahmini".
+  Fay tipi (ters/normal terimleri) kullanıcının seçtiği tipten alınır
+  (nshmp-lib kayma açısından 45–135° / −135–−45° kuralıyla çıkarır).
+- Geçerlilik: Mw 3.5–8.5 doğrultu atımlı, 3.5–8.0 ters/normal; Rrup ≤ 300
+  km; Ztor 0–20 km; Vs30 180–1500 m/s. pygmm de aynı sınırlarla uyarıyor.
+  Bölüm 6'daki kabuk sınırları (4.0–8.5 / 8.0) bununla uyumlu.
+- Test: pygmm 0.9.1 ile 1944 karşılaştırma, fark 0 (docs/dogrulama.md).
+- Faz 3–4 arası zemin: sabit Vs30 = 400 m/s (J-SHIS mühendislik ana
+  kayası tanımı). GEÇİCİ; Faz 4'te Vs30 haritası.
+
+### 7.6 Şiddet dönüşümü (Faz 3)
+
+- Midorikawa, Fujimoto & Muramatsu (1999), Journal of Social Safety
+  Science 1, 51-56, Tablo 2 (J-STAGE'den tam metin okundu):
+  - I = 0~7: I = 2.54 + 1.82·log10(PGV), σ = 0.19 ← KULLANILAN
+  - I = 4~7: I = 2.68 + 1.72·log10(PGV), σ = 0.21 (JMA erken uyarısı;
+    Iwakiri vd. 2011, EPS 63, 57-69, Eş. 6 ile teyit)
+  - PGV: iki yatay bileşenin vektörel bileşkesinin tepesi (水平2成分を
+    合成した最大値) = RotD100.
+- Iwakiri vd. (2011): 4~7 bağıntısı ~2.5'in altında uygun olmayabilir;
+  bu yüzden tüm aralığı kapsayan 0~7 uydurması seçildi.
+- RotD100/RotD50 (PGV) = 1.23: VARSAYIM, DOĞRULANMADI. Shahi & Baker
+  (2014) Tablo 1 yalnızca spektral ivme verir (0.5–1 s'de 1.23–1.24).
+  Boore & Kishida (2017, BSSA) PGV oranını veriyor ancak erişilemedi
+  (yazar sitesinin sertifikası süresi dolmuş). Etkisi ≈ +0.16 şiddet.
+  Kullanıcıdan makaleyi tarayıcıda açması istenebilir.
+- Shindo eşikleri ve yuvarlama: JMA "計測震度の算出方法" (2026-11-14):
+  alt sınır dahil / üst sınır hariç; üçüncü ondalık yuvarlanır, ikincisi
+  atılır.
+- Shindo renkleri: JMA HPColorGuide (Temmuz 2020) Tablo 2-2:
+  7 (180,0,104), 6+ (165,0,33), 6- (255,40,0), 5+ (255,153,0),
+  5- (255,230,0), 4 (250,230,150), 3 (0,65,255), 2 (0,170,255),
+  1 (242,242,255).
+- Faz 8 için not: aynı kılavuz Tablo 1-2 tsunami renkleri: 大津波警報
+  (200,0,255) mor, 津波警報 (255,40,0) kırmızı, 津波注意報 (250,245,0)
+  sarı.
+- Belirsizlik: σ_I = √((1.82·σ_lnPGV / ln10)² + 0.19²); "olası aralık"
+  ±1σ.
+
 ## Açık doğrulama notları
 
 - (Faz 0 notu) 7.1'deki moment bağıntısı: M0 = 10^(1.5·Mw + 9.1) N·m,

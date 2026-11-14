@@ -76,3 +76,23 @@ event-surfaced-s = S dalgası yüzeye ulaştı
 event-limit-p = P dalgası { $deg }°'ye ulaştı; ötesi P gölge bölgesi
 event-limit-s = S dalgası { $deg }°'ye ulaştı; simülasyon sonu
 traveltime-missing = Seyahat süresi tablosu bulunamadı (data/traveltime/ak135.ttt).
+
+# Şiddet ve şehirler (Faz 3)
+shindo-legend = Shindo (JMA)
+city-p-arrived = P dalgası ulaştı: { $city }
+city-shindo = { $city }: Shindo { $shindo }
+region-shindo = { $region }: Shindo { $shindo } (en yüksek: { $city })
+tip-shindo = Shindo { $s } (aletsel şiddet { $i }; olası aralık { $lo } – { $hi })
+tip-pga = PGA: %{ $v } g
+tip-pgv = PGV: { $v } cm/s
+tip-arrivals = P: T+{ $p }, S: T+{ $s } (S − P: { $sp } s)
+tip-distance = Faya uzaklık: { $d } km
+tip-outside-model = Bu mesafede yer hareketi modeli geçerli değil.
+tip-ref-soil = Zemin: referans Vs30 = 400 m/s (geçici)
+no-gmpe = Bu tektonik ortam için yer hareketi modeli henüz yok (Faz 5); yalnızca dalgalar gösterilir.
+no-gmpe-short = Bu ortam için şiddet hesabı henüz yok.
+advanced = İleri seviye
+hypo-along = Odak, doğrultu boyunca
+hypo-down = Odak, eğim boyunca
+rupture-size = Kırılma: { $l } × { $w } km, üst kenar { $ztor } km derinlikte
+model-limit = Tahmin sınırı: faya 300 km

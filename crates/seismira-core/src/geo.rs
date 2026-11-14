@@ -31,6 +31,13 @@ pub fn distance_km(a: (f64, f64), b: (f64, f64)) -> f64 {
     m / 1000.0
 }
 
+/// İki nokta arası jeodezik mesafe (km) ve `a`'daki azimut (derece, kuzeyden
+/// saat yönünde).
+pub fn distance_azimuth(a: (f64, f64), b: (f64, f64)) -> (f64, f64) {
+    let (s12, azi1, _azi2, _a12): (f64, f64, f64, f64) = WGS84.inverse(a.1, a.0, b.1, b.0);
+    (s12 / 1000.0, azi1)
+}
+
 /// `from` noktasından `azimuth_deg` yönünde `km` uzaktaki nokta (boylam, enlem).
 pub fn destination(from: (f64, f64), azimuth_deg: f64, km: f64) -> (f64, f64) {
     let (lat, lon): (f64, f64) = WGS84.direct(from.1, from.0, azimuth_deg, km * 1000.0);

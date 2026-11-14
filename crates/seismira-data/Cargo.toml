@@ -12,4 +12,5 @@ workspace = true
 anyhow = "1.0.104"
 earcut = "0.4"
 seismira-core.workspace = true
+serde_json = "1"
 shapefile = "0.9"

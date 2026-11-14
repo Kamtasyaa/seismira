@@ -4,6 +4,7 @@
 //! Kullanım:
 //! ```text
 //! seismira-data natural-earth <girdi klasörü> <çıktı klasörü>
+//! seismira-data geonames <cities15000.txt> <admin1CodesASCII.txt> <çıktı.scty>
 //! ```
 
 use anyhow::{Context, Result, bail};
@@ -18,8 +19,251 @@ fn main() -> Result<()> {
         [cmd, input, output] if cmd == "natural-earth" => {
             natural_earth(Path::new(input), Path::new(output))
         }
-        _ => bail!("kullanım: seismira-data natural-earth <girdi klasörü> <çıktı klasörü>"),
+        [cmd, stations, rest @ ..] if cmd == "validate-shakemap" => {
+            validate_shakemap(Path::new(stations), rest)
+        }
+        [cmd, cities, admin1, output] if cmd == "geonames" => {
+            geonames(Path::new(cities), Path::new(admin1), Path::new(output))
+        }
+        _ => bail!(
+            "kullanım:\n  seismira-data natural-earth <girdi> <çıktı klasörü>\n  \
+             seismira-data geonames <cities15000.txt> <admin1CodesASCII.txt> <çıktı.scty>"
+        ),
     }
+}
+
+/// ShakeMap istasyon ölçümleriyle karşılaştırma (CLAUDE.md Bölüm 14).
+///
+/// Argümanlar: `<stationlist.json> boylam enlem derinlik Mw doğrultu eğim
+/// fay(SS|RS|NS)`. Gözlenen RotD50 yerine iki yatay bileşenin geometrik
+/// ortalaması kullanılır (Boore 2010: ikisi pratikte çok yakın). İki
+/// karşılaştırma yapılır: (A) ShakeMap'in mesafeleriyle (yalnızca GMPE ve
+/// dönüşüm), (B) bizim fay geometrimizle (tüm zincir). Şiddet farkı, aynı
+/// dönüşümle (Midorikawa vd. 1999) gözlenen ve tahmin edilen PGV'den.
+fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
+    use seismira_core::gmpe::{Imt, cy14};
+    use seismira_core::intensity::jma_from_pgv_rotd50;
+    use seismira_core::quake::{FaultType, Quake};
+    use seismira_core::source::Fault;
+
+    let (base, along) = match args {
+        [b @ .., a] if args.len() == 8 => (b, Some(a.parse::<f64>()?)),
+        b => (b, None),
+    };
+    let [lon, lat, depth, mw, strike, dip, fault] = base else {
+        bail!(
+            "argümanlar: boylam enlem derinlik Mw doğrultu eğim SS|RS|NS [hiposantr_doğrultu_konumu]"
+        );
+    };
+    let fault = match fault.as_str() {
+        "SS" => FaultType::StrikeSlip,
+        "RS" => FaultType::Reverse,
+        "NS" => FaultType::Normal,
+        f => bail!("fay tipi: {f}"),
+    };
+    let mut q = Quake::new((lon.parse()?, lat.parse()?));
+    q.depth_km = depth.parse()?;
+    q.mw = mw.parse()?;
+    q.strike = strike.parse()?;
+    q.dip = dip.parse()?;
+    q.fault = fault;
+    if let Some(a) = along {
+        q.hypo_along = a;
+    }
+    let ours = Fault::from_quake(&q);
+
+    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(stations)?)?;
+    let feats = json["features"].as_array().context("features yok")?;
+    // kod, gözlenen, A, B (ln PGV), ShakeMap Rrup (km)
+    let mut rows: Vec<(String, f64, f64, f64, f64)> = Vec::new();
+    let mut missing = 0usize;
+    for f in feats {
+        let p = &f["properties"];
+        if p["station_type"] != "seismic" {
+            continue;
+        }
+        let horiz: Vec<f64> = p["channels"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|c| matches!(c["name"].as_str(), Some(n) if !n.ends_with('Z')))
+            .filter_map(|c| {
+                c["amplitudes"]
+                    .as_array()?
+                    .iter()
+                    .find(|a| a["name"] == "pgv")?["value"]
+                    .as_f64()
+            })
+            .collect();
+        if horiz.len() != 2 {
+            continue;
+        }
+        let obs = (horiz[0].ln() + horiz[1].ln()) / 2.0;
+        let vs30 = p["vs30"].as_f64().context("vs30")?;
+        let d = &p["distances"];
+        let coords = f["geometry"]["coordinates"].as_array().context("konum")?;
+        let site = (
+            coords[0].as_f64().context("boylam")?,
+            coords[1].as_f64().context("enlem")?,
+        );
+        let predict = |rrup: f64, rjb: f64, rx: f64, ztor: f64| {
+            cy14::predict(
+                Imt::Pgv,
+                &cy14::Input {
+                    mw: q.mw,
+                    rrup,
+                    rjb,
+                    rx,
+                    ztor,
+                    dip: q.dip,
+                    fault,
+                    vs30,
+                },
+            )
+            .map(|m| m.mean)
+        };
+        let (Some(rrup), Some(rjb)) = (d["rrup"].as_f64(), d["rjb"].as_f64()) else {
+            missing += 1; // ShakeMap bazı istasyonlarda mesafe vermiyor
+            continue;
+        };
+        // Yeni ShakeMap sürümleri Rx vermeyebilir: taban bloğu kabul edilir.
+        // (Tavan bloğu terimi cos δ ile çarpılır; dik faylarda etkisi ~0.)
+        let rx = d["rx"].as_f64().unwrap_or(-rjb);
+        // ShakeMap kırılması yüzeyden başlıyor (rupture.json): Ztor = 0.
+        let a = predict(rrup, rjb, rx, 0.0);
+        let od = ours.distances(site);
+        let b = predict(od.rrup, od.rjb, od.rx, ours.ztor);
+        if let (Some(a), Some(b)) = (a, b) {
+            rows.push((
+                p["code"].as_str().unwrap_or("?").to_string(),
+                obs,
+                a,
+                b,
+                rrup,
+            ));
+        }
+    }
+    let to_i = |ln_pgv: f64| jma_from_pgv_rotd50(ln_pgv.exp());
+    println!(
+        "fay (bizim): L = {:.0} km, W = {:.0} km, Ztor = {:.1} km, hiposantr doğrultu konumu {:.2}",
+        ours.length, ours.width, ours.ztor, q.hypo_along
+    );
+    println!(
+        "{} istasyon (model aralığında); mesafesi eksik {} istasyon atlandı\n",
+        rows.len(),
+        missing
+    );
+    println!("| karşılaştırma | ort. ln(göz/tah) | std ln | ort. ΔI (JMA) | |ΔI| < 1 oranı |");
+    println!("|---|---|---|---|---|");
+    for (label, k) in [
+        ("A: ShakeMap mesafeleri", 0),
+        ("B: bizim fay geometrimiz", 1),
+    ] {
+        let res: Vec<f64> = rows
+            .iter()
+            .map(|r| r.1 - if k == 0 { r.2 } else { r.3 })
+            .collect();
+        let di: Vec<f64> = rows
+            .iter()
+            .map(|r| to_i(r.1) - to_i(if k == 0 { r.2 } else { r.3 }))
+            .collect();
+        let n = res.len() as f64;
+        let mean = res.iter().sum::<f64>() / n;
+        let sd = (res.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+        let mean_di = di.iter().sum::<f64>() / n;
+        let within = di.iter().filter(|x| x.abs() < 1.0).count() as f64 / n;
+        println!(
+            "| {label} | {mean:+.2} | {sd:.2} | {mean_di:+.2} | %{:.0} |",
+            within * 100.0
+        );
+    }
+    // Mesafeye göre (ShakeMap Rrup) ortalama ΔI: uzak alan eğilimi.
+    println!("\n| Rrup (km) | n | ort. ΔI (A) | ort. ΔI (B) |\n|---|---|---|---|");
+    for (lo, hi) in [
+        (0.0, 25.0),
+        (25.0, 50.0),
+        (50.0, 100.0),
+        (100.0, 150.0),
+        (150.0, 200.0),
+        (200.0, 300.0),
+    ] {
+        let sel: Vec<_> = rows.iter().filter(|r| r.4 >= lo && r.4 < hi).collect();
+        if sel.is_empty() {
+            continue;
+        }
+        let n = sel.len() as f64;
+        let a = sel.iter().map(|r| to_i(r.1) - to_i(r.2)).sum::<f64>() / n;
+        let b = sel.iter().map(|r| to_i(r.1) - to_i(r.3)).sum::<f64>() / n;
+        println!("| {lo:.0}–{hi:.0} | {} | {a:+.2} | {b:+.2} |", sel.len());
+    }
+    Ok(())
+}
+
+/// GeoNames şehir dökümünü `.scty` biçimine çevirir (nüfusa göre azalan).
+/// Sütunlar: GeoNames readme.txt, "geoname" tablosu (0 tabanlı: 1 ad,
+/// 4 enlem, 5 boylam, 7 özellik kodu, 8 ülke, 10 admin1 kodu, 14 nüfus).
+fn geonames(cities_txt: &Path, admin1_txt: &Path, output: &Path) -> Result<()> {
+    use seismira_core::cities::{City, write};
+    use std::collections::HashMap;
+
+    let admin1: HashMap<String, String> = std::fs::read_to_string(admin1_txt)?
+        .lines()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split('\t').collect();
+            // GeoNames bazı admin1 adlarına İngilizce tür eki koyar
+            // ("Afyonkarahisar Province"); bölge adı olarak gereksiz.
+            let name = f.get(1)?;
+            let name = ["Province", "Prefecture"]
+                .iter()
+                .find_map(|sfx| name.strip_suffix(&format!(" {sfx}")))
+                .unwrap_or(name);
+            Some((f.first()?.to_string(), name.to_string()))
+        })
+        .collect();
+    let mut cities = Vec::new();
+    for (n, line) in std::fs::read_to_string(cities_txt)?.lines().enumerate() {
+        let f: Vec<&str> = line.split('\t').collect();
+        if f.len() < 19 {
+            bail!("satır {}: {} sütun", n + 1, f.len());
+        }
+        let country: [u8; 2] = f[8]
+            .as_bytes()
+            .try_into()
+            .with_context(|| format!("satır {}: ülke kodu '{}'", n + 1, f[8]))?;
+        cities.push(City {
+            name: f[1].to_string(),
+            admin1: admin1
+                .get(&format!("{}.{}", f[8], f[10]))
+                .cloned()
+                .unwrap_or_default(),
+            country,
+            lat: f[4].parse()?,
+            lon: f[5].parse()?,
+            population: f[14].parse().unwrap_or(0),
+            capital: f[7] == "PPLC",
+        });
+    }
+    cities.sort_by(|a, b| {
+        b.population
+            .cmp(&a.population)
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    if let Some(dir) = output.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    write(
+        &cities,
+        &mut std::io::BufWriter::new(std::fs::File::create(output)?),
+    )?;
+    let no_admin = cities.iter().filter(|c| c.admin1.is_empty()).count();
+    println!(
+        "→ {} ({} şehir, {} şehirde il/eyalet adı yok, {:.1} MB)",
+        output.display(),
+        cities.len(),
+        no_admin,
+        std::fs::metadata(output)?.len() as f64 / 1e6
+    );
+    Ok(())
 }
 
 /// Natural Earth katmanlarını ölçek başına bir `.smap` dosyasına çevirir.

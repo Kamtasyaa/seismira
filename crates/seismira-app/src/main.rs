@@ -1,6 +1,8 @@
 //! Seismira masaüstü uygulaması (egui + eframe).
 
 mod app;
+mod city_layer;
+mod compute;
 #[cfg(feature = "screenshot")]
 mod devshot;
 mod fonts;
@@ -8,6 +10,7 @@ mod i18n;
 mod map;
 mod panel;
 mod paths;
+mod shindo_style;
 mod text_test;
 mod theme;
 mod timeline;

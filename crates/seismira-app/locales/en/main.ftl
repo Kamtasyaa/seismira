@@ -76,3 +76,23 @@ event-surfaced-s = S wave reached the surface
 event-limit-p = P wave reached { $deg }°; beyond is the P shadow zone
 event-limit-s = S wave reached { $deg }°; end of simulation
 traveltime-missing = Travel-time table not found (data/traveltime/ak135.ttt).
+
+# Intensity and cities (Phase 3)
+shindo-legend = Shindo (JMA)
+city-p-arrived = P wave arrived: { $city }
+city-shindo = { $city }: Shindo { $shindo }
+region-shindo = { $region }: Shindo { $shindo } (highest: { $city })
+tip-shindo = Shindo { $s } (instrumental intensity { $i }; likely range { $lo } – { $hi })
+tip-pga = PGA: { $v } %g
+tip-pgv = PGV: { $v } cm/s
+tip-arrivals = P: T+{ $p }, S: T+{ $s } (S − P: { $sp } s)
+tip-distance = Distance to fault: { $d } km
+tip-outside-model = The ground-motion model is not valid at this distance.
+tip-ref-soil = Site: reference Vs30 = 400 m/s (provisional)
+no-gmpe = No ground-motion model for this tectonic setting yet (Phase 5); only waves are shown.
+no-gmpe-short = No intensity estimate for this setting yet.
+advanced = Advanced
+hypo-along = Hypocenter, along strike
+hypo-down = Hypocenter, down dip
+rupture-size = Rupture: { $l } × { $w } km, top edge at { $ztor } km depth
+model-limit = Estimate limit: 300 km from fault

@@ -55,6 +55,13 @@ pub struct Quake {
     pub dip: f64,
     /// Kayma açısı (rake), −180–180°.
     pub rake: f64,
+    /// İleri seviye: hiposantrın fay üzerindeki konumu, doğrultu boyunca
+    /// (0 = doğrultunun başlangıç ucu, 1 = bitiş ucu). Varsayılan 0.5.
+    pub hypo_along: f64,
+    /// İleri seviye: hiposantrın eğim boyunca konumu (0 = üst kenar,
+    /// 1 = alt kenar). Varsayılan 0.5. Ztor ≥ 0 ve sismojenik taban kısıtı
+    /// gerekirse bunu değiştirir (bkz. source.rs).
+    pub hypo_down: f64,
 }
 
 impl Quake {
@@ -70,6 +77,8 @@ impl Quake {
             strike: 0.0,
             dip,
             rake,
+            hypo_along: 0.5,
+            hypo_down: 0.5,
         }
     }
 }

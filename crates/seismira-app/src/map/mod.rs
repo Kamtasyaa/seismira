@@ -260,6 +260,28 @@ impl MapWidget {
     /// kopyalarında tekrarlanır. Kutbu çevreleyen halka Mercator'da kapanmaz;
     /// komşu kopyaya taşan uçlar da çizildiği için kesintisiz görünür.
     pub fn draw_lonlat_line(&self, ui: &egui::Ui, rect: Rect, pts: &[(f64, f64)], stroke: Stroke) {
+        self.draw_lonlat_impl(ui, rect, pts, stroke, false);
+    }
+
+    /// Kesikli çizgi (ör. model geçerlilik sınırı).
+    pub fn draw_lonlat_dashed(
+        &self,
+        ui: &egui::Ui,
+        rect: Rect,
+        pts: &[(f64, f64)],
+        stroke: Stroke,
+    ) {
+        self.draw_lonlat_impl(ui, rect, pts, stroke, true);
+    }
+
+    fn draw_lonlat_impl(
+        &self,
+        ui: &egui::Ui,
+        rect: Rect,
+        pts: &[(f64, f64)],
+        stroke: Stroke,
+        dashed: bool,
+    ) {
         if pts.len() < 2 {
             return;
         }
@@ -285,42 +307,26 @@ impl MapWidget {
                 .collect();
             let bb = Rect::from_points(&screen);
             if bb.intersects(rect) {
-                painter.add(egui::Shape::line(screen, stroke));
+                if dashed {
+                    painter.extend(egui::Shape::dashed_line(&screen, stroke, 7.0, 5.0));
+                } else {
+                    painter.add(egui::Shape::line(screen, stroke));
+                }
             }
         }
     }
+}
 
-    /// Doğrultu önizlemesi: merkez üssünden fay doğrultusu yönünde ince
-    /// kesikli çizgi (Bölüm 6). Yalnızca YÖN gösterir, uzunluğu ekran
-    /// sabitidir; kırılma uzunluğu Faz 3'te kaynak geometrisiyle gelir.
-    pub fn draw_strike_preview(
-        &self,
-        ui: &egui::Ui,
-        rect: Rect,
-        epicenter: (f64, f64),
-        strike: f64,
-    ) {
-        // Yerel yönü bulmak için doğrultu boyunca 1 km ileri/geri noktalar.
-        let ahead = seismira_core::geo::destination(epicenter, strike, 1.0);
-        let (x0, y0) = mercator::to_unit(epicenter.0, epicenter.1);
-        let (mut x1, y1) = mercator::to_unit(ahead.0, ahead.1);
-        x1 += (x0 - x1).round();
-        let dir = Vec2::new((x1 - x0) as f32, (y1 - y0) as f32).normalized();
-        if !dir.x.is_finite() {
-            return;
-        }
-        let (first, n) = self.view.copies(rect);
-        let painter = ui.painter_at(rect);
-        let half = 60.0;
-        for k in first..first + n as i32 {
-            let c = self.view.world_to_screen(rect, [x0 + f64::from(k), y0]);
-            let pts = [c - dir * half, c + dir * half];
-            painter.add(egui::Shape::dashed_line(
-                &pts,
-                Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 255, 255, 150)),
-                6.0,
-                4.0,
-            ));
-        }
+impl MapWidget {
+    /// Dünya genişliği (point); ayrıntı ve etiket yoğunluğu kararları için.
+    pub fn scale(&self) -> f64 {
+        self.view.scale
+    }
+
+    /// (boylam, enlem) → ekran; görünüm merkezine en yakın dünya kopyasında.
+    pub fn to_screen(&self, rect: Rect, lonlat: (f64, f64)) -> Pos2 {
+        let (x, y) = mercator::to_unit(lonlat.0, lonlat.1);
+        let x = x + (self.view.center[0] - x).round();
+        self.view.world_to_screen(rect, [x, y])
     }
 }
