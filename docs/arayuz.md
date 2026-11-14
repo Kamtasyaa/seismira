@@ -297,6 +297,14 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
 - Dolgu: Admin-1 halkaları (dış + delik bayrağı, `.sout` v2) etkilenen
   bölgeler için arka planda earcut ile üçgenlenir; kara, göller ve ızgaranın
   üstünde, sınır katmanlarının altında çizilir.
+- İl rengi (kullanıcı kararı 2026-11-15): bildirim JMA gibi EN YÜKSEK
+  değeri yazar; il dolgusu ve sınırı YAYGIN değerle boyanır: yerleşim
+  hücrelerinin en az %10'unun ulaştığı en yüksek sınıf (`TYPICAL_FRACTION`,
+  seçim), aynı kademeli yükselişle (sınıf k, hücrelerin %10'u k'ya
+  ulaştığında görünür). Örnek (28,552 D 40,598 K, Mw 7.0, doğrultu 0°):
+  Bursa'da 1 952 yerleşim hücresinin 7'si 6- (fayın güney ucundaki
+  Zeytinbağı–Kurşunlu kıyısı) → bildirim "Bursa: 6-", il rengi 5-.
+  Yanıp sönme kararı (nihai en yüksek ≥ 3) en yüksek değere bakar.
 - Durum → görünüm:
   - Uyarı: beyaz sınır 2 pt; beyaz dolgu %4–%14 yanıp söner. Yalnızca P
     dalgasının ulaştığı bölgelerde (bölgedeki ilk P varışı; kullanıcı

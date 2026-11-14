@@ -158,10 +158,22 @@ pub struct RegionSummary {
     pub at: (f64, f64),
     /// Bölgede (seçilen hücrelerde) sarsıntının bittiği en geç an.
     pub t_end: f64,
+    /// Yaygın Shindo: seçilen hücrelerin en az [`TYPICAL_FRACTION`]'ının
+    /// ulaştığı en yüksek sınıf. Bölge dolgusu ve sınırı bununla boyanır
+    /// (bildirim en yüksek değeri yazar; kullanıcı kararı 2026-11-15).
+    pub typical: Shindo,
+    /// `typical_times[k]`: yaygın Shindo'nun k'ya ulaştığı an (kademeli
+    /// yükselişle; seçilen hücrelerin %10'u k'ya ulaştığında).
+    pub typical_times: [f64; 10],
     /// `class_times[k]`: bölgede gösterilen en yüksek Shindo'nun k'ya
     /// ulaştığı an (kademeli yükselişle; hiç ulaşmazsa sonsuz).
     pub class_times: [f64; 10],
 }
+
+/// Yaygın Shindo eşiği: bölgedeki seçilen (yerleşim) hücrelerinin oranı.
+/// Seçim (görsel): birkaç hücrelik yerel uç değer bütün ili boyamasın,
+/// ama ilin onda birini kaplayan güçlü sarsıntı görünsün.
+pub const TYPICAL_FRACTION: f64 = 0.10;
 
 /// Bölgenin görünür durumu (Bölüm 9); simülasyon zamanının saf fonksiyonu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -169,9 +181,9 @@ pub enum RegionState {
     Quiet,
     /// Uyarı yayımlandı, P bölgeye ulaştı, S henüz ulaşmadı.
     Warning,
-    /// Sarsıntı sürüyor; o ana kadar ulaşılan en yüksek Shindo.
+    /// Sarsıntı sürüyor; o ana kadar ulaşılan YAYGIN Shindo (en az 1).
     Shaking(Shindo),
-    /// Sarsıntı bitti; nihai en yüksek Shindo.
+    /// Sarsıntı bitti; nihai yaygın Shindo.
     Settled(Shindo),
 }
 
@@ -184,15 +196,24 @@ impl RegionSummary {
             .map(|k| Shindo::ALL[k])
     }
 
-    /// Bölgenin durumu. `t_alert`: uyarı yayımlandıysa ve bölge
-    /// kapsamdaysa uyarı anı. `t_end`: bölgede sarsıntının bittiği an
-    /// (bilinmiyorsa `None`: sarsıntı sürer).
+    /// `t` anında bölgenin yaygın Shindo'su (1 ve üstü).
+    pub fn typical_at(&self, t: f64) -> Option<Shindo> {
+        (1..10)
+            .rev()
+            .find(|&k| self.typical_times[k] <= t)
+            .map(|k| Shindo::ALL[k])
+    }
+
+    /// Bölgenin durumu. Sarsıntı, bölgede herhangi bir hücrede başladığında
+    /// başlar; gösterilen değer yaygın Shindo'dur. `t_alert`: uyarı
+    /// yayımlandıysa ve bölge kapsamdaysa uyarı anı. `t_end`: bölgede
+    /// sarsıntının bittiği an (bilinmiyorsa `None`: sarsıntı sürer).
     pub fn state(&self, t: f64, t_alert: Option<f64>, t_end: Option<f64>) -> RegionState {
-        if let Some(s) = self.shindo_at(t) {
+        if self.shindo_at(t).is_some() {
             return if t_end.is_some_and(|e| t >= e) {
-                RegionState::Settled(self.max)
+                RegionState::Settled(self.typical)
             } else {
-                RegionState::Shaking(s)
+                RegionState::Shaking(self.typical_at(t).unwrap_or(Shindo::S1))
             };
         }
         // Uyarı yalnızca P dalgası bölgeye ulaştıktan sonra görünür
@@ -270,6 +291,8 @@ pub fn summarize(
                 built_cells: 0,
                 at,
                 class_times: [f64::INFINITY; 10],
+                typical: Shindo::S0,
+                typical_times: [f64::INFINITY; 10],
             };
             let e = acc.entry(id).or_insert((fresh, None));
             update(&mut e.0, s, (tp, ts), peak, end, at);
@@ -292,6 +315,53 @@ pub fn summarize(
         })
         .collect();
     out.sort_by_key(|r| r.id);
+
+    // Yaygın Shindo: ikinci geçiş, her bölgenin seçilen hücre kümesinde
+    // (yerleşim hücresi varsa yalnızca onlar) sınıf başına ulaşma anları.
+    let index: HashMap<RegionId, usize> = out.iter().enumerate().map(|(k, r)| (r.id, k)).collect();
+    let mut times: Vec<[Vec<f64>; 10]> = vec![Default::default(); out.len()];
+    for row in 0..grid.spec.height {
+        for col in 0..grid.spec.width {
+            let i = (row * grid.spec.width + col) as usize;
+            let class = grid.class[i];
+            if class == NO_DATA {
+                continue;
+            }
+            let bx = (col * step + step / 2).min(domain.w - 1) as usize;
+            let by = (row * step + step / 2).min(domain.h - 1) as usize;
+            let raw = ids[by * domain.w as usize + bx];
+            let Some(&k) = index.get(&(raw & ID_MASK)) else {
+                continue;
+            };
+            if out[k].built_cells > 0 && raw & BUILT_BIT == 0 {
+                continue;
+            }
+            let ts = f64::from(grid.t_s[i]);
+            for (c, list) in times[k]
+                .iter_mut()
+                .enumerate()
+                .take(class as usize + 1)
+                .skip(1)
+            {
+                list.push(ts + (c - 1) as f64 * rise);
+            }
+        }
+    }
+    for (r, mut t) in out.iter_mut().zip(times) {
+        let n = if r.built_cells > 0 {
+            r.built_cells
+        } else {
+            r.cells
+        };
+        let need = ((f64::from(n) * TYPICAL_FRACTION).ceil() as usize).max(1);
+        for (c, list) in t.iter_mut().enumerate().skip(1) {
+            if list.len() >= need {
+                list.sort_by(f64::total_cmp);
+                r.typical_times[c] = list[need - 1];
+                r.typical = Shindo::ALL[c];
+            }
+        }
+    }
     out
 }
 
@@ -512,6 +582,8 @@ mod tests {
         assert_eq!(s[0].cells, 2);
         assert_eq!(s[0].t_end, 50.0);
         assert_eq!(s[0].t_first_p, 4.0);
+        // 2 hücre: %10 → 1 hücre yeter; yaygın = en yüksek.
+        assert_eq!(s[0].typical, Shindo::S6Lower);
         // 6- = S1'den 6 adım: 8 + 6·0,4.
         assert!((s[0].t_peak - (8.0 + 6.0 * crate::shaking::RISE_STEP_S)).abs() < 1e-9);
         assert_eq!(s[1].max, Shindo::S3);
@@ -588,6 +660,46 @@ mod tests {
     }
 
     #[test]
+    fn yaygin_deger_birkac_uc_hucreyi_yok_sayar() {
+        // 1×20 ızgara, hepsi bölge 1 ve yerleşim: 19 hücre 4, 1 hücre 6-.
+        let n = 20;
+        let domain = Domain {
+            base: Base::GLOBAL_30S,
+            col0: 0,
+            row0: 0,
+            w: n,
+            h: 1,
+        };
+        let mut class = vec![Shindo::S4 as u8; n as usize];
+        class[0] = Shindo::S6Lower as u8;
+        let grid = ShakeGrid {
+            spec: GridSpec {
+                west: 0.0,
+                north: 0.0,
+                cell: 1.0,
+                width: n,
+                height: 1,
+            },
+            class,
+            jma: vec![4.0; n as usize],
+            t_p: vec![1.0; n as usize],
+            t_s: (0..n).map(|i| 10.0 + i as f32).collect(),
+            t_end: vec![60.0; n as usize],
+        };
+        let ids = vec![1 | BUILT_BIT; n as usize];
+        let r = summarize(&grid, &domain, 1, &ids)[0];
+        assert_eq!(r.max, Shindo::S6Lower);
+        assert_eq!(r.typical, Shindo::S4);
+        // %10 = 2 hücre: 4'e ulaşan 2. hücre (S varışı 11 s) + 3 adım.
+        let rise = crate::shaking::RISE_STEP_S;
+        assert!((r.typical_times[Shindo::S4 as usize] - (11.0 + 3.0 * rise)).abs() < 1e-9);
+        assert_eq!(
+            r.state(100.0, None, Some(60.0)),
+            RegionState::Settled(Shindo::S4)
+        );
+    }
+
+    #[test]
     fn durum_zamanin_saf_fonksiyonu() {
         let rise = crate::shaking::RISE_STEP_S;
         let mut class_times = [f64::INFINITY; 10];
@@ -610,6 +722,8 @@ mod tests {
             at: (0.0, 0.0),
             t_end: 25.0,
             class_times,
+            typical: Shindo::S5Upper,
+            typical_times: class_times,
         };
         assert_eq!(r.state(5.0, Some(8.0), None), RegionState::Quiet);
         // Uyarı yayımlandı ama P henüz ulaşmadı → sessiz.
