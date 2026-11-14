@@ -5,6 +5,7 @@ disclaimer-close = Close notice
 
 menu-view = View
 menu-disclaimer = Educational notice
+menu-shake-grid = Shaking area
 menu-text-test = Text test
 menu-language = Language
 

@@ -230,3 +230,23 @@ alt fay zamanlaması (t_tepe) ile fiziksel tepe zamanına bağlanacak.
 Kutusu komşu kutuyla çakıştığı için çizilmeyen şehirlerde (kalabalık
 azaltma) nokta o anki Shindo renginde çizilir; değer fare ile kartta
 okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
+
+## Sarsıntı alanı (ızgara) katmanı (Faz 4 adım 2, 2026-11-14)
+
+- Hesap: `seismira-core/src/grid.rs`. Alan, Rrup ≤ 300 km eğrisinin sınır
+  kutusu; hücreler Vs30 haritasının 30″ hücrelerine hizalı (yeniden
+  örnekleme yok). Önce 8 kat kaba, sonra ince geçiş; ikisi de arka planda,
+  iptal edilebilir. Su / buz ve model dışı hücreler boş.
+- Ölçüm (referans makine, rayon 8 iş parçacığı): Mw 7.5 Marmara 1077×667
+  hücre ince geçiş ~130–180 ms, kaba ~2–40 ms; Mw 8: 1577×697, ~200 ms.
+  Bu yüzden Bölüm 11'deki "kaynağa yakın ince, uzakta kaba" ayrımına şimdilik
+  gerek olmadı: tüm alan Vs30 çözünürlüğünde. Kenar > 2048 hücreyse adım
+  büyür (GPU doku sınırı; GL yedeği dahil).
+- Çizim: ızgara bir kez Rg32Float dokuya yüklenir (son sınıf, S varışı);
+  shader ekran noktasını Mercator'dan enlem/boylama çevirip hücreyi okur
+  ve şehir kutularıyla aynı kademeli yükselişi uygular (zamanın saf
+  fonksiyonu; her karede yalnızca uniform güncellenir). Kara ve göllerin
+  üstünde, sınırların altında; opaklık %70 (görsel ayar; %45'te sarılar
+  koyu zeminle zeytin rengine dönüyordu).
+- Görünüm menüsü → "Sarsıntı alanı" ile kapatılabilir.
+- Bilinen: açık renkli (4, 5-) alanlar üstünde şehir adları zor okunuyor.

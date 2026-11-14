@@ -1,12 +1,15 @@
 //! Harita bileşeni: kaydırma, yakınlaştırma, yatay tekrar, merkez üssü seçimi.
 
 mod gpu;
+mod grid_gpu;
 pub mod view;
 
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
+use seismira_core::grid::{GridSpec, ShakeGrid};
 use seismira_core::mapfile::MapFile;
 use seismira_core::mercator;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 
 use gpu::{Draw, LOD_FILES, LayerId, MapGpu, MapPaint, Uniforms};
@@ -53,7 +56,17 @@ pub struct MapWidget {
     loaded: [bool; 3],
     errors: Vec<String>,
     gpu_ready: bool,
+    /// GPU'ya yüklenmeyi bekleyen sarsıntı ızgarası (`Some(None)`: kaldır).
+    grid_pending: Option<Option<Arc<ShakeGrid>>>,
+    /// Yüklü ızgaranın geometrisi.
+    grid_spec: Option<GridSpec>,
+    /// Bu karede ızgara gösterilecekse simülasyon zamanı.
+    grid_time: Option<f64>,
 }
+
+/// Sarsıntı ızgarası katmanının opaklığı (görsel ayar): sınırlar ve
+/// şehir kutuları okunur kalsın.
+const GRID_OPACITY: f32 = 0.7;
 
 impl MapWidget {
     pub fn new(data_dir: PathBuf, view: MapView) -> Self {
@@ -81,7 +94,21 @@ impl MapWidget {
             loaded: [false; 3],
             errors: Vec::new(),
             gpu_ready: false,
+            grid_pending: None,
+            grid_spec: None,
+            grid_time: None,
         }
+    }
+
+    /// Yeni sarsıntı ızgarası (ya da `None`: kaldır). Bir sonraki karede
+    /// GPU'ya yüklenir.
+    pub fn set_grid(&mut self, grid: Option<Arc<ShakeGrid>>) {
+        self.grid_pending = Some(grid);
+    }
+
+    /// Bu karede ızgara gösterilecekse simülasyon zamanı.
+    pub fn set_grid_time(&mut self, t: Option<f64>) {
+        self.grid_time = t;
     }
 
     /// Kaba harita yüklendi mi (ekranda bir şey var mı)?
@@ -128,6 +155,19 @@ impl MapWidget {
             gpu.upload(&rs.device, lod, &map);
             self.loaded[lod] = gpu.has_lod(lod);
             log::info!("harita yüklendi: {}", LOD_FILES[lod]);
+        }
+        if let Some(grid) = self.grid_pending.take() {
+            if resources.get::<grid_gpu::GridGpu>().is_none() {
+                resources.insert(grid_gpu::GridGpu::new(&rs.device, rs.target_format, msaa));
+            }
+            let g = resources
+                .get_mut::<grid_gpu::GridGpu>()
+                .expect("az önce eklendi");
+            match grid {
+                Some(grid) => g.upload(&rs.device, &rs.queue, &grid),
+                None => g.loaded = None,
+            }
+            self.grid_spec = g.loaded.as_ref().map(|(_, s)| *s);
         }
     }
 
@@ -213,8 +253,20 @@ impl MapWidget {
             layers.push((LayerId::Admin1, colors::ADMIN1));
         }
         layers.push((LayerId::Admin0, colors::ADMIN0));
+        // Izgara, kara ve göllerden sonra (sınırların altında).
+        let grid = self
+            .grid_spec
+            .zip(self.grid_time)
+            .map(|(spec, t)| (self.grid_uniforms(rect, &spec, t), 2));
         MapPaint {
             lod,
+            grid,
+            // Izgara [0, 1) dışına taşabilir: bir kopya öncesi ve sonrası da.
+            copies: if self.grid_spec.is_some() {
+                0..n_copies + 2
+            } else {
+                0..0
+            },
             draws: layers
                 .into_iter()
                 .map(|(layer, color)| Draw {
@@ -223,6 +275,39 @@ impl MapWidget {
                     copies: 0..n_copies,
                 })
                 .collect(),
+        }
+    }
+
+    fn grid_uniforms(&self, rect: Rect, spec: &GridSpec, t: f64) -> grid_gpu::GridUniforms {
+        use seismira_core::intensity::Shindo;
+        let v = &self.view;
+        let (first_copy, _) = v.copies(rect);
+        let east = spec.west + spec.cell * f64::from(spec.width);
+        let south = spec.north - spec.cell * f64::from(spec.height);
+        let (x0, y0) = mercator::to_unit(spec.west, spec.north);
+        // Doğu kenarı batıya göre açılmış kalsın (180° meridyeni).
+        let (x1, y1) = mercator::to_unit(spec.west, south);
+        let x1 = x1 + (east - spec.west) / 360.0;
+        let mut colors = [[0.0; 4]; 10];
+        for (k, s) in Shindo::ALL.iter().enumerate() {
+            colors[k] = crate::shindo_style::color(*s).to_normalized_gamma_f32();
+        }
+        grid_gpu::GridUniforms {
+            scale: [
+                (2.0 * v.scale / f64::from(rect.width())) as f32,
+                (-2.0 * v.scale / f64::from(rect.height())) as f32,
+            ],
+            center: [v.center[0] as f32, v.center[1] as f32],
+            bbox: [x0 as f32, y0 as f32, x1 as f32, y1 as f32],
+            north: spec.north as f32,
+            cell: spec.cell as f32,
+            // Izgara bir kopya önceden başlayabilir (batı kenarı < −180°).
+            first_copy: (first_copy - 1) as f32,
+            t: t as f32,
+            rise: seismira_core::shaking::RISE_STEP_S as f32,
+            opacity: GRID_OPACITY,
+            _pad: [0.0; 2],
+            colors,
         }
     }
 

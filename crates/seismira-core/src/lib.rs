@@ -6,6 +6,7 @@
 pub mod cities;
 pub mod geo;
 pub mod gmpe;
+pub mod grid;
 pub mod intensity;
 pub mod mapfile;
 pub mod mercator;

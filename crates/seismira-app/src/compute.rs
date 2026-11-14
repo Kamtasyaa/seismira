@@ -1,4 +1,5 @@
-//! Arka plan hesabı: şehir başına sarsıntı ve varış zamanları.
+//! Arka plan hesabı: şehir başına sarsıntı ve varış zamanları, ardından
+//! sarsıntı ızgarası (önce kaba, sonra ince; CLAUDE.md Bölüm 11).
 //!
 //! Arayüz iş parçacığı beklemez (CLAUDE.md Bölüm 11): hesap ayrı bir iş
 //! parçacığında yapılır, sonuç kanalla gelir. Parametre değişince eski iş
@@ -11,7 +12,7 @@ use seismira_core::site::{Site, Vs30Map};
 use seismira_core::traveltime::TravelTimes;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, channel};
+use std::sync::mpsc::{Receiver, TryRecvError, channel};
 
 /// Vs30 haritası (dosya belleğe eşlenir; yalnızca gereken döşemeler okunur).
 pub type Vs30 = Vs30Map<memmap2::Mmap>;
@@ -38,9 +39,16 @@ pub struct CityResults {
     pub model_limit: Option<Vec<(f64, f64)>>,
 }
 
+/// Arka plan işinin ürettiği sonuçlar (geliş sırasıyla).
+pub enum JobMsg {
+    Cities(CityResults),
+    /// Sarsıntı ızgarası (önce kaba ön sonuç, sonra ince; sonraki öncekinin yerine geçer).
+    Grid(Arc<seismira_core::grid::ShakeGrid>),
+}
+
 pub struct Job {
     cancel: Arc<AtomicBool>,
-    rx: Receiver<CityResults>,
+    rx: Receiver<JobMsg>,
 }
 
 impl Job {
@@ -90,28 +98,86 @@ impl Job {
                     started.elapsed().as_millis()
                 );
                 if tx
-                    .send(CityResults {
+                    .send(JobMsg::Cities(CityResults {
                         sites,
                         felt_radius_deg,
                         model_limit,
-                    })
-                    .is_ok()
+                    }))
+                    .is_err()
                 {
-                    ctx.request_repaint();
+                    return;
+                }
+                ctx.request_repaint();
+                if seismira_core::shaking::has_gmpe(quake.setting) {
+                    shake_grid(&scenario, vs30.as_deref(), &flag, &tx, &ctx);
                 }
             })
             .expect("iş parçacığı başlatılamadı");
         Self { cancel, rx }
     }
 
-    /// Sonuç geldiyse döndürür.
-    pub fn poll(&self) -> Option<CityResults> {
-        self.rx.try_recv().ok()
+    /// Gelen sonuçlar ve iş bitti mi (kanal kapandı).
+    pub fn poll(&self) -> (Vec<JobMsg>, bool) {
+        let mut out = Vec::new();
+        loop {
+            match self.rx.try_recv() {
+                Ok(m) => out.push(m),
+                Err(TryRecvError::Empty) => return (out, false),
+                Err(TryRecvError::Disconnected) => return (out, true),
+            }
+        }
     }
 }
 
 impl Drop for Job {
     fn drop(&mut self) {
         self.cancel.store(true, Ordering::Relaxed);
+    }
+}
+
+/// Sarsıntı ızgarası: Vs30 penceresi bir kez okunur, önce kaba sonra ince
+/// geçiş gönderilir. Referans makinede Mw 8 için ince geçiş ~0,2 s.
+fn shake_grid(
+    scenario: &Scenario,
+    vs30: Option<&Vs30>,
+    cancel: &AtomicBool,
+    tx: &std::sync::mpsc::Sender<JobMsg>,
+    ctx: &eframe::egui::Context,
+) {
+    use seismira_core::grid::{self, Base, COARSE_FACTOR, Domain};
+    let started = std::time::Instant::now();
+    let base = vs30.map_or(Base::GLOBAL_30S, |m| {
+        let g = m.grid();
+        Base {
+            west: g.west,
+            north: g.north,
+            cell: g.cell,
+        }
+    });
+    let domain = Domain::for_scenario(scenario, base);
+    let window = match vs30.map(|m| m.window(domain.col0, domain.row0, domain.w, domain.h)) {
+        Some(Ok(w)) => Some(w),
+        Some(Err(e)) => {
+            log::error!("Vs30 penceresi okunamadı: {e}");
+            None
+        }
+        None => None,
+    };
+    let step = domain.fine_step();
+    for (s, fine) in [(step * COARSE_FACTOR, false), (step, true)] {
+        let Some(g) = grid::compute(scenario, &domain, s, window.as_deref(), cancel) else {
+            return; // iptal
+        };
+        log::info!(
+            "sarsıntı ızgarası {}×{} ({}) {} ms",
+            g.spec.width,
+            g.spec.height,
+            if fine { "ince" } else { "kaba" },
+            started.elapsed().as_millis()
+        );
+        if tx.send(JobMsg::Grid(Arc::new(g))).is_err() {
+            return;
+        }
+        ctx.request_repaint();
     }
 }

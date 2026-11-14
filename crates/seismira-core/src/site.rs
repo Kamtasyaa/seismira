@@ -107,6 +107,21 @@ impl<B: AsRef<[u8]>> Vs30Map<B> {
         Ok(Self { raster, median, sd })
     }
 
+    pub fn grid(&self) -> crate::raster::Grid {
+        self.raster.grid
+    }
+
+    /// Dikdörtgen pencere (bkz. [`Raster::window`]): kara hücrelerinde
+    /// Vs30 (m/s), su / buz / ızgara dışında NaN.
+    pub fn window(&self, col0: i64, row0: i64, w: u32, h: u32) -> io::Result<Vec<f32>> {
+        let layer = &self.raster.layers[self.median];
+        let codes = self.raster.window(self.median, col0, row0, w, h, u8::MAX)?;
+        Ok(codes
+            .into_iter()
+            .map(|c| layer.value(c).unwrap_or(f32::NAN))
+            .collect())
+    }
+
     /// Tam hücredeki değer; su / buz / ızgara dışı ise `None`.
     pub fn value_at(&self, lon: f64, lat: f64) -> io::Result<Option<(f64, Option<f64>)>> {
         let Some(code) = self.raster.code_at(self.median, lon, lat)? else {

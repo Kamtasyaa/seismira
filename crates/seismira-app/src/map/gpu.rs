@@ -221,6 +221,10 @@ pub struct Draw {
 pub struct MapPaint {
     pub lod: usize,
     pub draws: Vec<Draw>,
+    /// Sarsıntı ızgarası: uniform verisi ve kaçıncı katmandan önce çizileceği
+    /// (kara ve göllerin üstünde, sınırların altında).
+    pub grid: Option<(super::grid_gpu::GridUniforms, usize)>,
+    pub copies: Range<u32>,
 }
 
 impl CallbackTrait for MapPaint {
@@ -241,6 +245,11 @@ impl CallbackTrait for MapPaint {
                 );
             }
         }
+        if let (Some((u, _)), Some(grid)) =
+            (&self.grid, resources.get::<super::grid_gpu::GridGpu>())
+        {
+            queue.write_buffer(&grid.uniforms, 0, bytemuck::bytes_of(u));
+        }
         Vec::new()
     }
 
@@ -254,7 +263,13 @@ impl CallbackTrait for MapPaint {
             return;
         };
         let layers = &gpu.lods[self.lod];
+        let grid = resources.get::<super::grid_gpu::GridGpu>();
         for (i, draw) in self.draws.iter().take(MAX_DRAWS).enumerate() {
+            if let (Some((_, before)), Some(g)) = (&self.grid, grid)
+                && *before == i
+            {
+                g.draw(pass, self.copies.clone());
+            }
             let Some((_, layer)) = layers.iter().find(|(id, _)| *id == draw.layer) else {
                 continue;
             };

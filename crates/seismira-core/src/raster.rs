@@ -320,6 +320,51 @@ impl<B: AsRef<[u8]>> Raster<B> {
         Ok(Tile::Data(data))
     }
 
+    /// Dikdörtgen pencere: sol üst hücre (`col0`, `row0`), `w × h` hücre,
+    /// satır satır kodlar. Izgara yatayda sarıyorsa sütunlar sarılır;
+    /// ızgara dışındaki hücreler `outside` kodunu alır. Her döşeme bir kez
+    /// açılır (nokta nokta okumaktan çok daha hızlı).
+    pub fn window(
+        &self,
+        layer: usize,
+        col0: i64,
+        row0: i64,
+        w: u32,
+        h: u32,
+        outside: u8,
+    ) -> io::Result<Vec<u8>> {
+        let g = self.grid;
+        let t = i64::from(g.tile);
+        let (gw, gh) = (i64::from(g.width), i64::from(g.height));
+        let mut out = vec![outside; w as usize * h as usize];
+        // Sütun → kaynak sütun (sarma / dışarı).
+        let src_col = |c: i64| -> Option<i64> {
+            if g.wraps() {
+                Some(c.rem_euclid(gw))
+            } else {
+                (0..gw).contains(&c).then_some(c)
+            }
+        };
+        let mut tile: Option<((i64, i64), Tile)> = None;
+        for y in 0..i64::from(h) {
+            let r = row0 + y;
+            if !(0..gh).contains(&r) {
+                continue;
+            }
+            for x in 0..i64::from(w) {
+                let Some(c) = src_col(col0 + x) else { continue };
+                let key = (c / t, r / t);
+                if tile.as_ref().is_none_or(|(k, _)| *k != key) {
+                    tile = Some((key, self.tile(layer, key.0 as u32, key.1 as u32)?));
+                }
+                let (_, tl) = tile.as_ref().expect("az önce açıldı");
+                out[(y * i64::from(w) + x) as usize] =
+                    tl.get(g.tile, (c % t) as u32, (r % t) as u32);
+            }
+        }
+        Ok(out)
+    }
+
     /// Noktadaki kod (en yakın hücre); ızgara dışındaysa `None`.
     pub fn code_at(&self, layer: usize, lon: f64, lat: f64) -> io::Result<Option<u8>> {
         let Some((col, row)) = self.grid.cell_of(lon, lat) else {
@@ -501,6 +546,22 @@ mod tests {
             }
         }
         assert_eq!(r.code_at(0, 9.9, 49.0).unwrap(), None);
+        // Pencere: ızgaradan taşan kısım `outside`.
+        let win = r.window(0, 3, 1, 3, 3, 99).unwrap();
+        assert_eq!(
+            win,
+            vec![
+                code(3, 1),
+                code(4, 1),
+                99,
+                code(3, 2),
+                code(4, 2),
+                99,
+                99,
+                99,
+                99
+            ]
+        );
         assert!(matches!(r.tile(1, 0, 0).unwrap(), Tile::Fill(7)));
     }
 

@@ -123,6 +123,8 @@ pub struct SeismiraApp {
     /// Eğitim uyarısı. Kapatılabilir ama her açılışta yeniden görünür
     /// (bilerek kaydedilmez); Görünüm menüsünden geri açılır.
     show_disclaimer: bool,
+    /// Sarsıntı alanı (ızgara) katmanı görünsün mü (Görünüm menüsü).
+    show_grid: bool,
     map: MapWidget,
     /// Sağ paneldeki taslak deprem.
     draft: panel::Draft,
@@ -185,6 +187,7 @@ impl SeismiraApp {
             assets,
             show_text_test: false,
             show_disclaimer: true,
+            show_grid: true,
             map: MapWidget::new(paths::data_dir(), initial_view()),
             draft: panel::Draft::default(),
             sim: None,
@@ -258,6 +261,7 @@ impl SeismiraApp {
             ui.separator();
             ui.menu_button(t("menu-view"), |ui| {
                 ui.checkbox(&mut self.show_disclaimer, t("menu-disclaimer"));
+                ui.checkbox(&mut self.show_grid, t("menu-shake-grid"));
                 ui.checkbox(&mut self.show_text_test, t("menu-text-test"));
             });
             ui.menu_button(t("menu-language"), |ui| {
@@ -275,6 +279,12 @@ impl SeismiraApp {
     fn map_area(&mut self, ui: &mut egui::Ui, frame: &eframe::Frame) {
         let lang = self.lang;
         let rect = ui.max_rect();
+        self.map.set_grid_time(
+            self.sim
+                .as_ref()
+                .filter(|_| self.show_grid)
+                .map(|_| self.clock.t),
+        );
         let out = self.map.ui(ui, frame, crate::MSAA);
         if let Some(c) = out.clicked {
             self.draft.quake.epicenter = c;
@@ -557,6 +567,7 @@ impl SeismiraApp {
 
     fn cancel_sim(&mut self) {
         self.job = None; // Drop → arka plan hesabı iptal
+        self.map.set_grid(None);
         self.results = None;
         self.ranked.clear();
         self.city_events.clear();
@@ -838,14 +849,24 @@ impl eframe::App for SeismiraApp {
             .size_range(220.0..=420.0)
             .show(ui, |ui| self.notifications(ui));
 
-        // Arka plan şehir hesabı bittiyse al.
-        if let Some(results) = self.job.as_ref().and_then(compute::Job::poll) {
-            self.job = None;
-            if let Ok(layer) = &self.cities {
-                self.ranked = layer.rank_for_boxes(&results);
-                self.city_events = city_events(layer, &results);
+        // Arka plan hesabının sonuçları (şehirler, kaba / ince ızgara).
+        if let Some(job) = &self.job {
+            let (msgs, done) = job.poll();
+            for msg in msgs {
+                match msg {
+                    compute::JobMsg::Cities(results) => {
+                        if let Ok(layer) = &self.cities {
+                            self.ranked = layer.rank_for_boxes(&results);
+                            self.city_events = city_events(layer, &results);
+                        }
+                        self.results = Some(results);
+                    }
+                    compute::JobMsg::Grid(grid) => self.map.set_grid(Some(grid)),
+                }
             }
-            self.results = Some(results);
+            if done {
+                self.job = None;
+            }
         }
 
         // Simülasyon saati: duvar saatine göre ilerler; oynarken sürekli çizim.

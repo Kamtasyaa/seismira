@@ -3077,6 +3077,7 @@ version = "0.0.1"
 dependencies = [
  "bytemuck",
  "geographiclib-rs",
+ "rayon",
  "ruzstd",
 ]
 
