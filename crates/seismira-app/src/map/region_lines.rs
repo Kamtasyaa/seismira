@@ -108,7 +108,34 @@ pub struct FillDraw {
 }
 
 const SLOT: u64 = 256;
-pub const MAX_REGION_DRAWS: usize = 512;
+/// Bir karede vurgulanabilecek en fazla bölge. Natural Earth'te bazı
+/// ülkelerin birinci düzey birimleri çok küçüktür (Slovenya 193, Birleşik
+/// Krallık 232): Ljubljana yakınında Mw 8,0 için 392 bölge ölçüldü
+/// (2026-11-15). Aşılırsa en zayıf bölgeler atlanır (bkz. `MapWidget`).
+pub const MAX_REGIONS: usize = 1024;
+/// Sınır çizimleri: bölge başına koyu kontur + renkli çizgi.
+const MAX_LINE_DRAWS: usize = 2 * MAX_REGIONS;
+
+/// Çizim başına bir dilim olacak şekilde uniform verisini tek seferde yazar.
+fn write_slots<T: bytemuck::Pod>(
+    queue: &wgpu::Queue,
+    buffer: &wgpu::Buffer,
+    items: impl ExactSizeIterator<Item = T>,
+) {
+    let mut bytes = vec![0u8; items.len() * SLOT as usize];
+    for (slot, item) in bytes
+        .as_chunks_mut::<{ SLOT as usize }>()
+        .0
+        .iter_mut()
+        .zip(items)
+    {
+        let src = bytemuck::bytes_of(&item);
+        slot[..src.len()].copy_from_slice(src);
+    }
+    if !bytes.is_empty() {
+        queue.write_buffer(buffer, 0, &bytes);
+    }
+}
 
 pub struct RegionLinesGpu {
     pipeline: wgpu::RenderPipeline,
@@ -181,7 +208,7 @@ impl RegionLinesGpu {
         });
         let uniforms = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("bölge sınırı uniform"),
-            size: SLOT * MAX_REGION_DRAWS as u64,
+            size: SLOT * MAX_LINE_DRAWS as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -235,13 +262,11 @@ impl RegionLinesGpu {
     }
 
     pub fn write_fill_uniforms(&self, queue: &wgpu::Queue, draws: &[FillDraw]) {
-        for (i, d) in draws.iter().take(MAX_REGION_DRAWS).enumerate() {
-            queue.write_buffer(
-                &self.fill_uniforms,
-                i as u64 * SLOT,
-                bytemuck::bytes_of(&d.uniforms),
-            );
-        }
+        write_slots(
+            queue,
+            &self.fill_uniforms,
+            draws.iter().take(MAX_REGIONS).map(|d| d.uniforms),
+        );
     }
 
     pub fn draw_fills(
@@ -254,20 +279,18 @@ impl RegionLinesGpu {
         pass.set_pipeline(&self.fill_pipeline);
         pass.set_vertex_buffer(0, vb.slice(..));
         pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint32);
-        for (i, d) in draws.iter().take(MAX_REGION_DRAWS).enumerate() {
+        for (i, d) in draws.iter().take(MAX_REGIONS).enumerate() {
             pass.set_bind_group(0, &self.fill_bind_group, &[(i as u64 * SLOT) as u32]);
             pass.draw_indexed(d.range.clone(), 0, copies.clone());
         }
     }
 
     pub fn write_uniforms(&self, queue: &wgpu::Queue, draws: &[RegionDraw]) {
-        for (i, d) in draws.iter().take(MAX_REGION_DRAWS).enumerate() {
-            queue.write_buffer(
-                &self.uniforms,
-                i as u64 * SLOT,
-                bytemuck::bytes_of(&d.uniforms),
-            );
-        }
+        write_slots(
+            queue,
+            &self.uniforms,
+            draws.iter().take(MAX_LINE_DRAWS).map(|d| d.uniforms),
+        );
     }
 
     pub fn draw(
@@ -279,7 +302,7 @@ impl RegionLinesGpu {
         let Some(vb) = &self.vertices else { return };
         pass.set_pipeline(&self.pipeline);
         pass.set_vertex_buffer(0, vb.slice(..));
-        for (i, d) in draws.iter().take(MAX_REGION_DRAWS).enumerate() {
+        for (i, d) in draws.iter().take(MAX_LINE_DRAWS).enumerate() {
             pass.set_bind_group(0, &self.bind_group, &[(i as u64 * SLOT) as u32]);
             pass.draw(d.range.clone(), copies.clone());
         }
@@ -348,7 +371,7 @@ fn fill_pipeline(
     });
     let uniforms = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("bölge dolgusu uniform"),
-        size: SLOT * MAX_REGION_DRAWS as u64,
+        size: SLOT * MAX_REGIONS as u64,
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });

@@ -248,9 +248,14 @@ pub fn summarize(
                   at: (f64, f64)| {
         e.t_end = e.t_end.max(end);
         e.t_first_p = e.t_first_p.min(tp);
-        for k in 1..=s as usize {
-            let tk = ts + (k - 1) as f64 * rise;
-            e.class_times[k] = e.class_times[k].min(tk);
+        for (k, slot) in e
+            .class_times
+            .iter_mut()
+            .enumerate()
+            .take(s as usize + 1)
+            .skip(1)
+        {
+            *slot = slot.min(ts + (k - 1) as f64 * rise);
         }
         e.cells += 1;
         e.t_first_s = e.t_first_s.min(ts);

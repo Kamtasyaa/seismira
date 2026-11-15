@@ -158,3 +158,13 @@ Harita Vs30'u / istasyon Vs30'u (ShakeMap stationlist):
   harita topoğrafik eğim vekiline dayanıyor (doğrula: Türkiye bölgesinde
   2026 mozaiğine hangi bölgesel harita girdi). Faz 6'da ESRM20 site
   modeli ile Türkiye için yeniden karşılaştırılacak.
+
+## Otomatik regresyon testi (2026-11-15)
+
+İzmit 1999 karşılaştırmasının A ve B satırları artık `cargo test` ile
+denetleniyor (`seismira-data`, `izmit_1999_dogrulamasi_kayitli_degerlerde`):
+31 istasyon, A ort. ΔI −0,24 / %87, B −0,39 / %84 (±0,01). Yer hareketi,
+şiddet dönüşümü ya da kaynak geometrisi değişirse test düşer; değişiklik
+bilinçliyse yeni sayılar buraya yazılıp testteki beklenen değerler
+güncellenir. C (Vs30 haritası) ve Kahramanmaraş elle çalıştırılır; verileri
+depoda değil. Komutun çıktısı aynı (yeniden çalıştırıldı, tablo birebir).

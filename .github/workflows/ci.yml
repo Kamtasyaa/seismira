@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings
 
 jobs:
   fmt:
@@ -34,9 +33,15 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked
+      # Önce test: kullanıcıda yalnızca Linux var, Windows ve macOS'u yalnızca
+      # bu adım dener. CI en yeni kararlı Rust'ı kullanır; yeni bir clippy
+      # sürümünün getirdiği uyarı testleri engellemesin diye clippy sonra ve
+      # test düşse de çalışır (2026-11-15: clippy 1.100 üç commit boyunca
+      # testlerin hiç çalışmamasına yol açmıştı).
       - name: Test
         run: cargo test --workspace --locked
+      - name: Clippy
+        if: success() || failure()
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       # Release (LTO) derlemesi CI süresini ~3 katına çıkarıyor; paketleme
       # fazında (Faz 10) ayrı bir iş olarak geri gelecek.

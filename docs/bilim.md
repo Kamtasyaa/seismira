@@ -239,7 +239,15 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
 - Alan: Wells & Coppersmith (1994) Tablo 2A, tüm fay tipleri,
   M = 4.07 + 0.98·log10(A) bağıntısının tersi (USGS nshmp-lib de alanı bu
   tersten hesaplar; `RuptureScaling.lengthCa08`, kamu malı). Birincil
-  makale (BSSA, ücretli) okunamadı; katsayılar nshmp-lib'den teyit edildi.
+  makaleden DOĞRULANDI (2026-11-15, s. 990, Tablo 2A, "All" satırı): 148
+  deprem, a = 4.07 ± 0.06, b = 0.98 ± 0.03, s = 0.24, r = 0.95, büyüklük
+  aralığı 4.8–7.9, alan aralığı 2.2–5 184 km².
+- Veri aralığının üstü (Mw > 7.9) ekstrapolasyondur ve arayüzde AÇIKÇA
+  uyarılır (engellenmez; `Issue::RuptureSizeExtrapolated`). 20 km genişlikle
+  doğrultu atımlıda: Mw 7.6 → 200 km, 7.8 → 320 km, 8.0 → 512 km, 8.5 →
+  1 657 km. İzmit'te uzun (gözlenen ~145 km), Kahramanmaraş'ta uyumlu
+  (docs/dogrulama.md, B). Mw 8 üstü için genişlik doygunluğunu gözeten bir
+  bağıntı (ör. Leonard 2010) AÇIK KONU; kaynaktan doğrulanmadan eklenmez.
 - Genişlik = min(√A, sismojenik taban / sin δ); doyunca L = A / W.
   Sismojenik taban: 20 km (VARSAYIM; CLAUDE.md "15–25 km"). Hiposantr
   tabandan derinse taban hiposantr + 1 km'ye iner.
@@ -306,3 +314,23 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   Mw = (2/3)·log10(M0 [dyn·cm]) − 10.7 olup N·m'de 10^(1.5·Mw + 9.05)
   verir (fark ~%12). Faz 3'te birincil kaynaktan doğrulanıp hangisinin
   kullanılacağı ve künyesi buraya yazılacak.
+
+## İnceleme notları (2026-11-15)
+
+- İlk S varışı ve güçlü sarsıntı: ak135'in ilk S'i ~150 km'den sonra kabuk
+  altından gelen dalgadır. 10 km derinlikte ilk S ile 3,5 km/s doğrudan S
+  arasındaki fark: 150 km'de 0,3 s, 200 km'de 3,3 s, 300 km'de 9,6 s
+  (ölçüm, tablo). Shindo kutusu ve erken uyarı süresi ilk S'e göre
+  hesaplandığı için uzakta kutu bu kadar erken belirir, uyarı süresi bu
+  kadar kısa görünür. Tek model kararının (7.2) sonucu; Faz 5'te t_tepe
+  ile birlikte yeniden ele alınacak.
+- Erken uyarı kapsamı: Marmara Mw 7.5'te 42 bölgenin 41'i kapsamda. Sebep
+  "en yüksek hücre" istatistiği DEĞİL: yaygın değerle (yerleşim
+  hücrelerinin %10'u) de 41 / 41 çıkıyor (Ljubljana Mw 7.5: 301 → 298).
+  Model, 300 km sınırına kadar Shindo 4 öngörüyor; Kahramanmaraş
+  istasyonları (200–300 km'de gözlem tahminden yüksek) bununla çelişmiyor.
+  Kapsam ölçütü değiştirilmedi.
+- CY14 Ztor sınırı (20 km) girdi denetimine bağlandı: sığ kabukta üst
+  kenar 20 km'den derinse (küçük ve derin deprem, ör. Mw 5 / 22 km)
+  Başlat engellenir (`Issue::ZtorOutOfRange`). Öncesinde denetim geçiyor,
+  hiçbir sahada şiddet çıkmıyordu.

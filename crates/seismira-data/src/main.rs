@@ -59,64 +59,80 @@ fn main() -> Result<()> {
     }
 }
 
+/// Bir istasyonun karşılaştırma satırı: kod, gözlenen, A, B (ln PGV),
+/// ShakeMap Rrup (km), C (ln PGV; Vs30 haritası verildiyse).
+type Row = (String, f64, f64, f64, f64, Option<f64>);
+
+/// [`compare_shakemap`] sonucu.
+struct Compared {
+    /// Bizim fay geometrimiz.
+    fault: seismira_core::source::Fault,
+    rows: Vec<Row>,
+    /// ShakeMap'in mesafe vermediği (atlanan) istasyon sayısı.
+    missing: usize,
+    /// ln(harita Vs30 / istasyon Vs30) ve harita kaynağı sayıları.
+    vs_ratio: Vec<f64>,
+    vs_src: [usize; 4],
+}
+
+/// Bir karşılaştırmanın özeti: ortalama ve standart sapma ln(gözlenen /
+/// tahmin), ortalama ΔI (JMA aletsel şiddeti), |ΔI| < 1 olanların oranı.
+#[derive(Clone, Copy, Debug)]
+struct Summary {
+    mean_ln: f64,
+    sd_ln: f64,
+    mean_di: f64,
+    within_one: f64,
+}
+
+/// Satırlardaki `k` karşılaştırmasının (0: A, 1: B, 2: C) özeti.
+fn summarize(rows: &[Row], k: usize) -> Option<Summary> {
+    use seismira_core::intensity::jma_from_pgv_rotd50;
+    let to_i = |ln_pgv: f64| jma_from_pgv_rotd50(ln_pgv.exp());
+    let pick = |r: &Row| match k {
+        0 => Some(r.2),
+        1 => Some(r.3),
+        _ => r.5,
+    };
+    let res: Vec<f64> = rows.iter().filter_map(|r| Some(r.1 - pick(r)?)).collect();
+    let di: Vec<f64> = rows
+        .iter()
+        .filter_map(|r| Some(to_i(r.1) - to_i(pick(r)?)))
+        .collect();
+    if res.len() < 2 {
+        return None;
+    }
+    let n = res.len() as f64;
+    let mean = res.iter().sum::<f64>() / n;
+    Some(Summary {
+        mean_ln: mean,
+        sd_ln: (res.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt(),
+        mean_di: di.iter().sum::<f64>() / n,
+        within_one: di.iter().filter(|x| x.abs() < 1.0).count() as f64 / n,
+    })
+}
+
 /// ShakeMap istasyon ölçümleriyle karşılaştırma (CLAUDE.md Bölüm 14).
 ///
-/// Argümanlar: `<stationlist.json> boylam enlem derinlik Mw doğrultu eğim
-/// fay(SS|RS|NS)`. Gözlenen RotD50 yerine iki yatay bileşenin geometrik
-/// ortalaması kullanılır (Boore 2010: ikisi pratikte çok yakın). İki
-/// karşılaştırma yapılır: (A) ShakeMap'in mesafeleriyle (yalnızca GMPE ve
-/// dönüşüm), (B) bizim fay geometrimizle, (C) `--vs30 <dosya.sras>`
-/// verilirse bizim geometri + bizim Vs30 haritamız (uygulamanın tüm
-/// zinciri). A ve B istasyonun ShakeMap Vs30'unu kullanır. Şiddet farkı,
-/// aynı dönüşümle (Midorikawa vd. 1999) gözlenen ve tahmin edilen PGV'den.
-fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
+/// Gözlenen RotD50 yerine iki yatay bileşenin geometrik ortalaması
+/// kullanılır (Boore 2010: ikisi pratikte çok yakın). Karşılaştırmalar:
+/// (A) ShakeMap'in mesafeleriyle (yalnızca GMPE ve dönüşüm), (B) bizim fay
+/// geometrimizle, (C) Vs30 haritası verilirse bizim geometri + bizim Vs30
+/// haritamız (uygulamanın tüm zinciri). A ve B istasyonun ShakeMap
+/// Vs30'unu kullanır.
+fn compare_shakemap(
+    stations: &Path,
+    q: &seismira_core::quake::Quake,
+    vs30_map: Option<&seismira_core::site::Vs30Map<Vec<u8>>>,
+) -> Result<Compared> {
     use seismira_core::gmpe::{Imt, cy14};
-    use seismira_core::intensity::jma_from_pgv_rotd50;
-    use seismira_core::quake::{FaultType, Quake};
     use seismira_core::source::Fault;
 
-    let mut args = args.to_vec();
-    let vs30_map = match args.iter().position(|a| a == "--vs30") {
-        Some(i) => {
-            let path = args.get(i + 1).context("--vs30 dosya yolu")?.clone();
-            args.drain(i..i + 2);
-            let bytes = std::fs::read(&path).with_context(|| path.clone())?;
-            Some(seismira_core::site::Vs30Map::open(bytes)?)
-        }
-        None => None,
-    };
-    let args = args.as_slice();
-    let (base, along) = match args {
-        [b @ .., a] if args.len() == 8 => (b, Some(a.parse::<f64>()?)),
-        b => (b, None),
-    };
-    let [lon, lat, depth, mw, strike, dip, fault] = base else {
-        bail!(
-            "argümanlar: boylam enlem derinlik Mw doğrultu eğim SS|RS|NS [hiposantr_doğrultu_konumu]"
-        );
-    };
-    let fault = match fault.as_str() {
-        "SS" => FaultType::StrikeSlip,
-        "RS" => FaultType::Reverse,
-        "NS" => FaultType::Normal,
-        f => bail!("fay tipi: {f}"),
-    };
-    let mut q = Quake::new((lon.parse()?, lat.parse()?));
-    q.depth_km = depth.parse()?;
-    q.mw = mw.parse()?;
-    q.strike = strike.parse()?;
-    q.dip = dip.parse()?;
-    q.fault = fault;
-    if let Some(a) = along {
-        q.hypo_along = a;
-    }
-    let ours = Fault::from_quake(&q);
-
+    let ours = Fault::from_quake(q);
+    let fault = q.fault;
     let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(stations)?)?;
     let feats = json["features"].as_array().context("features yok")?;
-    // kod, gözlenen, A, B, C (ln PGV), ShakeMap Rrup (km)
-    let mut rows: Vec<(String, f64, f64, f64, f64, Option<f64>)> = Vec::new();
-    // ln(harita Vs30 / istasyon Vs30), harita kaynağı
+    let mut rows: Vec<Row> = Vec::new();
     let mut vs_ratio: Vec<f64> = Vec::new();
     let mut vs_src = [0usize; 4];
     let mut missing = 0usize;
@@ -176,7 +192,7 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         let a = predict(rrup, rjb, rx, 0.0, vs30);
         let od = ours.distances(site);
         let b = predict(od.rrup, od.rjb, od.rx, ours.ztor, vs30);
-        let c = match &vs30_map {
+        let c = match vs30_map {
             Some(m) => {
                 let s = m.site(site.0, site.1)?;
                 vs_src[s.source as usize] += 1;
@@ -197,6 +213,65 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
             ));
         }
     }
+    Ok(Compared {
+        fault: ours,
+        rows,
+        missing,
+        vs_ratio,
+        vs_src,
+    })
+}
+
+/// `validate-shakemap` komutu: [`compare_shakemap`] sonucunu tablo olarak
+/// yazar. Argümanlar: `<stationlist.json> boylam enlem derinlik Mw doğrultu
+/// eğim fay(SS|RS|NS) [hiposantr_doğrultu_konumu] [--vs30 <dosya.sras>]`.
+fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
+    use seismira_core::intensity::jma_from_pgv_rotd50;
+    use seismira_core::quake::{FaultType, Quake};
+
+    let mut args = args.to_vec();
+    let vs30_map = match args.iter().position(|a| a == "--vs30") {
+        Some(i) => {
+            let path = args.get(i + 1).context("--vs30 dosya yolu")?.clone();
+            args.drain(i..i + 2);
+            let bytes = std::fs::read(&path).with_context(|| path.clone())?;
+            Some(seismira_core::site::Vs30Map::open(bytes)?)
+        }
+        None => None,
+    };
+    let args = args.as_slice();
+    let (base, along) = match args {
+        [b @ .., a] if args.len() == 8 => (b, Some(a.parse::<f64>()?)),
+        b => (b, None),
+    };
+    let [lon, lat, depth, mw, strike, dip, fault] = base else {
+        bail!(
+            "argümanlar: boylam enlem derinlik Mw doğrultu eğim SS|RS|NS [hiposantr_doğrultu_konumu]"
+        );
+    };
+    let fault = match fault.as_str() {
+        "SS" => FaultType::StrikeSlip,
+        "RS" => FaultType::Reverse,
+        "NS" => FaultType::Normal,
+        f => bail!("fay tipi: {f}"),
+    };
+    let mut q = Quake::new((lon.parse()?, lat.parse()?));
+    q.depth_km = depth.parse()?;
+    q.mw = mw.parse()?;
+    q.strike = strike.parse()?;
+    q.dip = dip.parse()?;
+    q.fault = fault;
+    if let Some(a) = along {
+        q.hypo_along = a;
+    }
+    let Compared {
+        fault: ours,
+        rows,
+        missing,
+        vs_ratio,
+        vs_src,
+    } = compare_shakemap(stations, &q, vs30_map.as_ref())?;
+
     let to_i = |ln_pgv: f64| jma_from_pgv_rotd50(ln_pgv.exp());
     println!(
         "fay (bizim): L = {:.0} km, W = {:.0} km, Ztor = {:.1} km, hiposantr doğrultu konumu {:.2}",
@@ -209,11 +284,6 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
     );
     println!("| karşılaştırma | ort. ln(göz/tah) | std ln | ort. ΔI (JMA) | |ΔI| < 1 oranı |");
     println!("|---|---|---|---|---|");
-    let pick = |r: &(String, f64, f64, f64, f64, Option<f64>), k: usize| match k {
-        0 => Some(r.2),
-        1 => Some(r.3),
-        _ => r.5,
-    };
     let mut comps = vec![
         ("A: ShakeMap mesafeleri", 0),
         ("B: bizim fay geometrimiz", 1),
@@ -222,25 +292,18 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         comps.push(("C: bizim geometri + bizim Vs30", 2));
     }
     for (label, k) in comps {
-        let res: Vec<f64> = rows
-            .iter()
-            .filter_map(|r| Some(r.1 - pick(r, k)?))
-            .collect();
-        let di: Vec<f64> = rows
-            .iter()
-            .filter_map(|r| Some(to_i(r.1) - to_i(pick(r, k)?)))
-            .collect();
-        let n = res.len() as f64;
-        let mean = res.iter().sum::<f64>() / n;
-        let sd = (res.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
-        let mean_di = di.iter().sum::<f64>() / n;
-        let within = di.iter().filter(|x| x.abs() < 1.0).count() as f64 / n;
+        let Some(s) = summarize(&rows, k) else {
+            println!("| {label} | – | – | – | – |");
+            continue;
+        };
         println!(
-            "| {label} | {mean:+.2} | {sd:.2} | {mean_di:+.2} | %{:.0} |",
-            within * 100.0
+            "| {label} | {:+.2} | {:.2} | {:+.2} | %{:.0} |",
+            s.mean_ln,
+            s.sd_ln,
+            s.mean_di,
+            s.within_one * 100.0
         );
     }
-    // Mesafeye göre (ShakeMap Rrup) ortalama ΔI: uzak alan eğilimi.
     if !vs_ratio.is_empty() {
         let n = vs_ratio.len() as f64;
         let m = vs_ratio.iter().sum::<f64>() / n;
@@ -254,6 +317,7 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
             vs_src[2]
         );
     }
+    // Mesafeye göre (ShakeMap Rrup) ortalama ΔI: uzak alan eğilimi.
     println!(
         "\n| Rrup (km) | n | ort. ΔI (A) | ort. ΔI (B) | ort. ΔI (C) |\n|---|---|---|---|---|"
     );
@@ -608,6 +672,50 @@ mod tests {
 
     fn pt(x: f64, y: f64) -> Point {
         Point { x, y }
+    }
+
+    /// Bölüm 14 regresyonu: 1999 İzmit (Mw 7.6), USGS ShakeMap istasyonları
+    /// (depoda: data/validation/izmit1999). Kayıtlı sonuç (docs/dogrulama.md,
+    /// 2026-11-14): A ort. ΔI −0,24, %87; B −0,39, %84 (31 istasyon).
+    /// Yer hareketi, şiddet dönüşümü ya da kaynak geometrisi değişirse bu
+    /// test düşer: değişiklik bilinçliyse yeni sayılar belgeye yazılıp
+    /// buradaki beklenen değerler güncellenir.
+    #[test]
+    fn izmit_1999_dogrulamasi_kayitli_degerlerde() {
+        use seismira_core::quake::{FaultType, Quake};
+        let stations = Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/validation/izmit1999/stationlist.json"
+        ));
+        // Merkez üssü ve derinlik USGS; doğrultu / eğim USGS moment tensörü.
+        let mut q = Quake::new((29.864, 40.748));
+        q.depth_km = 17.0;
+        q.mw = 7.6;
+        q.strike = 85.0;
+        q.dip = 81.0;
+        q.fault = FaultType::StrikeSlip;
+        let c = compare_shakemap(stations, &q, None).unwrap();
+        assert_eq!(c.rows.len(), 31);
+        assert_eq!(c.missing, 0);
+        let (a, b) = (
+            summarize(&c.rows, 0).unwrap(),
+            summarize(&c.rows, 1).unwrap(),
+        );
+        assert!(summarize(&c.rows, 2).is_none()); // Vs30 haritası verilmedi
+        let close = |x: f64, want: f64| (x - want).abs() < 0.01;
+        assert!(close(a.mean_di, -0.24) && close(a.mean_ln, -0.31), "{a:?}");
+        assert!(
+            close(a.sd_ln, 0.66) && close(a.within_one, 27.0 / 31.0),
+            "{a:?}"
+        );
+        assert!(close(b.mean_di, -0.39) && close(b.mean_ln, -0.49), "{b:?}");
+        assert!(
+            close(b.sd_ln, 0.66) && close(b.within_one, 26.0 / 31.0),
+            "{b:?}"
+        );
+        // Başlangıç kabul ölçütü (Bölüm 14), A için: ortalama sapma < 0,3
+        // birim ve noktaların en az %80'inde fark < 1 birim.
+        assert!(a.mean_di.abs() < 0.3 && a.within_one >= 0.8);
     }
 
     #[test]

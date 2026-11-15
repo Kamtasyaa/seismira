@@ -768,6 +768,19 @@ impl SeismiraApp {
         }
     }
 
+    /// `t`'den sonraki ilk bildirimin zamanı ("sonraki olaya atla"):
+    /// çekirdek olayları, erken uyarı, bölge ve şehir bildirimleri.
+    fn next_event_after(&self, t: f64) -> Option<f64> {
+        let sim = self.sim.as_ref()?;
+        sim.next_event_after(t)
+            .into_iter()
+            .chain(self.alert.iter().map(|a| a.t))
+            .chain(self.region_events.iter().map(|e| e.t))
+            .chain(self.city_events.iter().map(|e| e.t))
+            .filter(|&et| et > t + 1e-6)
+            .min_by(f64::total_cmp)
+    }
+
     fn cancel_sim(&mut self) {
         self.job = None; // Drop → arka plan hesabı iptal
         self.map.set_grid(None);
@@ -1084,7 +1097,8 @@ impl eframe::App for SeismiraApp {
             .resizable(false)
             .show(ui, |ui| {
                 ui.add_space(4.0);
-                timeline::ui(ui, lang, &mut self.clock, self.sim.as_ref());
+                let next = self.next_event_after(self.clock.t);
+                timeline::ui(ui, lang, &mut self.clock, self.sim.as_ref(), next);
                 if self.show_disclaimer {
                     ui.separator();
                     egui::Sides::new().shrink_left().show(
@@ -1209,7 +1223,8 @@ impl eframe::App for SeismiraApp {
         self.show_text_test = open;
 
         #[cfg(feature = "screenshot")]
-        crate::devshot::tick(ui.ctx(), self.map.is_ready());
+        // Arka plan hesabı (ızgara, bölgeler) bitmeden görüntü alınmasın.
+        crate::devshot::tick(ui.ctx(), self.map.is_ready() && self.job.is_none());
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {

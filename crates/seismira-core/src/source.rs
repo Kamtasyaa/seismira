@@ -26,9 +26,22 @@ pub const SEISMOGENIC_BOTTOM_KM: f64 = 20.0;
 /// Tablo 2A, "tüm fay tipleri" M–RA bağıntısı M = 4.07 + 0.98·log10(A)'nın
 /// tersi. USGS nshmp-lib de alanı bu tersten hesaplar
 /// (`RuptureScaling.lengthCa08`, M < 6.9 dalı).
+///
+/// Birincil kaynaktan DOĞRULANDI (2026-11-15, makale s. 990, Tablo 2A,
+/// "M = a + b·log(RA)", "All" satırı): 148 deprem, a = 4.07 (±0.06),
+/// b = 0.98 (±0.03), s = 0.24, r = 0.95, büyüklük aralığı 4.8–7.9, alan
+/// aralığı 2.2–5 184 km². Aralığın üstü için bkz. [`WC94_MW_MAX`].
 pub fn area_wc94(mw: f64) -> f64 {
     10f64.powf((mw - 4.07) / 0.98)
 }
+
+/// [`area_wc94`] bağıntısının veri aralığının üst sınırı (Tablo 2A: 4.8–7.9).
+/// Üstünde alan ekstrapolasyondur (Mw 8.0'da ~10 200 km², verideki en
+/// büyük alanın iki katı; 20 km genişlikle doğrultu atımlıda L ≈ 512 km,
+/// Mw 8.5'te ≈ 1 657 km). Girdi denetimi bunu AÇIKÇA uyarır (engellemez).
+/// Alt sınırın (4.8) altı uyarılmaz: Mw 4.0'da alan ~0.9 km², kaynak
+/// pratikte noktadır ve mesafelere etkisi 1 km'nin altındadır.
+pub const WC94_MW_MAX: f64 = 7.9;
 
 /// Yerleşmiş fay düzlemi. Yerel koordinatlar km cinsinden: x doğu, y kuzey,
 /// z aşağı; orijin merkez üssü (hiposantrın yüzeydeki izdüşümü).

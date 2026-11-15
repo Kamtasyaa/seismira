@@ -76,6 +76,13 @@ pub fn issue_text(lang: Lang, issue: Issue) -> String {
         Issue::InterfaceNotReverse => lang.t("issue-interface"),
         Issue::DeepFocus => lang.t("issue-deep"),
         Issue::BadGeometry => lang.t("issue-geometry"),
+        Issue::RuptureSizeExtrapolated { max } => {
+            lang.t_args("issue-rupture-size", &[("max", lang.num(max, 1))])
+        }
+        Issue::ZtorOutOfRange { ztor, max } => lang.t_args(
+            "issue-ztor",
+            &[("ztor", lang.num(ztor, 1)), ("max", lang.num(max, 0))],
+        ),
     }
 }
 

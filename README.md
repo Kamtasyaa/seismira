@@ -14,7 +14,8 @@ JMA Shindo intensity, early-warning times and tsunami hazard.
 > **This is an educational simulation.** For real earthquake information,
 > follow official agencies such as AFAD, Kandilli, JMA or USGS.
 
-Durum: geliştirme aşamasında (Faz 0). / Status: early development.
+Durum: geliştirme aşamasında (Faz 4: sığ kabuk depremleri, Shindo, bölge
+vurgusu, varsayımsal erken uyarı). / Status: early development (phase 4).
 
 ## Derleme / Build
 

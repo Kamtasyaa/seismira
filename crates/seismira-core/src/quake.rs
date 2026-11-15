@@ -115,11 +115,23 @@ pub enum Issue {
     DeepFocus,
     /// Eğim 0–90° dışında ya da sayı değil.
     BadGeometry,
+    /// Sığ kabukta kırılmanın üst kenarı (Ztor) yer hareketi modelinin
+    /// sınırından derin: model hiçbir sahada geçerli olmaz (CY14, Ztor ≤
+    /// 20 km). Küçük ve derin depremlerde olur; derinlik aralığı (0–35 km)
+    /// tek başına bunu yakalamaz, çünkü Ztor büyüklüğe de bağlıdır.
+    ZtorOutOfRange { ztor: f64, max: f64 },
+    /// Sığ kabukta büyüklük, kırılma boyutu bağıntısının veri aralığının
+    /// üstünde ([`crate::source::WC94_MW_MAX`]): fay boyutları
+    /// ekstrapolasyondur. Engellemez, açıkça uyarır.
+    RuptureSizeExtrapolated { max: f64 },
 }
 
 impl Issue {
     pub fn blocks(self) -> bool {
-        !matches!(self, Issue::DeepFocus)
+        !matches!(
+            self,
+            Issue::DeepFocus | Issue::RuptureSizeExtrapolated { .. }
+        )
     }
 }
 
@@ -170,6 +182,18 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
     .all(|v| v.is_finite());
     if !finite || !(0.0..=90.0).contains(&q.dip) || !(-90.0..=90.0).contains(&q.epicenter.1) {
         out.push(Issue::BadGeometry);
+    } else if q.setting == Setting::ShallowCrust {
+        if q.mw > crate::source::WC94_MW_MAX {
+            out.push(Issue::RuptureSizeExtrapolated {
+                max: crate::source::WC94_MW_MAX,
+            });
+        }
+        // Kaynak geometrisi kurulabiliyorsa: üst kenar modelin sınırında mı?
+        let ztor = crate::source::Fault::from_quake(q).ztor;
+        let max = crate::gmpe::cy14::ZTOR_MAX_KM;
+        if ztor > max {
+            out.push(Issue::ZtorOutOfRange { ztor, max });
+        }
     }
     out
 }
@@ -191,12 +215,18 @@ mod tests {
     fn kabukta_buyukluk_siniri_fay_tipine_bagli() {
         let mut q = quake();
         q.mw = 8.3;
-        assert!(validate(&q).is_empty()); // doğrultu atımlı: 8.5'e kadar
+        // Doğrultu atımlı: 8.5'e kadar izinli; 7.9'un üstünde yalnızca
+        // kırılma boyutu uyarısı (engellemez).
+        let warn = Issue::RuptureSizeExtrapolated { max: 7.9 };
+        assert_eq!(validate(&q), vec![warn]);
+        assert!(!warn.blocks());
         q.fault = FaultType::Reverse;
         assert_eq!(
             validate(&q),
-            vec![Issue::MwOutOfRange { min: 4.0, max: 8.0 }]
+            vec![Issue::MwOutOfRange { min: 4.0, max: 8.0 }, warn]
         );
+        q.mw = 7.9;
+        assert!(validate(&q).is_empty());
     }
 
     #[test]
@@ -222,6 +252,37 @@ mod tests {
         q.depth_km = 25.0;
         assert_eq!(validate(&q), vec![Issue::InterfaceNotReverse]);
         q.fault = FaultType::Reverse;
+        assert!(validate(&q).is_empty());
+    }
+
+    #[test]
+    fn derin_ve_kucuk_kabuk_depremi_engellenir() {
+        // Mw 5, 30 km: derinlik aralıkta ama üst kenar ~28 km → CY14 dışı.
+        let mut q = quake();
+        q.mw = 5.0;
+        q.depth_km = 30.0;
+        let issues = validate(&q);
+        assert!(
+            matches!(issues[..], [Issue::ZtorOutOfRange { ztor, max }] if ztor > max),
+            "{issues:?}"
+        );
+        assert!(issues[0].blocks());
+        // Aynı derinlikte büyük deprem: düzlem yukarı uzanır, sorun yok.
+        q.mw = 7.0;
+        assert!(validate(&q).is_empty());
+        // Denetim geçiyorsa model merkez üssünde sonuç verir (sessiz boşluk yok).
+        for (mw, depth) in [(4.0, 20.0), (5.0, 21.0), (6.0, 25.0), (6.5, 35.0)] {
+            q.mw = mw;
+            q.depth_km = depth;
+            if validate(&q).is_empty() {
+                let f = crate::source::Fault::from_quake(&q);
+                assert!(f.ztor <= crate::gmpe::cy14::ZTOR_MAX_KM, "{mw} {depth}");
+            }
+        }
+        // Levha içinde bu denetim yok (model zaten yok).
+        q.mw = 5.0;
+        q.depth_km = 60.0;
+        q.setting = Setting::Intraslab;
         assert!(validate(&q).is_empty());
     }
 

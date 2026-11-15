@@ -16,15 +16,11 @@ button-start = Başlat
 panel-notifications = Bildirimler
 notifications-empty = Henüz bildirim yok.
 
-timeline = Zaman çizgisi
-
 text-test-title = Çok dilli yazı testi
 text-test-note = Sağdan sola yazılarda (Arapça, İbranice) çok kelimeli metinlerin kelime sırası şu an hatalıdır; bilinen sorun, ayrıntı docs/arayuz.md.
 
 map-loading = Harita yükleniyor…
 map-missing = Harita verisi bulunamadı. Depo kökünde şu komutu çalıştırın:
-epicenter = Merkez üssü
-epicenter-hint = Haritaya tıklayarak merkez üssünü seçin. Sürükleyerek kaydırın, tekerlekle yakınlaştırın.
 
 # Sayı ve koordinat biçimi
 decimal-separator = ,
@@ -58,12 +54,14 @@ issue-depth = Bu ortam için odak derinliği { $min } – { $max } km aralığı
 issue-interface = Dalma-batma arayüzünde yalnızca ters fay olabilir.
 issue-deep = Derin odak (300 km'den derin): yer hareketi modelleri geçerli değil; şiddet sonuçları kaba tahmin olacak.
 issue-geometry = Geçersiz değer (eğim 0–90°, enlem −90–90° olmalı).
+issue-ztor = Kırılmanın üst kenarı { $ztor } km derinlikte; yer hareketi modeli en fazla { $max } km için geçerli. Odak derinliğini azaltın ya da büyüklüğü artırın.
+issue-rupture-size = Kırılma boyutu bağıntısı Mw { $max } değerine kadar veriyle destekleniyor; daha büyük depremde fay uzunluğu ve genişliği kaba tahmindir.
 
 # Zaman çizgisi
 play = Oynat (Boşluk)
 pause = Duraklat (Boşluk)
 restart = Başa sar
-next-event = Sonraki olaya atla (deprem anı, dalgaların yüzeye çıkışı, 100°'ye ulaşması…)
+next-event = Sonraki bildirime atla (erken uyarı, bölge Shindo değerleri, P dalgasının şehirlere ulaşması…)
 step-back = 10 saniye geri (←; Shift+← 1 dakika)
 step-forward = 10 saniye ileri (→; Shift+→ 1 dakika)
 speed = Hız

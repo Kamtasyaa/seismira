@@ -364,9 +364,17 @@ impl MapWidget {
                     color: color.to_normalized_gamma_f32(),
                 },
             };
+        // Stiller zayıftan güçlüye sıralıdır (güçlü olan üstte çizilir). Sınır
+        // aşılırsa en ZAYIF bölgeler atlanır; eskiden çizim listesi sondan
+        // kesildiği için en güçlü bölgelerin renkli sınırı kayboluyordu.
+        let skip = self
+            .region_styles
+            .len()
+            .saturating_sub(region_lines::MAX_REGIONS);
+        let styles = &self.region_styles[skip..];
         let mut lines = Vec::new();
         let mut fills = Vec::new();
-        for st in &self.region_styles {
+        for st in styles {
             if st.fill.a() > 0
                 && let Some(r) = self.fill_ranges.get(&st.id)
             {
@@ -384,18 +392,16 @@ impl MapWidget {
         }
         // Önce tüm konturlar, sonra renkli çizgiler: komşu bölgenin konturu
         // bir önceki bölgenin rengini örtmesin.
-        for st in self.region_styles.iter().filter(|s| s.line_width > 0.0) {
+        for st in styles.iter().filter(|s| s.line_width > 0.0) {
             if let Some(r) = self.line_ranges.get(&st.id) {
                 lines.push(line(r.clone(), HALO, st.line_width + HALO_EXTRA));
             }
         }
-        for st in self.region_styles.iter().filter(|s| s.line_width > 0.0) {
+        for st in styles.iter().filter(|s| s.line_width > 0.0) {
             if let Some(r) = self.line_ranges.get(&st.id) {
                 lines.push(line(r.clone(), st.line, st.line_width));
             }
         }
-        lines.truncate(region_lines::MAX_REGION_DRAWS);
-        fills.truncate(region_lines::MAX_REGION_DRAWS);
         (lines, fills)
     }
 

@@ -119,3 +119,18 @@ Lisans kuralları:
   (eğim yöntemi dar kıyı ovasını yamaçla karıştırıyor). Gerçek çözüm
   jeoloji tabanlı / ölçülmüş Vs30 (ör. Türkiye için ulusal Vs30
   çalışmaları; doğrula) ya da ESRM20 eğim+jeoloji büyütmesi (Faz 6).
+
+## Veri hattı ve CI düzeltmeleri (2026-11-15)
+
+- `scripts/fetch_geonames.py` eklendi; `prepare_data.py` artık eksikse
+  şehir listesini (`geonames`) ve şehir zeminini (`city-sites`) de üretir,
+  bölge dosyalarının üçünü de (.sras, .sreg, .sout) denetler. Denendi:
+  sabitlenmiş 2026-11-14 anlık görüntüsünden üretilen `.scty` ve `.ssit`,
+  depodakilerle bayt bayt aynı (SHA256).
+- GeoNames dökümü her gün değişir; eski gün sunucudan alınamaz. Ham
+  dosyalar kaybolursa betik bugünkü dökümü indirir ve farkı açıkça yazar
+  (SOURCES.toml ve `.ssit` güncellenmeli).
+- CI: önce test, sonra clippy (test düşse de çalışır); `-D warnings`
+  yalnızca clippy adımında. Sebep: CI en yeni kararlı Rust'ı kullanıyor
+  (1.100), yerel Arch paketi daha eski (1.99); yeni clippy uyarısı üç commit
+  boyunca Windows ve macOS testlerinin hiç çalışmamasına yol açmıştı.

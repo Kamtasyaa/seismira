@@ -74,7 +74,15 @@ pub fn format_hms(t: f64) -> String {
     }
 }
 
-pub fn ui(ui: &mut egui::Ui, lang: Lang, clock: &mut Clock, sim: Option<&Simulation>) {
+/// `next_event`: şimdiki andan sonraki ilk bildirimin zamanı (⏭ için);
+/// bildirim akışındaki her şeyi kapsar (çağıran hesaplar).
+pub fn ui(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    clock: &mut Clock,
+    sim: Option<&Simulation>,
+    next_event: Option<f64>,
+) {
     let t = |k| lang.t(k);
     let end = sim.map_or(0.0, Simulation::end_time);
     // Klavye: metin kutusu odakta değilse. Kaydırıcıdan önce tüketilir ki
@@ -113,7 +121,7 @@ pub fn ui(ui: &mut egui::Ui, lang: Lang, clock: &mut Clock, sim: Option<&Simulat
             if ui.button("⏩").on_hover_text(t("step-forward")).clicked() {
                 clock.seek_by(STEP, end);
             }
-            let next = sim.and_then(|s| s.next_event_after(clock.t));
+            let next = next_event;
             if ui
                 .add_enabled(next.is_some(), egui::Button::new("⏭"))
                 .on_hover_text(t("next-event"))

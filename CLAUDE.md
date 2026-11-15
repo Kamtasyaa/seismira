@@ -106,9 +106,17 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
   kabul edilir (ör. seyahat süresi tablosu).
 - data/: data/SOURCES.toml (her veri setinin kaynağı, lisansı, atıf
   metni, "değiştirildi" notu; "Veri Kaynakları" sayfası bundan üretilir)
-  ve işlenmiş veriler. Ham (data/raw/) ve üretilmiş (data/map/ vb.) veri
-  depoya GİRMEZ: kaynaklar sürüm + SHA256 ile sabitlenir, tek komutla
-  yeniden üretilir: `python3 scripts/prepare_data.py`.
+  ve işlenmiş veriler. Ham (data/raw/) ve büyük üretilmiş (data/map/,
+  data/vs30/) veri depoya GİRMEZ: kaynaklar sürüm + SHA256 ile sabitlenir,
+  tek komutla yeniden üretilir: `python3 scripts/prepare_data.py`.
+  İstisna (fiili durum, 2026-11-15'te yazıya geçirildi): küçük işlenmiş
+  dosyalar depoda DURUR (data/traveltime, data/cities, data/regions,
+  data/test, data/validation; ~17 MB), çünkü üretimleri ağır kurulum
+  (ObsPy) ya da elle indirilen Vs30 ister ve testler bunları okur.
+  Silinirse cities ve regions aynı betikle, traveltime ve test verileri
+  kendi betikleriyle (scripts/gen_*.py) yeniden üretilir. Bu dosyalar
+  gereksiz yere yeniden üretilip commit'lenmez (her seferinde depo
+  ~15 MB büyür).
 - assets/: uygulamayla gelen dosyalar (yazı tipleri). CJK yazı tipleri
   depoda değil, aynı betikle indirilir.
 - docs/: bilim, veri, doğrulama belgeleri.

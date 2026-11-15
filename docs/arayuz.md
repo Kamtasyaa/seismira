@@ -212,6 +212,18 @@ yayımlanmış aralığı makaleden alınıp bu sabitler güncellenecek.
 Varsayılan eğim/kayma açıları (doğrultu atımlı 90°/0°, normal 55°/−90°,
 ters 40°/90°) da doğrulanacak değerlerdir.
 
+Ek denetimler (2026-11-15), yalnızca sığ kabuk:
+- ⛔ Kırılmanın üst kenarı (Ztor) 20 km'den derinse (CY14 sınırı): Başlat
+  kapalı. Derinlik aralığı (0–35 km) bunu tek başına yakalamaz; Ztor
+  büyüklüğe de bağlıdır (Mw 5 / 22 km engellenir, Mw 7 / 35 km geçer).
+- ⚠ Mw > 7,9: kırılma boyutu bağıntısı veri aralığının dışında
+  (docs/bilim.md 7.1); uyarılır, engellenmez.
+
+"Sonraki olaya atla" (⏭) bildirim akışındaki her şeye atlar: çekirdek
+olayları, erken uyarı, bölge Shindo bildirimleri, P'nin şehirlere varışı.
+(Eskiden yalnızca çekirdek olaylarına, yani deprem anından doğrudan P'nin
+100°'ye varışına, ~13 dakikaya atlıyordu.)
+
 Doğrultu önizlemesi şimdilik yalnızca YÖN gösterir (ekranda sabit
 uzunluk); kırılma uzunluğu Faz 3'te kaynak geometrisiyle gelecek.
 Taslak değişince (haritaya tıklama dahil) çalışan simülasyon iptal edilir.
@@ -319,6 +331,11 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   azalt": dolgu orta opaklıkta sabit (ayar kaydedilir).
 - Henüz yok: bölge kartı (bölgeye tıklama), hızlı oynatmada en az ~1 s
   görünme kuralı.
+- Bölge sayısı sınırı (2026-11-15): bir karede en fazla 1 024 bölge
+  vurgulanır; aşılırsa en ZAYIF olanlar atlanır. Ölçüm: Ljubljana Mw 8,0'da
+  392 bölge (Natural Earth'te Slovenya 193, Birleşik Krallık 232 birim).
+  Eski sınır 256 bölgeydi ve aşıldığında en güçlü bölgelerin renkli sınırı
+  kesiliyordu. Uniform verisi tek seferde yazılır.
 - Gözlem: Marmara Mw 7.5'te uyarı kapsamı 41 bölge (Bulgaristan ve
   Yunanistan dahil; Shindo 4 tahmini geniş). JMA ölçütüyle tutarlı ama
   dünya ölçeğinde çok beyaz çizgi var.

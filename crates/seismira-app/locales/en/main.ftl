@@ -16,15 +16,11 @@ button-start = Start
 panel-notifications = Notifications
 notifications-empty = No notifications yet.
 
-timeline = Timeline
-
 text-test-title = Multilingual text test
 text-test-note = In right-to-left scripts (Arabic, Hebrew), the word order of multi-word text is currently wrong; known issue, see docs/arayuz.md.
 
 map-loading = Loading map…
 map-missing = Map data not found. Run this command in the repository root:
-epicenter = Epicenter
-epicenter-hint = Click the map to choose the epicenter. Drag to pan, scroll to zoom.
 
 # Sayı ve koordinat biçimi
 decimal-separator = .
@@ -58,12 +54,14 @@ issue-depth = For this setting, focal depth must be between { $min } and { $max 
 issue-interface = A subduction interface event can only be a reverse fault.
 issue-deep = Deep focus (deeper than 300 km): ground-motion models are not valid; intensity results will be rough estimates.
 issue-geometry = Invalid value (dip must be 0–90°, latitude −90–90°).
+issue-ztor = The top of the rupture is { $ztor } km deep; the ground-motion model is valid up to { $max } km. Reduce the focal depth or increase the magnitude.
+issue-rupture-size = The rupture-size relation is supported by data up to Mw { $max }; for larger earthquakes fault length and width are rough estimates.
 
 # Timeline
 play = Play (Space)
 pause = Pause (Space)
 restart = Back to start
-next-event = Jump to next event (origin, waves surfacing, reaching 100°…)
+next-event = Jump to next notification (early warning, region Shindo values, P wave reaching cities…)
 step-back = Back 10 seconds (←; Shift+← 1 minute)
 step-forward = Forward 10 seconds (→; Shift+→ 1 minute)
 speed = Speed

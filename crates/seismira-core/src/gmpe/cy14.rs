@@ -52,6 +52,11 @@ pub const MAX_RRUP_KM: f64 = 300.0;
 pub const VS30_MIN: f64 = 180.0;
 pub const VS30_MAX: f64 = 1500.0;
 
+/// Modelin üst kenar derinliği (Ztor) sınırı (km). Girdi denetimi
+/// ([`crate::quake::validate`]) bunu aşan kaynağı engeller; aşılırsa her
+/// sahada `None` döner.
+pub const ZTOR_MAX_KM: f64 = 20.0;
+
 /// Modelin yayımlanmış geçerlilik aralığı içinde mi?
 pub fn in_range(i: &Input) -> bool {
     let mw_max = if i.fault == FaultType::StrikeSlip {
@@ -61,7 +66,7 @@ pub fn in_range(i: &Input) -> bool {
     };
     (3.5..=mw_max).contains(&i.mw)
         && (0.0..=MAX_RRUP_KM).contains(&i.rrup)
-        && (0.0..=20.0).contains(&i.ztor)
+        && (0.0..=ZTOR_MAX_KM).contains(&i.ztor)
         && (VS30_MIN..=VS30_MAX).contains(&i.vs30)
 }
 
