@@ -27,6 +27,15 @@ pub struct SiteResult {
     pub t_s: Option<f64>,
     /// Model geçerliyse yer hareketi ve şiddet; değilse `None` ("model dışı").
     pub motion: Option<Motion>,
+    /// Zemin belirsizliğinin şiddete etkisi (JMA birimi): Vs30, haritanın
+    /// ±1 log standart sapması kadar değiştiğinde aletsel şiddetteki
+    /// değişimin yarısı. Haritada SD yoksa ya da model dışıysa `None`.
+    ///
+    /// "Olası aralık"a AYRICA EKLENMEZ: CY14'ün σ'sı Vs30'u ölçülmemiş
+    /// ("inferred") sahalar için zaten büyütülmüştür (Eş. 13, σ3 terimi);
+    /// üstüne eklemek aynı belirsizliği iki kez saymak olur. Bilgi olarak
+    /// şehir kartında gösterilir (docs/bilim.md 7.7).
+    pub jma_vs30_effect: Option<f64>,
 }
 
 /// S varışından sonra gösterilen Shindo'nun bir sınıf yükselme süresi (s).
@@ -69,6 +78,9 @@ pub struct Motion {
     /// JMA aletsel şiddeti (medyan) ve standart sapması (şiddet birimi).
     pub jma: f64,
     pub jma_sigma: f64,
+    /// MMI (medyan, 1–10; Worden vd. 2012) ve standart sapması.
+    pub mmi: f64,
+    pub mmi_sigma: f64,
 }
 
 impl Motion {
@@ -81,6 +93,14 @@ impl Motion {
         (
             Shindo::from_instrumental(self.jma - self.jma_sigma),
             Shindo::from_instrumental(self.jma + self.jma_sigma),
+        )
+    }
+
+    /// MMI için "olası aralık": ±1σ, 1–10 içinde.
+    pub fn mmi_range(&self) -> (f64, f64) {
+        (
+            (self.mmi - self.mmi_sigma).clamp(1.0, 10.0),
+            (self.mmi + self.mmi_sigma).clamp(1.0, 10.0),
         )
     }
 }
@@ -122,11 +142,14 @@ impl<'a> Scenario<'a> {
         };
         let pga = cy14::predict(Imt::Pga, &input)?;
         let pgv = cy14::predict(Imt::Pgv, &input)?;
+        let (mw, v) = (self.quake.mw, pgv.median());
         Some(Motion {
             pga,
             pgv,
-            jma: intensity::jma_from_pgv_rotd50(pgv.median()),
+            jma: intensity::jma_from_pgv_rotd50(v, mw, d.rrup),
             jma_sigma: intensity::jma_sigma(pgv.sigma),
+            mmi: crate::mmi::mmi_from_pgv_rotd50(v, mw, d.rrup),
+            mmi_sigma: crate::mmi::mmi_sigma(v, pgv.sigma, mw, d.rrup),
         })
     }
 
@@ -143,10 +166,20 @@ impl<'a> Scenario<'a> {
         let deg = geo::km_to_deg(dist.repi);
         let h = self.quake.depth_km;
         let vs30_used = site.vs30.clamp(cy14::VS30_MIN, cy14::VS30_MAX);
+        let motion = self.motion(&dist, vs30_used);
+        let jma_vs30_effect = motion.zip(site.vs30_ln_sd).and_then(|(_, sd)| {
+            let at = |f: f64| {
+                let v = (site.vs30 * f).clamp(cy14::VS30_MIN, cy14::VS30_MAX);
+                self.motion(&dist, v).map(|m| m.jma)
+            };
+            // Yumuşak zemin (Vs30 küçük) daha güçlü sarsılır.
+            Some((at((-sd).exp())? - at(sd.exp())?) / 2.0)
+        });
         SiteResult {
             t_p: self.tt.time(Phase::P, h, deg),
             t_s: self.tt.time(Phase::S, h, deg),
-            motion: self.motion(&dist, vs30_used),
+            motion,
+            jma_vs30_effect,
             dist,
             site,
             vs30_used,
@@ -265,6 +298,41 @@ mod tests {
         assert_eq!(very_soft.vs30_used, 180.0);
         assert!(very_soft.motion.is_some());
         assert_eq!(at(2000.0).vs30_used, 1500.0);
+        // Harita SD'si yoksa zemin etkisi hesaplanmaz.
+        assert!(soft.jma_vs30_effect.is_none());
+    }
+
+    #[test]
+    fn zemin_belirsizliginin_siddete_etkisi() {
+        use crate::site::Vs30Source;
+        let t = tt();
+        let s = Scenario::new(izmit(), &t);
+        let at = |vs30: f64, sd: f64| {
+            let site = Site {
+                vs30,
+                vs30_ln_sd: Some(sd),
+                source: Vs30Source::Map,
+            };
+            s.site((30.40, 40.78), || site)
+        };
+        // Elle: Vs30·e^∓sd için iki ayrı hesabın farkının yarısı.
+        let r = at(400.0, 0.4);
+        let direct = |v: f64| {
+            let site = Site {
+                vs30: v,
+                vs30_ln_sd: None,
+                source: Vs30Source::Map,
+            };
+            s.site((30.40, 40.78), || site).motion.unwrap().jma
+        };
+        let want = (direct(400.0 * (-0.4f64).exp()) - direct(400.0 * 0.4f64.exp())) / 2.0;
+        let got = r.jma_vs30_effect.unwrap();
+        assert!((got - want).abs() < 1e-12 && got > 0.0, "{got} {want}");
+        // Belirsizlik büyüdükçe etki büyür; sıfır SD'de sıfırdır.
+        assert!(at(400.0, 0.5).jma_vs30_effect.unwrap() > got);
+        assert_eq!(at(400.0, 0.0).jma_vs30_effect, Some(0.0));
+        // Model sınırında (180 m/s) alt uç kırpılır: etki küçülür.
+        assert!(at(180.0, 0.4).jma_vs30_effect.unwrap() < at(400.0, 0.4).jma_vs30_effect.unwrap());
     }
 
     #[test]

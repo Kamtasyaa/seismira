@@ -83,6 +83,7 @@ city-p-arrived = P wave arrived: { $city }
 city-shindo = { $city }: Shindo { $shindo }
 region-shindo = { $region }: Shindo { $shindo } (highest: { $city })
 tip-shindo = Shindo { $s } (instrumental intensity { $i }; likely range { $lo } – { $hi })
+tip-mmi = MMI { $roman } ({ $v }; likely range { $lo } – { $hi })
 tip-pga = PGA: { $v } %g
 tip-pgv = PGV: { $v } cm/s
 tip-arrivals = P: T+{ $p }, S: T+{ $s } (S − P: { $sp } s)
@@ -93,6 +94,7 @@ tip-vs30-nearby = Site: Vs30 ≈ { $v } m/s (nearest land cell)
 tip-vs30-built = Site: Vs30 ≈ { $v } m/s (USGS map, weighted by built-up area)
 tip-vs30-reference = Site: reference Vs30 = { $v } m/s (no map value)
 tip-vs30-clamped = Clamped to the model limit: { $v } m/s
+tip-vs30-sd = Site uncertainty: Vs30 ×/÷ { $f } → intensity ±{ $d }
 no-gmpe = No ground-motion model for this tectonic setting yet (Phase 5); only waves are shown.
 no-gmpe-short = No intensity estimate for this setting yet.
 advanced = Advanced
@@ -106,3 +108,14 @@ early-warning = Early warning (hypothetical system): { $regions }
 early-warning-more = { $regions } and { $n } more regions
 tip-lead-time = Warning time: { $s } s
 tip-blind-zone = Blind zone: warning arrives after shaking
+
+# Region card and closing the simulation (phase 4)
+button-stop = Close simulation
+running-hint = While a simulation is open, clicking a region on the map opens its card. Close the simulation to pick a new epicenter.
+region-max = Highest: Shindo { $s }
+region-max-city = Highest: Shindo { $s } ({ $city })
+region-typical = Widespread: Shindo { $s } (at least 10% of the built-up area)
+region-arrivals = First P: T+{ $p }, first S: T+{ $s }
+region-lead = Early warning: { $s } s before the first S in the region
+region-blind = Early warning: blind zone (the alert comes after the first S)
+region-not-covered = Outside early-warning coverage (below Shindo 4)

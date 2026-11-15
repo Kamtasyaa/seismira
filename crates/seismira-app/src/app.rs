@@ -305,6 +305,8 @@ pub struct SeismiraApp {
     city_events: Vec<CityEvent>,
     /// İmlecin altındaki nokta (boylam, enlem).
     hover: Option<(f64, f64)>,
+    /// Açık bölge kartı: bölge ve tıklanan nokta (kart oraya bağlı durur).
+    region_card: Option<(seismira_core::region::RegionId, (f64, f64))>,
 }
 
 /// Başlangıç görünümü. Geliştirme için `SEISMIRA_VIEW=boylam,enlem,ölçek`.
@@ -374,6 +376,7 @@ impl SeismiraApp {
             ranked: Vec::new(),
             city_events: Vec::new(),
             hover: None,
+            region_card: None,
         }
         .with_demo(&cc.egui_ctx)
     }
@@ -476,9 +479,16 @@ impl SeismiraApp {
         );
         let out = self.map.ui(ui, frame, crate::MSAA);
         if let Some(c) = out.clicked {
-            self.draft.quake.epicenter = c;
-            self.draft.has_epicenter = true;
-            self.cancel_sim();
+            if self.sim.is_some() {
+                // Simülasyon sürerken tıklama onu bozmaz: bölge kartını açar
+                // ya da kapatır (Bölüm 9). Yeni merkez üssü için önce
+                // "Simülasyonu kapat".
+                self.toggle_region_card(c);
+            } else {
+                self.draft.quake.epicenter = c;
+                self.draft.has_epicenter = true;
+                self.cancel_sim();
+            }
         }
         self.hover = out.hover;
 
@@ -547,6 +557,21 @@ impl SeismiraApp {
             self.map
                 .draw_epicenter(ui, rect, self.draft.quake.epicenter);
         }
+        // Geliştirme: `SEISMIRA_REGION=boylam,enlem` o noktadaki bölgenin
+        // kartını tıklama olmadan açar (ekran görüntüsü testleri için).
+        if self.region_card.is_none()
+            && let Some(v) = std::env::var("SEISMIRA_REGION").ok().map(|s| {
+                s.split(',')
+                    .filter_map(|x| x.trim().parse::<f64>().ok())
+                    .collect::<Vec<_>>()
+            })
+            && let [lon, lat] = v[..]
+        {
+            self.toggle_region_card((lon, lat));
+        }
+        if let Some((id, at)) = self.region_card {
+            self.draw_region_card(ui, rect, id, self.map.to_screen(rect, at));
+        }
         if let (Some(i), Some(p)) = (hovered_city, hover_pos) {
             self.city_card(ui, rect, i, p);
         } else if let Some((i, p)) = self.dev_card(rect) {
@@ -584,6 +609,56 @@ impl SeismiraApp {
             painter.rect_filled(bg, 4.0, theme::MAP_BG.gamma_multiply(0.85));
             painter.galley(pos, galley, weak);
         }
+    }
+}
+
+/// Harita üstünde bilgi kartı: satırlar ve (varsa) sol üstte Shindo kutusu.
+/// Kart `at` noktasının sağ altına, sığmazsa öbür yanına yerleşir.
+fn paint_card(
+    ui: &egui::Ui,
+    rect: egui::Rect,
+    at: egui::Pos2,
+    lines: Vec<(String, Color32)>,
+    shindo: Option<Shindo>,
+) {
+    let text = ui.visuals().text_color();
+    let painter = ui.painter_at(rect);
+    let font = FontId::proportional(13.0);
+    let galleys: Vec<_> = lines
+        .into_iter()
+        .map(|(t, c)| painter.layout_no_wrap(t, font.clone(), c))
+        .collect();
+    let w = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
+    let h: f32 = galleys.iter().map(|g| g.size().y + 2.0).sum();
+    let badge = if shindo.is_some() { 26.0 } else { 0.0 };
+    let mut origin = at + egui::vec2(14.0, 14.0);
+    let size = egui::vec2(w + badge + 16.0, h + 12.0);
+    if origin.x + size.x > rect.right() {
+        origin.x = at.x - 14.0 - size.x;
+    }
+    if origin.y + size.y > rect.bottom() {
+        origin.y = at.y - 14.0 - size.y;
+    }
+    let card = egui::Rect::from_min_size(origin, size);
+    painter.rect_filled(card, 6.0, ui.visuals().window_fill);
+    painter.rect_stroke(
+        card,
+        6.0,
+        ui.visuals().window_stroke,
+        egui::StrokeKind::Inside,
+    );
+    if let Some(s) = shindo {
+        shindo_style::draw_box(
+            &painter,
+            card.left_top() + egui::vec2(8.0 + 10.0, 8.0 + 9.0),
+            s,
+        );
+    }
+    let mut y = card.top() + 6.0;
+    for g in galleys {
+        let gh = g.size().y;
+        painter.galley(egui::pos2(card.left() + 8.0 + badge, y), g, text);
+        y += gh + 2.0;
     }
 }
 
@@ -665,6 +740,19 @@ impl SeismiraApp {
                         ),
                         text,
                     ));
+                    let (mmi_lo, mmi_hi) = m.mmi_range();
+                    lines.push((
+                        lang.t_args(
+                            "tip-mmi",
+                            &[
+                                ("roman", seismira_core::mmi::roman(m.mmi).to_owned()),
+                                ("v", lang.num(m.mmi, 1)),
+                                ("lo", seismira_core::mmi::roman(mmi_lo).to_owned()),
+                                ("hi", seismira_core::mmi::roman(mmi_hi).to_owned()),
+                            ],
+                        ),
+                        text,
+                    ));
                     lines.push((
                         lang.t_args("tip-pga", &[("v", lang.num(m.pga.median() * 100.0, 1))]),
                         text,
@@ -720,6 +808,15 @@ impl SeismiraApp {
                     Vs30Source::Built => "tip-vs30-built",
                 };
                 lines.push((lang.t_args(key, &[("v", v)]), weak));
+                if let (Some(sd), Some(effect)) = (r.site.vs30_ln_sd, r.jma_vs30_effect) {
+                    lines.push((
+                        lang.t_args(
+                            "tip-vs30-sd",
+                            &[("f", lang.num(sd.exp(), 2)), ("d", lang.num(effect, 1))],
+                        ),
+                        weak,
+                    ));
+                }
                 if (r.vs30_used - r.site.vs30).abs() > 0.5 {
                     lines.push((
                         lang.t_args("tip-vs30-clamped", &[("v", lang.num(r.vs30_used, 0))]),
@@ -728,44 +825,7 @@ impl SeismiraApp {
                 }
             }
         }
-        let painter = ui.painter_at(rect);
-        let font = FontId::proportional(13.0);
-        let galleys: Vec<_> = lines
-            .into_iter()
-            .map(|(t, c)| painter.layout_no_wrap(t, font.clone(), c))
-            .collect();
-        let w = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
-        let h: f32 = galleys.iter().map(|g| g.size().y + 2.0).sum();
-        let badge = if shindo.is_some() { 26.0 } else { 0.0 };
-        let mut origin = at + egui::vec2(14.0, 14.0);
-        let size = egui::vec2(w + badge + 16.0, h + 12.0);
-        if origin.x + size.x > rect.right() {
-            origin.x = at.x - 14.0 - size.x;
-        }
-        if origin.y + size.y > rect.bottom() {
-            origin.y = at.y - 14.0 - size.y;
-        }
-        let card = egui::Rect::from_min_size(origin, size);
-        painter.rect_filled(card, 6.0, ui.visuals().window_fill);
-        painter.rect_stroke(
-            card,
-            6.0,
-            ui.visuals().window_stroke,
-            egui::StrokeKind::Inside,
-        );
-        if let Some(s) = shindo {
-            shindo_style::draw_box(
-                &painter,
-                card.left_top() + egui::vec2(8.0 + 10.0, 8.0 + 9.0),
-                s,
-            );
-        }
-        let mut y = card.top() + 6.0;
-        for g in galleys {
-            let gh = g.size().y;
-            painter.galley(egui::pos2(card.left() + 8.0 + badge, y), g, text);
-            y += gh + 2.0;
-        }
+        paint_card(ui, rect, at, lines, shindo);
     }
 
     /// `t`'den sonraki ilk bildirimin zamanı ("sonraki olaya atla"):
@@ -781,7 +841,104 @@ impl SeismiraApp {
             .min_by(f64::total_cmp)
     }
 
+    /// Tıklanan noktadaki bölgenin kartını açar; aynı bölgeye ya da sonucu
+    /// olmayan bir yere (deniz, model dışı) tıklanınca kapatır.
+    fn toggle_region_card(&mut self, lonlat: (f64, f64)) {
+        let id = self
+            .regions
+            .as_ref()
+            .and_then(|r| r.map.id_at(lonlat.0, lonlat.1).ok())
+            .filter(|id| self.region_results.iter().any(|r| r.summary.id == *id));
+        self.region_card = match (id, self.region_card) {
+            (Some(id), Some((open, _))) if id == open => None,
+            (Some(id), _) => Some((id, lonlat)),
+            (None, _) => None,
+        };
+    }
+
+    /// Bölge kartı (Bölüm 10): en yüksek ve yaygın Shindo, varışlar, erken
+    /// uyarı. Değerler tahminin son hâlidir (şehir kartı gibi). Tahmini
+    /// hasar Faz 6'da, tsunami Faz 8'de eklenecek.
+    fn draw_region_card(
+        &self,
+        ui: &egui::Ui,
+        rect: egui::Rect,
+        id: seismira_core::region::RegionId,
+        at: egui::Pos2,
+    ) {
+        let lang = self.lang;
+        let (Some(regions), Some(res)) = (
+            &self.regions,
+            self.region_results.iter().find(|r| r.summary.id == id),
+        ) else {
+            return;
+        };
+        let Some(info) = regions.info(id) else { return };
+        let s = &res.summary;
+        let text = ui.visuals().text_color();
+        let weak = ui.visuals().weak_text_color();
+        let name = match lang {
+            Lang::Tr => info.name_tr.clone(),
+            Lang::En => info.name_en.clone(),
+        };
+        let mut lines = vec![(name, text), (info.iso.clone(), weak)];
+        // "En yüksek: şehir" yalnızca şehrin değeri bölgeninkine eşitse
+        // (bölge değeri ızgaradan gelir; bildirimlerle aynı kural).
+        let city = self
+            .cities
+            .as_ref()
+            .ok()
+            .zip(res.best_city)
+            .filter(|&(_, i)| {
+                self.results
+                    .as_ref()
+                    .is_some_and(|r| r.sites[i].motion.is_some_and(|m| m.shindo() == s.max))
+            })
+            .map(|(l, i)| l.cities[i].name.clone());
+        lines.push((
+            match city {
+                Some(city) => lang.t_args(
+                    "region-max-city",
+                    &[("s", s.max.to_string()), ("city", city)],
+                ),
+                None => lang.t_args("region-max", &[("s", s.max.to_string())]),
+            },
+            text,
+        ));
+        lines.push((
+            lang.t_args("region-typical", &[("s", s.typical.to_string())]),
+            text,
+        ));
+        lines.push((
+            lang.t_args(
+                "region-arrivals",
+                &[
+                    ("p", timeline::format_hms(s.t_first_p)),
+                    ("s", timeline::format_hms(s.t_first_s)),
+                ],
+            ),
+            text,
+        ));
+        if let Some(alert) = &self.alert {
+            lines.push(if !alert.regions.contains(&id) {
+                (lang.t("region-not-covered"), weak)
+            } else {
+                let lead = seismira_core::warning::lead_time(s.t_first_s, alert.t);
+                if lead > 0.0 {
+                    (
+                        lang.t_args("region-lead", &[("s", lang.num(lead, 1))]),
+                        text,
+                    )
+                } else {
+                    (lang.t("region-blind"), text)
+                }
+            });
+        }
+        paint_card(ui, rect, at, lines, Some(s.max));
+    }
+
     fn cancel_sim(&mut self) {
+        self.region_card = None;
         self.job = None; // Drop → arka plan hesabı iptal
         self.map.set_grid(None);
         self.map.set_region_lines(None);
@@ -1135,8 +1292,9 @@ impl eframe::App for SeismiraApp {
                     let can_run = self.draft.has_epicenter
                         && self.travel_times.is_ok()
                         && !issues.iter().any(|i| i.blocks());
-                    match panel::ui(ui, lang, &mut self.draft, &issues, can_run) {
-                        panel::Action::Changed => self.cancel_sim(),
+                    let running = self.sim.is_some();
+                    match panel::ui(ui, lang, &mut self.draft, &issues, can_run, running) {
+                        panel::Action::Changed | panel::Action::Stop => self.cancel_sim(),
                         panel::Action::Start => {
                             let ctx = ui.ctx().clone();
                             self.start_sim(&ctx);

@@ -83,6 +83,7 @@ city-p-arrived = P dalgası ulaştı: { $city }
 city-shindo = { $city }: Shindo { $shindo }
 region-shindo = { $region }: Shindo { $shindo } (en yüksek: { $city })
 tip-shindo = Shindo { $s } (aletsel şiddet { $i }; olası aralık { $lo } – { $hi })
+tip-mmi = MMI { $roman } ({ $v }; olası aralık { $lo } – { $hi })
 tip-pga = PGA: %{ $v } g
 tip-pgv = PGV: { $v } cm/s
 tip-arrivals = P: T+{ $p }, S: T+{ $s } (S − P: { $sp } s)
@@ -93,6 +94,7 @@ tip-vs30-nearby = Zemin: Vs30 ≈ { $v } m/s (en yakın kara hücresi)
 tip-vs30-built = Zemin: Vs30 ≈ { $v } m/s (USGS haritası, yerleşim ağırlıklı)
 tip-vs30-reference = Zemin: referans Vs30 = { $v } m/s (harita değeri yok)
 tip-vs30-clamped = Hesapta model sınırına çekildi: { $v } m/s
+tip-vs30-sd = Zemin belirsizliği: Vs30 ×/÷ { $f } → şiddet ±{ $d }
 no-gmpe = Bu tektonik ortam için yer hareketi modeli henüz yok (Faz 5); yalnızca dalgalar gösterilir.
 no-gmpe-short = Bu ortam için şiddet hesabı henüz yok.
 advanced = İleri seviye
@@ -106,3 +108,14 @@ early-warning = Erken uyarı (varsayımsal sistem): { $regions }
 early-warning-more = { $regions } ve { $n } bölge daha
 tip-lead-time = Erken uyarı süresi: { $s } s
 tip-blind-zone = Kör bölge: uyarı sarsıntıdan sonra geliyor
+
+# Bölge kartı ve simülasyonu kapatma (Faz 4)
+button-stop = Simülasyonu kapat
+running-hint = Simülasyon açıkken haritada bir ile tıklayınca bölge kartı açılır. Yeni merkez üssü seçmek için önce simülasyonu kapatın.
+region-max = En yüksek: Shindo { $s }
+region-max-city = En yüksek: Shindo { $s } ({ $city })
+region-typical = Yaygın: Shindo { $s } (yerleşim alanının en az %10'u)
+region-arrivals = İlk P: T+{ $p }, ilk S: T+{ $s }
+region-lead = Erken uyarı: bölgedeki ilk S'ten { $s } s önce
+region-blind = Erken uyarı: kör bölge (uyarı ilk S'ten sonra geliyor)
+region-not-covered = Erken uyarı kapsamı dışında (Shindo 4'ün altı)

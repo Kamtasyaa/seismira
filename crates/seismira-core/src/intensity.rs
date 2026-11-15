@@ -8,7 +8,8 @@
 //! I = 2.54 + 1.82·log10(PGV) ± 0.19 (PGV cm/s). (I = 4~7 alt kümesi için
 //! 2.68 + 1.72·log10 PGV ± 0.21; JMA erken uyarısı bunu kullanır. Biz tüm
 //! aralığı kapsayan 0~7 uydurmasını kullanıyoruz.) Makalede PGV iki yatay
-//! bileşenin VEKTÖREL bileşkesinin tepe değeridir (= RotD100).
+//! bileşenin VEKTÖREL bileşkesinin tepe değeridir (= RotD100); GMPE'nin
+//! RotD50'sinden dönüşüm [`crate::component`] (Boore & Kishida 2017).
 //!
 //! Sınıf eşikleri ve yuvarlama: JMA "計測震度の算出方法" sayfası, Tablo 1
 //! (2026-11-14'te kontrol edildi).
@@ -21,23 +22,29 @@ const B: f64 = 1.82;
 /// Bağıntının standart sapması (şiddet birimi).
 pub const SIGMA_CONVERSION: f64 = 0.19;
 
-/// RotD100 / RotD50 oranı (PGV). VARSAYIM, DOĞRULANMADI: PGV için
-/// yayımlanmış değere erişilemedi (Boore & Kishida 2017). Shahi & Baker
-/// (2014, Earthquake Spectra 30(3), Tablo 1) spektral ivme için 0.5–1 s
-/// aralığında 1.23–1.24 verir; PGV'nin baskın periyodu bu aralıkta kabul
-/// edildi. Etkisi ≈ +0.16 şiddet birimi. docs/bilim.md'de açık not.
-pub const ROTD100_PER_ROTD50_PGV: f64 = 1.23;
-
-/// RotD50 PGV (cm/s) → JMA aletsel şiddeti (ham, yuvarlanmamış).
-pub fn jma_from_pgv_rotd50(pgv_cm_s: f64) -> f64 {
-    let pgv_vector = pgv_cm_s * ROTD100_PER_ROTD50_PGV;
-    A + B * pgv_vector.log10()
+/// Vektörel bileşke (RotD100) PGV (cm/s) → JMA aletsel şiddeti (ham,
+/// yuvarlanmamış): makaledeki bağıntının kendisi.
+pub fn jma_from_pgv_vector(pgv_cm_s: f64) -> f64 {
+    A + B * pgv_cm_s.log10()
 }
 
-/// GMPE'nin ln(PGV) standart sapmasını şiddet birimine taşır ve dönüşüm
-/// belirsizliğiyle birleştirir (bağımsız kabul edilerek).
+/// RotD50 PGV (cm/s) → JMA aletsel şiddeti (ham, yuvarlanmamış). GMPE'nin
+/// RotD50'si önce vektörel bileşkeye (RotD100) çevrilir: Boore & Kishida
+/// (2017), büyüklük ve mesafeye bağlı oran ([`crate::component`]). PGV için
+/// Mw 4–8,5 ve Rrup 1–300 km'de 1,19–1,29; faya çok yakında (Rrup → 0)
+/// 1,37'ye çıkar. 2026-11-15'e kadar sabit 1,23 varsayımı kullanılıyordu:
+/// fark −0,03 ile +0,04 şiddet birimi arasında, fay üzerinde +0,08.
+pub fn jma_from_pgv_rotd50(pgv_cm_s: f64, mw: f64, rrup_km: f64) -> f64 {
+    let ratio = crate::component::ln_rotd100_per_rotd50_pgv(mw, rrup_km).exp();
+    jma_from_pgv_vector(pgv_cm_s * ratio)
+}
+
+/// GMPE'nin ln(PGV) standart sapmasını şiddet birimine taşır: bileşen
+/// dönüşümünün saçılımı eklenir ve bağıntının belirsizliğiyle birleştirilir
+/// (bağımsız kabul edilerek).
 pub fn jma_sigma(sigma_ln_pgv: f64) -> f64 {
-    let from_gmpe = B * sigma_ln_pgv / std::f64::consts::LN_10;
+    let s_ln = (sigma_ln_pgv.powi(2) + crate::component::SIGMA_ROTD100_PGV.powi(2)).sqrt();
+    let from_gmpe = B * s_ln / std::f64::consts::LN_10;
     (from_gmpe * from_gmpe + SIGMA_CONVERSION * SIGMA_CONVERSION).sqrt()
 }
 
@@ -148,17 +155,25 @@ mod tests {
     #[test]
     fn midorikawa_tablo2_degerleri() {
         // Vektörel PGV 10 cm/s → I = 2.54 + 1.82 = 4.36.
-        let pgv50 = 10.0 / ROTD100_PER_ROTD50_PGV;
-        assert!((jma_from_pgv_rotd50(pgv50) - 4.36).abs() < 1e-12);
+        assert!((jma_from_pgv_vector(10.0) - 4.36).abs() < 1e-12);
         // Vektörel PGV 1 cm/s → I = 2.54.
-        assert!((jma_from_pgv_rotd50(1.0 / ROTD100_PER_ROTD50_PGV) - 2.54).abs() < 1e-12);
+        assert!((jma_from_pgv_vector(1.0) - 2.54).abs() < 1e-12);
+        // RotD50 → RotD100: M 5.5, 50 km'de ×1,2272 (Boore & Kishida 2017).
+        let i = jma_from_pgv_rotd50(10.0 / 1.2272, 5.5, 50.0);
+        assert!((i - 4.36).abs() < 1e-4, "{i}");
+        // Eski sabit 1,23 varsayımına göre fark: Rrup ≥ 1 km'de −0,03…+0,04.
+        for (m, r) in [(4.0, 300.0), (5.9, 1.0), (7.0, 10.0), (8.5, 300.0)] {
+            let d = jma_from_pgv_rotd50(5.0, m, r) - jma_from_pgv_vector(5.0 * 1.23);
+            assert!((-0.03..0.04).contains(&d), "M{m} R{r}: {d}");
+        }
     }
 
     #[test]
     fn belirsizlik_birlesimi() {
-        // σ_lnPGV = 0 iken yalnızca dönüşüm belirsizliği kalır.
-        assert!((jma_sigma(0.0) - SIGMA_CONVERSION).abs() < 1e-12);
-        // σ_lnPGV = 0.6 → 1.82·0.6/ln10 ≈ 0.474; toplam ≈ 0.511.
-        assert!((jma_sigma(0.6) - 0.5108).abs() < 1e-3);
+        // σ_lnPGV = 0 iken bileşen saçılımı (0,0856 ln → 0,068) ve bağıntı
+        // belirsizliği (0,19) kalır: √(0,068² + 0,19²) ≈ 0,2017.
+        assert!((jma_sigma(0.0) - 0.2017).abs() < 1e-4);
+        // σ_lnPGV = 0.6 → 1.82·√(0.6² + 0.0856²)/ln10 ≈ 0.479; toplam ≈ 0.515.
+        assert!((jma_sigma(0.6) - 0.5154).abs() < 1e-3);
     }
 }

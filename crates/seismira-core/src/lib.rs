@@ -4,6 +4,7 @@
 //! herhangi bir pencere / çizim kütüphanesine bağımlılık EKLENMEZ.
 
 pub mod cities;
+pub mod component;
 pub mod duration;
 pub mod geo;
 pub mod gmpe;
@@ -11,6 +12,7 @@ pub mod grid;
 pub mod intensity;
 pub mod mapfile;
 pub mod mercator;
+pub mod mmi;
 pub mod quake;
 pub mod raster;
 pub mod region;

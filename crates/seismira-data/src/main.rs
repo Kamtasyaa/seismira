@@ -87,8 +87,10 @@ struct Summary {
 
 /// Satırlardaki `k` karşılaştırmasının (0: A, 1: B, 2: C) özeti.
 fn summarize(rows: &[Row], k: usize) -> Option<Summary> {
-    use seismira_core::intensity::jma_from_pgv_rotd50;
-    let to_i = |ln_pgv: f64| jma_from_pgv_rotd50(ln_pgv.exp());
+    use seismira_core::intensity::jma_from_pgv_vector;
+    // ΔI için bileşen dönüşümü gerekmez: aynı istasyonda gözlenen ve
+    // tahmin edilen PGV aynı oranla çarpılır, farkta birbirini götürür.
+    let to_i = |ln_pgv: f64| jma_from_pgv_vector(ln_pgv.exp());
     let pick = |r: &Row| match k {
         0 => Some(r.2),
         1 => Some(r.3),
@@ -226,7 +228,7 @@ fn compare_shakemap(
 /// yazar. Argümanlar: `<stationlist.json> boylam enlem derinlik Mw doğrultu
 /// eğim fay(SS|RS|NS) [hiposantr_doğrultu_konumu] [--vs30 <dosya.sras>]`.
 fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
-    use seismira_core::intensity::jma_from_pgv_rotd50;
+    use seismira_core::intensity::jma_from_pgv_vector;
     use seismira_core::quake::{FaultType, Quake};
 
     let mut args = args.to_vec();
@@ -272,7 +274,7 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         vs_src,
     } = compare_shakemap(stations, &q, vs30_map.as_ref())?;
 
-    let to_i = |ln_pgv: f64| jma_from_pgv_rotd50(ln_pgv.exp());
+    let to_i = |ln_pgv: f64| jma_from_pgv_vector(ln_pgv.exp());
     println!(
         "fay (bizim): L = {:.0} km, W = {:.0} km, Ztor = {:.1} km, hiposantr doğrultu konumu {:.2}",
         ours.length, ours.width, ours.ztor, q.hypo_along

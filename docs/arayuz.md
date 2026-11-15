@@ -329,8 +329,8 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   - Sınırların altında siyah %75 kontur (+2,5 pt). Güçlü olan üstte.
 - Yanıp sönme: duvar saatine bağlı, 1 Hz, kosinüs. Görünüm → "Hareketi
   azalt": dolgu orta opaklıkta sabit (ayar kaydedilir).
-- Henüz yok: bölge kartı (bölgeye tıklama), hızlı oynatmada en az ~1 s
-  görünme kuralı.
+- Henüz yok: hızlı oynatmada en az ~1 s görünme kuralı. (Bölge kartı
+  2026-11-15'te eklendi, aşağıda.)
 - Bölge sayısı sınırı (2026-11-15): bir karede en fazla 1 024 bölge
   vurgulanır; aşılırsa en ZAYIF olanlar atlanır. Ölçüm: Ljubljana Mw 8,0'da
   392 bölge (Natural Earth'te Slovenya 193, Birleşik Krallık 232 birim).
@@ -339,3 +339,34 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
 - Gözlem: Marmara Mw 7.5'te uyarı kapsamı 41 bölge (Bulgaristan ve
   Yunanistan dahil; Shindo 4 tahmini geniş). JMA ölçütüyle tutarlı ama
   dünya ölçeğinde çok beyaz çizgi var.
+
+## Sağdan sola yazı: Faz 3 kontrolü (2026-11-15, gecikmeli)
+
+- egui 0.37.0 hâlâ en yeni sürüm (crates.io); bidi desteği gelmedi.
+- Uygulamada şu an sağdan sola metin GÖRÜNMÜYOR: 34 215 şehir adı ve il /
+  eyalet adı ile 4 596 bölge adının (name_tr, name_en) tamamı Latin
+  harfli (dosyalar tarandı). Sorun yalnızca "Yazı testi" penceresinde
+  duruyor. Bu yüzden `unicode-bidi` geçici katmanı yazılmadı; şehir adları
+  kullanıcının dilinde gösterilmeye başlanırsa (GeoNames alternatif adları)
+  yeniden ele alınacak.
+
+## Bölge kartı ve haritaya tıklama (Faz 4, 2026-11-15)
+
+- Simülasyon açıkken haritada bir bölgeye tıklamak bölge kartını açar;
+  aynı bölgeye ya da sonucu olmayan bir yere (deniz, model dışı) tıklamak
+  kapatır. Kart tıklanan noktaya bağlı durur (harita kayınca birlikte
+  kayar). İçerik: ad (arayüz dilinde), ISO 3166-2 kodu, en yüksek Shindo
+  (şehrin değeri bölgeninkine eşitse şehir adıyla), yaygın Shindo, bölgedeki
+  ilk P ve ilk S varışı, erken uyarı (ilk S'e göre süre / kör bölge / kapsam
+  dışı). Değerler tahminin son hâlidir (şehir kartı gibi). Tahmini hasar
+  Faz 6'da, tsunami Faz 8'de eklenecek.
+- KARAR DEĞİŞİKLİĞİ: eskiden haritaya her tıklama merkez üssünü taşıyıp
+  çalışan simülasyonu iptal ediyordu (yanlışlıkla tıklama simülasyonu
+  siliyordu ve bölge kartıyla çakışıyordu). Artık simülasyon açıkken
+  tıklama merkez üssünü DEĞİŞTİRMEZ. Yeni merkez üssü için sağ paneldeki
+  "Simülasyonu kapat" düğmesi (Başlat'ın yanında, yalnızca simülasyon
+  açıkken görünür) ya da paneldeki herhangi bir ayarı değiştirmek yeter.
+  Simülasyon yokken tıklama eskisi gibi merkez üssünü seçer.
+- Geliştirme: `SEISMIRA_REGION=boylam,enlem` kartı tıklamasız açar.
+- Şehir kartına eklenenler: MMI satırı (Worden vd. 2012) ve zemin
+  belirsizliği satırı ("Vs30 ×/÷ f → şiddet ±d"; docs/bilim.md 7.7).

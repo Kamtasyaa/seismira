@@ -30,6 +30,9 @@ pub enum Action {
     /// Taslak değişti (çalışan simülasyon iptal edilir).
     Changed,
     Start,
+    /// Çalışan simülasyonu kapat (haritaya tıklayınca yeniden merkez üssü
+    /// seçilebilsin).
+    Stop,
 }
 
 /// Dile göre ondalık ayraçlı sayı kutusu.
@@ -92,6 +95,7 @@ pub fn ui(
     draft: &mut Draft,
     issues: &[Issue],
     can_run: bool,
+    running: bool,
 ) -> Action {
     let t = |k| lang.t(k);
     let before = draft.quake;
@@ -176,7 +180,14 @@ pub fn ui(
                     ui.add(number(lang, &mut q.dip, 0.0..=90.0, 0, 0.5));
                     ui.end_row();
                     ui.label(t("rake"));
-                    ui.add(number(lang, &mut q.rake, -180.0..=180.0, 0, 1.0));
+                    // Hesap fay tipini kullanır; açı değişince tip ona uyar
+                    // (CY14 tanımı), eğim olduğu gibi kalır.
+                    if ui
+                        .add(number(lang, &mut q.rake, -180.0..=180.0, 0, 1.0))
+                        .changed()
+                    {
+                        q.fault = FaultType::from_rake(q.rake);
+                    }
                     ui.end_row();
                 });
         });
@@ -252,8 +263,16 @@ pub fn ui(
     ui.add_space(8.0);
     let start = egui::Button::new(RichText::new(t("button-start")).strong())
         .min_size(egui::vec2(140.0, 34.0));
-    if ui.add_enabled(can_run, start).clicked() {
-        action = Action::Start;
+    ui.horizontal(|ui| {
+        if ui.add_enabled(can_run, start).clicked() {
+            action = Action::Start;
+        }
+        if running && ui.button(t("button-stop")).clicked() {
+            action = Action::Stop;
+        }
+    });
+    if running {
+        ui.label(RichText::new(t("running-hint")).small().weak());
     }
     ui.add_space(8.0);
     ui.label(RichText::new(t("ranges-note")).small().weak());

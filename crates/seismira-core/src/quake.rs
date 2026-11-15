@@ -36,6 +36,23 @@ impl FaultType {
             FaultType::Reverse => (40.0, 90.0),
         }
     }
+
+    /// Kayma açısından (rake, derece) fay tipi. Chiou & Youngs (2014) fay
+    /// tipi bayraklarının tanımı: ters (F_RV) 30° ≤ λ ≤ 150°, normal (F_NM)
+    /// −120° ≤ λ ≤ −60°, kalanı doğrultu atımlı. Sınırlar dahil. İki
+    /// bağımsız uygulamayla teyit edildi (2026-11-15): OpenQuake hazardlib
+    /// `chiou_youngs_2014` ve wltcwpf/GMPE `cy_2014_nga.R`; makale metni
+    /// görülmedi. Arayüz, kayma açısı değişince fay tipini buna göre seçer;
+    /// böylece hesapta kullanılan tip ile girilen açı çelişmez.
+    pub fn from_rake(rake: f64) -> FaultType {
+        if (30.0..=150.0).contains(&rake) {
+            FaultType::Reverse
+        } else if (-120.0..=-60.0).contains(&rake) {
+            FaultType::Normal
+        } else {
+            FaultType::StrikeSlip
+        }
+    }
 }
 
 /// Kullanıcının tanımladığı deprem.
@@ -253,6 +270,32 @@ mod tests {
         assert_eq!(validate(&q), vec![Issue::InterfaceNotReverse]);
         q.fault = FaultType::Reverse;
         assert!(validate(&q).is_empty());
+    }
+
+    #[test]
+    fn kayma_acisindan_fay_tipi() {
+        use FaultType::*;
+        for (rake, want) in [
+            (0.0, StrikeSlip),
+            (180.0, StrikeSlip),
+            (-180.0, StrikeSlip),
+            (29.9, StrikeSlip),
+            (30.0, Reverse),
+            (90.0, Reverse),
+            (150.0, Reverse),
+            (150.1, StrikeSlip),
+            (-59.9, StrikeSlip),
+            (-60.0, Normal),
+            (-90.0, Normal),
+            (-120.0, Normal),
+            (-120.1, StrikeSlip),
+        ] {
+            assert_eq!(FaultType::from_rake(rake), want, "{rake}");
+        }
+        // Varsayılan açılar kendi tiplerine döner.
+        for f in [StrikeSlip, Normal, Reverse] {
+            assert_eq!(FaultType::from_rake(f.default_dip_rake().1), f);
+        }
     }
 
     #[test]

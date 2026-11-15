@@ -269,8 +269,13 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   (USGS havza ölçeklemesi, CyberShake, PRVI hariç).
 - Seçimler: RotD50; Kaliforniya/küresel temel model (bölgesel düzeltme
   yok); yönelim terimi yok; havza terimi 0 (ΔZ1 = 0); Vs30 "tahmini".
-  Fay tipi (ters/normal terimleri) kullanıcının seçtiği tipten alınır
-  (nshmp-lib kayma açısından 45–135° / −135–−45° kuralıyla çıkarır).
+  Fay tipi (ters/normal terimleri) kullanıcının seçtiği tipten alınır.
+  Kayma açısı elle değiştirilirse tip CY14'ün bayrak tanımına göre seçilir
+  (2026-11-15): ters 30° ≤ λ ≤ 150°, normal −120° ≤ λ ≤ −60°, kalanı
+  doğrultu atımlı (`FaultType::from_rake`; OpenQuake hazardlib ve
+  wltcwpf/GMPE uygulamalarıyla teyit edildi, makale metni görülmedi).
+  Öncesinde kayma açısı kutusu hesaba hiç girmiyordu. (Eski not: nshmp-lib
+  45–135° / −135–−45° kullanır; doğrulanmadı.)
 - Geçerlilik: Mw 3.5–8.5 doğrultu atımlı, 3.5–8.0 ters/normal; Rrup ≤ 300
   km; Ztor 0–20 km; Vs30 180–1500 m/s. pygmm de aynı sınırlarla uyarıyor.
   Bölüm 6'daki kabuk sınırları (4.0–8.5 / 8.0) bununla uyumlu.
@@ -334,3 +339,22 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   kenar 20 km'den derinse (küçük ve derin deprem, ör. Mw 5 / 22 km)
   Başlat engellenir (`Issue::ZtorOutOfRange`). Öncesinde denetim geçiyor,
   hiçbir sahada şiddet çıkmıyordu.
+- RotD100 / RotD50 (PGV) DOĞRULANDI ve sabit 1,23 kaldırıldı (2026-11-15):
+  Boore & Kishida (2017) katsayıları USGS ShakeMap'in (CC0) veri
+  dosyalarından alındı (makalenin kendisine yine erişilemedi). Oran
+  büyüklük ve mesafeye bağlı: Rrup 1–300 km'de 1,19–1,29, fay üzerinde
+  1,37; eski sabite göre fark −0,03…+0,04 şiddet birimi
+  (`seismira-core/src/component.rs`). 7.6'daki "VARSAYIM" notu geçersiz.
+- MMI eklendi (2026-11-15): Worden vd. (2012), PGV'den, mesafe / büyüklük
+  terimleriyle; katsayılar ShakeMap `wgrw12.py` (CC0), makale görülmedi.
+  Girdi iki yatay bileşenin büyüğü (Boore & Kishida 2017 ile RotD50'den).
+  σ = 0,63. Şehir kartında Shindo'nun altında gösterilir
+  (`seismira-core/src/mmi.rs`). Henüz yok: haritada MMI ölçeği seçimi.
+- Zemin (Vs30) belirsizliği, 7.7 (2026-11-15): haritanın log standart
+  sapması "olası aralık"a EKLENMEZ. Gerekçe: CY14'ün σ'sı Vs30'u
+  ölçülmemiş ("inferred") sahalar için zaten büyütülmüştür (Eş. 13'teki
+  σ3 terimi; kodda bu dal kullanılıyor); harita SD'sini üstüne eklemek
+  aynı belirsizliği iki kez saymak olur. Bunun yerine etkisi ayrı
+  hesaplanıp şehir kartında gösterilir: Vs30·e^(±SD) için aletsel şiddet
+  farkının yarısı (`SiteResult::jma_vs30_effect`; yalnızca SD'si olan
+  sahalarda, yani şehirlerde; ızgara hücrelerinde hesaplanmaz).
