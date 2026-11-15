@@ -34,12 +34,57 @@ const BLINK_HZ: f64 = 1.0;
 /// kontrastlı ve sabittir). `t` simülasyon zamanı, `wall` duvar saati
 /// (yanıp sönme simülasyon hızından bağımsız). Dönen ikinci değer: yanıp
 /// sönen bölge var mı (sürekli çizim gerekir).
+/// Bir bölge görselinin ekranda kalacağı en kısa süre (duvar saniyesi).
+/// Bölüm 9: hızlı oynatmada bir durum çok kısa sürerse görsel en az ~1 s
+/// ekranda kalır (yalnızca sunum; simülasyon durumu değişmez).
+const MIN_SHOW_S: f64 = 1.0;
+
+/// Bölgenin EKRANDA gösterilen aşaması: 0 sessiz, 1 uyarı, 2 sarsıntı,
+/// 3 yatışmış; `since`: bu aşamanın ekrana geldiği duvar saati.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Shown {
+    stage: u8,
+    since: f64,
+}
+
+/// Gösterilen aşamayı gerçek aşamaya (`actual`, simülasyon zamanının saf
+/// fonksiyonu) doğru ilerletir. `hold` açıkken (oynatma sürerken) uyarı ve
+/// sarsıntı görseli en az [`MIN_SHOW_S`] ekranda kalır ve aşamalar sırayla
+/// gösterilir; bölge uyarı aşamasından hiç geçmiyorsa (`passes_warning`
+/// değil) o aşama atlanır. Geri sarmada ve duraklatılmışken gerçek aşama
+/// hemen gösterilir.
+fn advance_shown(shown: Shown, actual: u8, passes_warning: bool, wall: f64, hold: bool) -> Shown {
+    if actual == shown.stage {
+        return shown;
+    }
+    if !hold || actual < shown.stage {
+        return Shown {
+            stage: actual,
+            since: wall,
+        };
+    }
+    // İleri: sessiz aşama beklemez, diğerleri en az MIN_SHOW_S görünür.
+    if shown.stage != 0 && wall - shown.since < MIN_SHOW_S {
+        return shown;
+    }
+    let mut next = shown.stage + 1;
+    if next == 1 && actual > 1 && !passes_warning {
+        next = 2;
+    }
+    Shown {
+        stage: next,
+        since: wall,
+    }
+}
+
 fn region_styles(
     results: &[compute::RegionResult],
     alert: Option<&Alert>,
     t: f64,
     wall: f64,
     reduce_motion: bool,
+    shown: &mut std::collections::HashMap<seismira_core::region::RegionId, Shown>,
+    hold: bool,
 ) -> (Vec<crate::map::RegionStyle>, bool) {
     use seismira_core::region::RegionState;
     // 0–1 arası yumuşak dalga (kosinüs); "Hareketi azalt" açıkken ortada sabit.
@@ -57,8 +102,32 @@ fn region_styles(
         let s = &r.summary;
         let t_alert = alert.filter(|a| a.regions.contains(&s.id)).map(|a| a.t);
         let end = s.t_end.is_finite().then_some(s.t_end);
+        // Sunum: gerçek durum → en az ~1 s görünen aşama (Bölüm 9).
+        let actual = s.state(t, t_alert, end);
+        let actual_stage = match actual {
+            RegionState::Quiet => 0,
+            RegionState::Warning => 1,
+            RegionState::Shaking(_) => 2,
+            RegionState::Settled(_) => 3,
+        };
+        // Uyarı, sarsıntı başlamadan önce (P ulaştıktan sonra) görünüyor mu?
+        let passes_warning =
+            t_alert.is_some_and(|a| a.max(s.t_first_p) < s.class_times[Shindo::S1 as usize]);
+        let entry = shown.entry(s.id).or_insert(Shown {
+            stage: actual_stage,
+            since: wall,
+        });
+        *entry = advance_shown(*entry, actual_stage, passes_warning, wall, hold);
+        // Gösterilen aşama gerçeğin gerisindeyse çizim sürmeli.
+        blinking |= entry.stage != actual_stage;
+        let visible = match entry.stage {
+            0 => RegionState::Quiet,
+            1 => RegionState::Warning,
+            2 => RegionState::Shaking(s.typical_at(t).unwrap_or(Shindo::S1)),
+            _ => RegionState::Settled(s.typical),
+        };
         // (sıra, sınır rengi, kalınlık, dolgu, yanıp sönüyor mu)
-        let style = match s.state(t, t_alert, end) {
+        let style = match visible {
             RegionState::Quiet => None,
             // Uyarıda beyaz dolgu daha da hafif (%4–%14): kapsam geniş
             // olabilir (ör. 41 il) ve tüm haritayı grileştirmesin.
@@ -307,6 +376,8 @@ pub struct SeismiraApp {
     hover: Option<(f64, f64)>,
     /// Açık bölge kartı: bölge ve tıklanan nokta (kart oraya bağlı durur).
     region_card: Option<(seismira_core::region::RegionId, (f64, f64))>,
+    /// Bölgelerin ekranda gösterilen aşaması (en az ~1 s görünme kuralı).
+    region_shown: std::collections::HashMap<seismira_core::region::RegionId, Shown>,
 }
 
 /// Başlangıç görünümü. Geliştirme için `SEISMIRA_VIEW=boylam,enlem,ölçek`.
@@ -377,6 +448,7 @@ impl SeismiraApp {
             city_events: Vec::new(),
             hover: None,
             region_card: None,
+            region_shown: Default::default(),
         }
         .with_demo(&cc.egui_ctx)
     }
@@ -465,6 +537,8 @@ impl SeismiraApp {
                 self.clock.t,
                 wall,
                 self.reduce_motion,
+                &mut self.region_shown,
+                self.clock.playing,
             );
             self.map.set_region_styles(styles);
             if blinking {
@@ -943,6 +1017,7 @@ impl SeismiraApp {
         self.map.set_grid(None);
         self.map.set_region_lines(None);
         self.map.set_region_styles(Vec::new());
+        self.region_shown.clear();
         self.results = None;
         self.ranked.clear();
         self.city_events.clear();
@@ -1398,6 +1473,29 @@ impl eframe::App for SeismiraApp {
 mod tests {
     use super::*;
     use egui_kittest::Harness;
+
+    #[test]
+    fn bolge_gorseli_en_az_bir_saniye_kalir() {
+        let at = |stage, since| Shown { stage, since };
+        // Sessizden uyarıya hemen geçilir (sessiz aşama beklemez).
+        let s = advance_shown(at(0, 10.0), 3, true, 10.0, true);
+        assert_eq!(s, at(1, 10.0));
+        // Uyarı 1 s dolmadan değişmez; dolunca sarsıntıya, sonra yatışmışa.
+        assert_eq!(advance_shown(s, 3, true, 10.9, true), s);
+        let s = advance_shown(s, 3, true, 11.0, true);
+        assert_eq!(s, at(2, 11.0));
+        assert_eq!(advance_shown(s, 3, true, 11.5, true), s);
+        assert_eq!(advance_shown(s, 3, true, 12.1, true), at(3, 12.1));
+        // Uyarıdan hiç geçmeyen bölge doğrudan sarsıntıyı gösterir.
+        assert_eq!(advance_shown(at(0, 0.0), 3, false, 5.0, true), at(2, 5.0));
+        // Gerçek durum uyarıysa uyarı gösterilir (atlanmaz).
+        assert_eq!(advance_shown(at(0, 0.0), 1, false, 5.0, true), at(1, 5.0));
+        // Geri sarma ve duraklatılmışken: gerçek aşama hemen.
+        assert_eq!(advance_shown(at(3, 5.0), 1, true, 5.1, true), at(1, 5.1));
+        assert_eq!(advance_shown(at(1, 5.0), 3, true, 5.1, false), at(3, 5.1));
+        // Aynı aşamada başlangıç anı korunur.
+        assert_eq!(advance_shown(at(2, 5.0), 2, true, 9.0, true), at(2, 5.0));
+    }
 
     /// Ekran görüntüsü: `cargo test -p seismira-app -- --ignored ekran`
     /// Çıktı: target/screenshots/*.png. GPU gerektirdiği için CI'da çalışmaz.

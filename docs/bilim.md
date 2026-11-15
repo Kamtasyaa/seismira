@@ -358,3 +358,17 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   hesaplanıp şehir kartında gösterilir: Vs30·e^(±SD) için aletsel şiddet
   farkının yarısı (`SiteResult::jma_vs30_effect`; yalnızca SD'si olan
   sahalarda, yani şehirlerde; ızgara hücrelerinde hesaplanmaz).
+- Moment bağıntısı (Faz 0 notunun durumu, 2026-11-15): Hanks & Kanamori
+  (1979) özetinden ve NEIC büyüklük formülleri tablosundan teyit edildi:
+  M = (2/3)·log10(M0) − 10.7, M0 dyn·cm. N·m cinsinden
+  M0 = 10^(1.5·Mw + 9.05). 7.1'deki "9.1" sabiti IASPEI biçimidir ve
+  birincil kaynaktan DOĞRULANMADI. Kodda moment henüz kullanılmıyor
+  (yalnızca AS16 süre modeli kendi 16.05 dyn·cm sabitiyle, ki H&K ile
+  aynıdır). Karar: Faz 8'de (Okada, ortalama kayma) H&K tanımı (9.05)
+  kullanılacak; 7.1'deki satır o zaman düzeltilecek.
+- Erken uyarı gecikmesi (5 s) hâlâ VARSAYIM (2026-11-15): JMA sisteminin
+  gözden geçirme makalesi (Kodera vd. 2021, Frontiers in Earth Science,
+  doi:10.3389/feart.2021.726045) ilk rapor zamanını yalnızca deniz
+  depremleri için ve oluş anına göre veriyor (S-net bölgesinde %50 için
+  ~22 s); istasyonda algılamadan uyarıya geçen süre için yayımlanmış bir
+  sayı bulunamadı.

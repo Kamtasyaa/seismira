@@ -329,8 +329,14 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   - Sınırların altında siyah %75 kontur (+2,5 pt). Güçlü olan üstte.
 - Yanıp sönme: duvar saatine bağlı, 1 Hz, kosinüs. Görünüm → "Hareketi
   azalt": dolgu orta opaklıkta sabit (ayar kaydedilir).
-- Henüz yok: hızlı oynatmada en az ~1 s görünme kuralı. (Bölge kartı
-  2026-11-15'te eklendi, aşağıda.)
+- Hızlı oynatmada en az ~1 s görünme kuralı (2026-11-15): oynatma
+  sürerken bir bölgenin uyarı ve sarsıntı görseli en az 1 duvar saniyesi
+  ekranda kalır ve aşamalar sırayla gösterilir (uyarı → sarsıntı →
+  yatışmış); bölge uyarıdan hiç geçmiyorsa o aşama atlanır. Yalnızca
+  sunum: simülasyon durumu zamanın saf fonksiyonu olarak kalır; geri
+  sarmada ve duraklatılmışken gerçek durum hemen gösterilir
+  (`advance_shown`, `MIN_SHOW_S`). Örnek: 600x hızda ~40 s süren sarsıntı
+  0,07 s yerine 1 s görünür. (Bölge kartı aşağıda.)
 - Bölge sayısı sınırı (2026-11-15): bir karede en fazla 1 024 bölge
   vurgulanır; aşılırsa en ZAYIF olanlar atlanır. Ölçüm: Ljubljana Mw 8,0'da
   392 bölge (Natural Earth'te Slovenya 193, Birleşik Krallık 232 birim).
