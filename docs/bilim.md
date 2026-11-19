@@ -31,6 +31,12 @@ karşılaştırılır). Katsayılar makalelerin elektronik eklerinden alınır.
 - Düzlem ~5–10 km'lik alt faylara bölünür. Alt fayın kırılma zamanı =
   odağa uzaklık / kırılma hızı (≈ 0.8·Vs ≈ 2.8 km/s, doğrula).
   Bu yalnızca zamanlama hesabı içindir, ekranda gösterilmez.
+  UYGULAMA (Faz 5, 2026-11-20): ayrık alt fay yerine sürekli hali: sahaya
+  en yakın düzlem noktası doğrudan bulunur (`source::Fault::peak_path`).
+  Kırılma hızı DOĞRULANDI ve fay tipine bağlandı: Vera, Tilmann & Saul
+  (2024), JGR Solid Earth 129, e2023JB027260 (CC BY), 2010–2022 tüm
+  Mw ≥ 7.5 (56 deprem): ters 2,1 km/s (%56 Vs), normal 2,5 (%60),
+  doğrultu atımlı 2,7 (%78). "0.8·Vs" yalnızca doğrultu atımlıya uyuyor.
 
 ### 7.2 Seyahat süreleri
 
@@ -81,8 +87,19 @@ Erken uyarı (VARSAYIMSAL sistem; arayüzde böyle etiketlenir, çünkü
 Sarsıntı süresi (Faz 4, 2026-11-14): `seismira-core/src/duration.rs`,
 Afshari & Stewart (2016) D5-95, havza terimi yok. pygmm 0.9.1 ile 810
 karşılaştırmada ln farkı < 1e-6 (`data/test/as16_ref.csv`). t_bitiş =
-t_tepe + D5-95 (t_tepe şimdilik kademeli yükselişin tepe anı; Faz 5'te alt
-fay zamanlaması). Girdiler model aralığına (M 3–7,9, Rrup 0–200 km, Vs30
+t_tepe + D5-95.
+
+Alt fay zamanlaması (Faz 5, 2026-11-20): t_tepe = en yakın fay noktasının
+kırılma zamanı (düzlem üzerinde odaktan uzaklık / kırılma hızı, 7.1) + o
+noktadan sahaya ak135 S süresi (`Scenario::physical_peak`). Gösterilen
+Shindo S varışında 1'den başlar, sınıf sınıf artar ve son değere t_tepe'de
+ulaşır; adım en az 0,4 s (görsel alt sınır, `RISE_STEP_S`). Adım hücre
+başına saklanır (`SiteResult::rise`, `ShakeGrid::rise`, GPU dokusunun b
+kanalı); şehir kutusu, ızgara ve bölge özetleri aynı kuralı kullanır.
+Tōhoku benzeri senaryoda (geçici 328 km fay) Tokyo son değerine ~T+145 s'de,
+kuzey Hokkaidō ~T+165 s'de ulaşıyor. Yükseliş doğrusal bir görsel
+yaklaşımdır: aradaki değerler kırılmanın o ana kadarki kısmıyla
+hesaplanmaz. Girdiler model aralığına (M 3–7,9, Rrup 0–200 km, Vs30
 200–1000) çekilir; süre yalnızca bölge sınırının "yatışmış" durumuna
 geçişinde kullanılır (doğrula: makalenin veri aralığı).
 
@@ -408,7 +425,11 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   (ölçüm, tablo). Shindo kutusu ve erken uyarı süresi ilk S'e göre
   hesaplandığı için uzakta kutu bu kadar erken belirir, uyarı süresi bu
   kadar kısa görünür. Tek model kararının (7.2) sonucu; Faz 5'te t_tepe
-  ile birlikte yeniden ele alınacak.
+  ile birlikte yeniden ele alınacak. DURUM (2026-11-20): t_tepe eklendi;
+  kutu yine ilk S'te belirir ama son değere fiziksel tepe anında ulaşır,
+  bu yüzden etki artık yalnızca kutunun ilk görünme anında. Erken uyarı
+  süresi hâlâ ilk S'e göre (uyarının "sarsıntı başlamadan" ölçütüyle
+  tutarlı); değiştirilmedi.
 - Erken uyarı kapsamı: Marmara Mw 7.5'te 42 bölgenin 41'i kapsamda. Sebep
   "en yüksek hücre" istatistiği DEĞİL: yaygın değerle (yerleşim
   hücrelerinin %10'u) de 41 / 41 çıkıyor (Ljubljana Mw 7.5: 301 → 298).

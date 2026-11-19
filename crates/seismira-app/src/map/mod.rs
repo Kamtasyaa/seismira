@@ -431,9 +431,8 @@ impl MapWidget {
             // Izgara bir kopya önceden başlayabilir (batı kenarı < −180°).
             first_copy: (first_copy - 1) as f32,
             t: t as f32,
-            rise: seismira_core::shaking::RISE_STEP_S as f32,
             opacity: GRID_OPACITY,
-            _pad: [0.0; 2],
+            _pad: [0.0; 3],
             colors,
         }
     }

@@ -21,8 +21,11 @@ use crate::site::{REFERENCE_VS30, Site, Vs30Source};
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Bir hücrenin sonucu: (sınıf, aletsel şiddet, P varışı, S varışı, bitiş).
-type Cell = (u8, f32, f32, f32, f32);
+/// Bir hücrenin sonucu: (sınıf, aletsel şiddet, P varışı, S varışı, bitiş,
+/// yükseliş adımı).
+type Cell = (u8, f32, f32, f32, f32, f32);
+
+const EMPTY: Cell = (NO_DATA, f32::NAN, f32::NAN, f32::NAN, f32::NAN, f32::NAN);
 
 /// Veri yok: su, buz, model dışı.
 pub const NO_DATA: u8 = u8::MAX;
@@ -144,6 +147,9 @@ pub struct ShakeGrid {
     /// Sarsıntının bittiği an (s): tepe anı + D5-95 (Afshari & Stewart 2016;
     /// Bölüm 7.3 "t_bitiş"); veri yoksa NaN.
     pub t_end: Vec<f32>,
+    /// Gösterilen Shindo'nun bir sınıf yükselme süresi (s;
+    /// [`crate::shaking::SiteResult::rise`]); veri yoksa NaN.
+    pub rise: Vec<f32>,
 }
 
 impl ShakeGrid {
@@ -185,7 +191,7 @@ pub fn compute(
                             let by = (row * step + step / 2).min(domain.h - 1) as usize;
                             let v = win[by * domain.w as usize + bx];
                             if v.is_nan() {
-                                return (NO_DATA, f32::NAN, f32::NAN, f32::NAN, f32::NAN);
+                                return EMPTY;
                             }
                             Site {
                                 vs30: f64::from(v),
@@ -205,9 +211,17 @@ pub fn compute(
                             let q = &scenario.quake;
                             let (d, _) = duration::d595(q.mw, r.dist.rrup, r.vs30_used, q.fault);
                             let c = m.shindo() as u8;
-                            (c, m.jma as f32, tp as f32, ts as f32, (peak + d) as f32)
+                            let rise = r.rise as f32;
+                            (
+                                c,
+                                m.jma as f32,
+                                tp as f32,
+                                ts as f32,
+                                (peak + d) as f32,
+                                rise,
+                            )
                         }
-                        _ => (NO_DATA, f32::NAN, f32::NAN, f32::NAN, f32::NAN),
+                        _ => EMPTY,
                     }
                 })
                 .collect();
@@ -221,14 +235,16 @@ pub fn compute(
         t_p: Vec::with_capacity(w * h),
         t_s: Vec::with_capacity(w * h),
         t_end: Vec::with_capacity(w * h),
+        rise: Vec::with_capacity(w * h),
     };
     for row in rows {
-        for (c, j, tp, ts, e) in row? {
+        for (c, j, tp, ts, e, r) in row? {
             grid.class.push(c);
             grid.jma.push(j);
             grid.t_p.push(tp);
             grid.t_s.push(ts);
             grid.t_end.push(e);
+            grid.rise.push(r);
         }
     }
     Some(grid)

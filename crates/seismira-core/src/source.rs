@@ -45,6 +45,38 @@ pub fn area_wc94(mw: f64) -> f64 {
 /// pratikte noktadır ve mesafelere etkisi 1 km'nin altındadır.
 pub const WC94_MW_MAX: f64 = 7.9;
 
+/// Ortalama kırılma hızı (km/s), fay tipine göre. Vera, Tilmann & Saul
+/// (2024), "A decade of short-period earthquake rupture histories from
+/// multi-array back-projection", JGR Solid Earth 129, e2023JB027260 (CC BY),
+/// Bölüm 3.5.2: 2010–2022 tüm Mw ≥ 7.5 depremleri (56); ters fay ortalaması
+/// 2,1 km/s (%56 Vs; aralık %25–86), normal 2,5 km/s (%60), doğrultu atımlı
+/// 2,7 km/s (%78; bir kısmı Vs'yi aşar). Notlar (makale): değerler yatay
+/// izdüşümden ve "en büyük ortalama hız"dır; eğimli faylarda yatay izdüşüm
+/// hızı ~%15'e kadar düşük gösterebilir. Küçük depremlerde fay kısa olduğu
+/// için hızın zamanlamaya etkisi önemsizdir.
+///
+/// CLAUDE.md'deki "≈ 0,8·Vs ≈ 2,8 km/s (doğrula)" yalnızca doğrultu atımlı
+/// faylarla uyumlu çıktı; ters faylar belirgin daha yavaş (2026-11-20).
+pub fn rupture_velocity_kms(fault: FaultType) -> f64 {
+    match fault {
+        FaultType::Reverse => 2.1,
+        FaultType::Normal => 2.5,
+        FaultType::StrikeSlip => 2.7,
+    }
+}
+
+/// Sahaya en yakın fay noktası (alt fay zamanlaması, Bölüm 7.3 "t_tepe").
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PeakPath {
+    /// Odaktan bu noktaya fay düzlemi üzerinde uzaklık (km); kırılma
+    /// zamanı = bu / kırılma hızı.
+    pub rupture_km: f64,
+    /// Noktanın derinliği (km).
+    pub depth_km: f64,
+    /// Noktanın yüzey izdüşümünden sahaya yatay uzaklık (km).
+    pub horiz_km: f64,
+}
+
 /// Yerleşmiş fay düzlemi. Yerel koordinatlar km cinsinden: x doğu, y kuzey,
 /// z aşağı; orijin merkez üssü (hiposantrın yüzeydeki izdüşümü).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -59,6 +91,17 @@ pub struct Fault {
     pub ztor: f64,
     /// Üst kenarın doğrultu boyunca başlangıç noktası (yerel x, y).
     top_start: [f64; 2],
+    /// Hiposantrın düzlem koordinatları (doğrultu boyunca, eğim boyunca; km).
+    hypo_plane: [f64; 2],
+}
+
+struct PlaneCoords {
+    u: f64,
+    w: f64,
+    v: f64,
+    n: f64,
+    cu: f64,
+    cv: f64,
 }
 
 /// Bir saha için mesafe ölçüleri (km).
@@ -118,6 +161,7 @@ impl Fault {
             width,
             ztor,
             top_start,
+            hypo_plane: [length * along, width * down_dip_frac],
         }
     }
 
@@ -160,13 +204,59 @@ impl Fault {
         ([km * a.sin(), km * a.cos()], km)
     }
 
-    /// Yerel yatay konumdaki bir saha için mesafeler.
-    pub fn distances_local(&self, p: [f64; 2], repi: f64) -> Distances {
+    /// Yüzeydeki bir noktanın düzlem koordinatları: (u doğrultu boyunca,
+    /// w eğim yönünde yatay, v eğim boyunca düzlem içinde, n normal) ve
+    /// düzlemin en yakın noktası (cu, cv).
+    fn plane_coords(&self, p: [f64; 2]) -> PlaneCoords {
         let (s, d) = Self::axes(self.strike);
         let (sin_d, cos_d) = (self.dip.to_radians().sin(), self.dip.to_radians().cos());
         let rel = [p[0] - self.top_start[0], p[1] - self.top_start[1]];
-        let u = rel[0] * s[0] + rel[1] * s[1]; // doğrultu boyunca
-        let w = rel[0] * d[0] + rel[1] * d[1]; // eğim yönünde (yatay)
+        let u = rel[0] * s[0] + rel[1] * s[1];
+        let w = rel[0] * d[0] + rel[1] * d[1];
+        // Fay düzlemi koordinatları: doğrultu ekseni (u), eğim ekseni (v,
+        // düzlem içinde aşağı), normal. Saha yüzeyde: z = 0; üst kenar
+        // z = Ztor.
+        let dz = -self.ztor; // saha – üst kenar (aşağı pozitif)
+        let v = w * cos_d + dz * sin_d;
+        let n = -w * sin_d + dz * cos_d;
+        PlaneCoords {
+            u,
+            w,
+            v,
+            n,
+            cu: u.clamp(0.0, self.length),
+            cv: v.clamp(0.0, self.width),
+        }
+    }
+
+    /// Sahaya en yakın fay noktası ve odaktan oraya kırılma yolu.
+    pub fn peak_path(&self, site: (f64, f64)) -> PeakPath {
+        let (p, _) = self.lonlat_to_local(site);
+        self.peak_path_local(p)
+    }
+
+    /// [`Fault::peak_path`], yerel yatay konum için.
+    pub fn peak_path_local(&self, p: [f64; 2]) -> PeakPath {
+        let c = self.plane_coords(p);
+        let (s, d) = Self::axes(self.strike);
+        let (sin_d, cos_d) = (self.dip.to_radians().sin(), self.dip.to_radians().cos());
+        // En yakın noktanın yüzey izdüşümü (yerel) ve derinliği.
+        let along_dip = c.cv * cos_d;
+        let q = [
+            self.top_start[0] + s[0] * c.cu + d[0] * along_dip,
+            self.top_start[1] + s[1] * c.cu + d[1] * along_dip,
+        ];
+        PeakPath {
+            rupture_km: (c.cu - self.hypo_plane[0]).hypot(c.cv - self.hypo_plane[1]),
+            depth_km: self.ztor + c.cv * sin_d,
+            horiz_km: (p[0] - q[0]).hypot(p[1] - q[1]),
+        }
+    }
+
+    /// Yerel yatay konumdaki bir saha için mesafeler.
+    pub fn distances_local(&self, p: [f64; 2], repi: f64) -> Distances {
+        let cos_d = self.dip.to_radians().cos();
+        let PlaneCoords { u, w, v, n, cu, cv } = self.plane_coords(p);
 
         // Rx: üst kenar izine dik yatay mesafe, eğim yönü pozitif.
         let rx = w;
@@ -174,14 +264,7 @@ impl Fault {
         let du = (-u).max(0.0).max(u - self.length);
         let dw = (-w).max(0.0).max(w - self.width * cos_d);
         let rjb = (du * du + dw * dw).sqrt();
-        // Rrup: 3B nokta–dikdörtgen. Fay düzlemi koordinatları: doğrultu
-        // ekseni (u), eğim ekseni (v, düzlem içinde aşağı), normal.
-        // Saha yüzeyde: z = 0; üst kenar z = Ztor.
-        let dz = -self.ztor; // saha – üst kenar (aşağı pozitif)
-        let v = w * cos_d + dz * sin_d;
-        let n = -w * sin_d + dz * cos_d;
-        let cu = u.clamp(0.0, self.length);
-        let cv = v.clamp(0.0, self.width);
+        // Rrup: 3B nokta–dikdörtgen.
         let rrup = ((u - cu).powi(2) + (v - cv).powi(2) + n * n).sqrt();
         Distances {
             rrup,
@@ -219,6 +302,12 @@ impl Fault {
         let (p, repi) = self.lonlat_to_local(site);
         self.distances_local(p, repi)
     }
+
+    /// Mesafeler ve tepe yolu birlikte (jeodezik dönüşüm bir kez).
+    pub fn distances_and_peak(&self, site: (f64, f64)) -> (Distances, PeakPath) {
+        let (p, repi) = self.lonlat_to_local(site);
+        (self.distances_local(p, repi), self.peak_path_local(p))
+    }
 }
 
 #[cfg(test)]
@@ -233,6 +322,26 @@ mod tests {
         (q.dip, q.rake) = fault.default_dip_rake();
         q.strike = strike;
         q
+    }
+
+    /// En yakın nokta: merkez üssünde odağın tam üstündeki üst kenar
+    /// (kırılma odaktan yukarı Ztor'a kadar ilerler); fayın ucunun ötesinde
+    /// uç nokta. Dikey doğrultu atımlı fay, doğrultu 90° (doğu).
+    #[test]
+    fn tepe_yolu_en_yakin_fay_noktasi() {
+        let f = Fault::from_quake(&quake(7.6, 10.0, FaultType::StrikeSlip, 90.0));
+        let at = f.peak_path_local([0.0, 0.0]);
+        assert!((at.rupture_km - (10.0 - f.ztor)).abs() < 1e-9, "{at:?}");
+        assert!(at.horiz_km < 1e-9 && (at.depth_km - f.ztor).abs() < 1e-9);
+        // Doğuda, fayın ucundan 50 km ötede: kırılma yarım uzunluk kadar
+        // (ve derinlik farkı kadar) yol alır; yatay uzaklık 50 km.
+        let half = f.length / 2.0;
+        let far = f.peak_path_local([half + 50.0, 0.0]);
+        assert!((far.horiz_km - 50.0).abs() < 1e-6, "{far:?}");
+        // Saha yüzeyde: en yakın nokta üst kenarda (Ztor), odak 10 km'de.
+        let dv = 10.0 - f.ztor;
+        assert!((far.rupture_km - half.hypot(dv)).abs() < 1e-6, "{far:?}");
+        assert!((far.depth_km - f.ztor).abs() < 1e-9);
     }
 
     #[test]

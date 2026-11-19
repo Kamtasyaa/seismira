@@ -237,12 +237,11 @@ pub fn summarize(
     ids: &[RegionId],
 ) -> Vec<RegionSummary> {
     use std::collections::HashMap;
-    let rise = crate::shaking::RISE_STEP_S;
     // Bölge başına: (tüm hücreler, yerleşim hücreleri) özetleri.
     let mut acc: HashMap<RegionId, (RegionSummary, Option<RegionSummary>)> = HashMap::new();
     let update = |e: &mut RegionSummary,
                   s: Shindo,
-                  (tp, ts): (f64, f64),
+                  (tp, ts, rise): (f64, f64, f64),
                   peak: f64,
                   end: f64,
                   at: (f64, f64)| {
@@ -281,6 +280,7 @@ pub fn summarize(
             }
             let ts = f64::from(grid.t_s[i]);
             let tp = f64::from(grid.t_p[i]);
+            let rise = f64::from(grid.rise[i]);
             let s = Shindo::ALL[class as usize];
             let peak = ts + f64::from(class.saturating_sub(Shindo::S1 as u8)) * rise;
             let at = grid.spec.center(col, row);
@@ -300,9 +300,9 @@ pub fn summarize(
                 typical_times: [f64::INFINITY; 10],
             };
             let e = acc.entry(id).or_insert((fresh, None));
-            update(&mut e.0, s, (tp, ts), peak, end, at);
+            update(&mut e.0, s, (tp, ts, rise), peak, end, at);
             if raw & BUILT_BIT != 0 {
-                update(e.1.get_or_insert(fresh), s, (tp, ts), peak, end, at);
+                update(e.1.get_or_insert(fresh), s, (tp, ts, rise), peak, end, at);
             }
         }
     }
@@ -342,6 +342,7 @@ pub fn summarize(
                 continue;
             }
             let ts = f64::from(grid.t_s[i]);
+            let rise = f64::from(grid.rise[i]);
             for (c, list) in times[k]
                 .iter_mut()
                 .enumerate()
@@ -576,6 +577,7 @@ mod tests {
             t_p: vec![5.0, 6.0, 4.0, f32::NAN],
             t_s: vec![10.0, 12.0, 8.0, f32::NAN],
             t_end: vec![40.0, 30.0, 50.0, f32::NAN],
+            rise: vec![crate::shaking::RISE_STEP_S as f32; 4],
         };
         let ids = vec![1, 2, 1, 2];
         let s = summarize(&grid, &domain, 1, &ids);
@@ -590,7 +592,7 @@ mod tests {
         // 2 hücre: %10 → 1 hücre yeter; yaygın = en yüksek.
         assert_eq!(s[0].typical, Shindo::S6Lower);
         // 6- = S1'den 6 adım: 8 + 6·0,4.
-        assert!((s[0].t_peak - (8.0 + 6.0 * crate::shaking::RISE_STEP_S)).abs() < 1e-9);
+        assert!((s[0].t_peak - (8.0 + 6.0 * crate::shaking::RISE_STEP_S)).abs() < 1e-6);
         assert_eq!(s[1].max, Shindo::S3);
         assert_eq!(s[1].cells, 1);
 
@@ -690,6 +692,7 @@ mod tests {
             t_p: vec![1.0; n as usize],
             t_s: (0..n).map(|i| 10.0 + i as f32).collect(),
             t_end: vec![60.0; n as usize],
+            rise: vec![crate::shaking::RISE_STEP_S as f32; n as usize],
         };
         let ids = vec![1 | BUILT_BIT; n as usize];
         let r = summarize(&grid, &domain, 1, &ids)[0];
@@ -697,7 +700,7 @@ mod tests {
         assert_eq!(r.typical, Shindo::S4);
         // %10 = 2 hücre: 4'e ulaşan 2. hücre (S varışı 11 s) + 3 adım.
         let rise = crate::shaking::RISE_STEP_S;
-        assert!((r.typical_times[Shindo::S4 as usize] - (11.0 + 3.0 * rise)).abs() < 1e-9);
+        assert!((r.typical_times[Shindo::S4 as usize] - (11.0 + 3.0 * rise)).abs() < 1e-6);
         assert_eq!(
             r.state(100.0, None, Some(60.0)),
             RegionState::Settled(Shindo::S4)

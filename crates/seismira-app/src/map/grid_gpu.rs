@@ -1,6 +1,7 @@
 //! Sarsıntı ızgarası katmanının GPU kaynakları.
 //!
-//! Izgara bir kez dokuya yüklenir (Rg32Float: son Shindo sınıfı, S varışı);
+//! Izgara bir kez dokuya yüklenir (Rgba32Float: son Shindo sınıfı, S varışı,
+//! bir sınıf yükselme süresi, boş);
 //! her karede yalnızca küçük bir uniform (görünüm, zaman) güncellenir.
 //! Görünen renk shader'da zamanın saf fonksiyonu olarak hesaplanır.
 
@@ -18,9 +19,8 @@ pub struct GridUniforms {
     pub cell: f32,
     pub first_copy: f32,
     pub t: f32,
-    pub rise: f32,
     pub opacity: f32,
-    pub _pad: [f32; 2],
+    pub _pad: [f32; 3],
     pub colors: [[f32; 4]; 10],
 }
 
@@ -119,15 +119,16 @@ impl GridGpu {
             self.loaded = None;
             return;
         }
-        let texels: Vec<[f32; 2]> = grid
+        let texels: Vec<[f32; 4]> = grid
             .class
             .iter()
             .zip(&grid.t_s)
-            .map(|(&c, &t)| {
+            .zip(&grid.rise)
+            .map(|((&c, &t), &rise)| {
                 if c == NO_DATA {
-                    [-1.0, f32::INFINITY]
+                    [-1.0, f32::INFINITY, 1.0, 0.0]
                 } else {
-                    [f32::from(c), t]
+                    [f32::from(c), t, rise, 0.0]
                 }
             })
             .collect();
@@ -142,7 +143,7 @@ impl GridGpu {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rg32Float,
+            format: wgpu::TextureFormat::Rgba32Float,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
@@ -156,7 +157,7 @@ impl GridGpu {
             bytemuck::cast_slice(&texels),
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(w * 8),
+                bytes_per_row: Some(w * 16),
                 rows_per_image: Some(h),
             },
             size,

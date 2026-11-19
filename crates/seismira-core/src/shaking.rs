@@ -10,7 +10,7 @@ use crate::gmpe::{Imt, LnMotion, cy14};
 use crate::intensity::{self, Shindo};
 use crate::quake::{Quake, Setting};
 use crate::site::{REFERENCE_VS30, Site};
-use crate::source::{Distances, Fault};
+use crate::source::{self, Distances, Fault, PeakPath};
 use crate::traveltime::{Phase, TravelTimes};
 
 /// Bir saha için sonuç.
@@ -37,15 +37,17 @@ pub struct SiteResult {
     /// üstüne eklemek aynı belirsizliği iki kez saymak olur. Bilgi olarak
     /// şehir kartında gösterilir (docs/bilim.md 7.7).
     pub jma_vs30_effect: Option<f64>,
+    /// Gösterilen Shindo'nun bir sınıf yükselme süresi (s): en az
+    /// [`RISE_STEP_S`]; fiziksel tepe anı (t_tepe, [`Scenario::physical_peak`])
+    /// daha geçse son değere tam o anda varacak şekilde uzar.
+    pub rise: f64,
 }
 
-/// S varışından sonra gösterilen Shindo'nun bir sınıf yükselme süresi (s).
-/// Kutu 1'den başlar, her adımda bir sınıf artarak son değere varır; güçlü
-/// sarsıntı daha çok adım, dolayısıyla daha geç tepe demektir. GÖRSEL bir
-/// kabuldür (kullanıcı isteği, 2026-11-14): gerçek kayıtlarda şiddet S
-/// varışından sonra saniyeler içinde birikerek artar, ama bu süre burada
-/// modellenmiyor. Faz 5'te alt fay zamanlaması (t_tepe) ile fiziksel tepe
-/// zamanına bağlanacak.
+/// S varışından sonra gösterilen Shindo'nun EN KISA bir sınıf yükselme
+/// süresi (s). Kutu 1'den başlar, her adımda bir sınıf artarak son değere
+/// varır. GÖRSEL alt sınır (kullanıcı isteği, 2026-11-14): odağa yakın
+/// sahalarda fiziksel tepe S varışıyla neredeyse aynı anda olsa da yükseliş
+/// görünür kalır. Uzak uçtaki sahalarda adım t_tepe'ye göre uzar (Faz 5).
 pub const RISE_STEP_S: f64 = 0.4;
 
 impl SiteResult {
@@ -59,7 +61,7 @@ impl SiteResult {
         }
         // Küçük tolerans: `t_peak` anında (ts + n·adım) kayan nokta hatası
         // n − 1'e yuvarlamasın (macOS libm'de görüldü, CI 2026-11-14).
-        let step = ((t - ts) / RISE_STEP_S + 1e-9).floor() as usize;
+        let step = ((t - ts) / self.rise + 1e-9).floor() as usize;
         let k = (Shindo::S1 as usize + step).min(fin as usize);
         Some(Shindo::ALL[k])
     }
@@ -68,7 +70,7 @@ impl SiteResult {
     pub fn t_peak(&self) -> Option<f64> {
         let fin = self.motion?.shindo();
         let steps = (fin as usize).saturating_sub(Shindo::S1 as usize);
-        Some(self.t_s? + steps as f64 * RISE_STEP_S)
+        Some(self.t_s? + steps as f64 * self.rise)
     }
 }
 
@@ -222,8 +224,21 @@ impl<'a> Scenario<'a> {
     /// Saha sonucu. `site` yalnızca yer hareketi hesaplanacaksa (model
     /// ortamı var ve Rrup ≤ sınır) çağrılır; Vs30 haritası okuması pahalı
     /// olduğundan uzak şehirlerde referans zemin yazılır.
+    /// Fiziksel tepe anı t_tepe (Bölüm 7.3): sahaya en yakın fay noktasının
+    /// kırılma zamanı (odaktan düzlem üzerinde uzaklık / kırılma hızı,
+    /// [`source::rupture_velocity_kms`]) + o noktadan sahaya ak135 S süresi.
+    /// "En yakın alt fay" tanımının sürekli hali: düzlem ayrık alt faylara
+    /// bölünmez, en yakın nokta doğrudan bulunur. Tablo dışında `None`.
+    pub fn physical_peak(&self, path: &PeakPath) -> Option<f64> {
+        let t_rup = path.rupture_km / source::rupture_velocity_kms(self.quake.fault);
+        let ts = self
+            .tt
+            .time(Phase::S, path.depth_km, geo::km_to_deg(path.horiz_km))?;
+        Some(t_rup + ts)
+    }
+
     pub fn site(&self, lonlat: (f64, f64), site: impl FnOnce() -> Site) -> SiteResult {
-        let dist = self.fault.distances(lonlat);
+        let (dist, path) = self.fault.distances_and_peak(lonlat);
         let site = match self.max_rrup_km() {
             Some(max) if dist.rrup <= max => site(),
             _ => Site::reference(),
@@ -241,9 +256,23 @@ impl<'a> Scenario<'a> {
             // Yumuşak zemin (Vs30 küçük) daha güçlü sarsılır.
             Some((at((-sd).exp())? - at(sd.exp())?) / 2.0)
         });
+        let t_s = self.tt.time(Phase::S, h, deg);
+        // Yükseliş adımı: son değere t_tepe'de varılır (en az RISE_STEP_S).
+        let rise = match (motion, t_s, self.physical_peak(&path)) {
+            (Some(m), Some(ts), Some(peak)) => {
+                let steps = (m.shindo() as usize).saturating_sub(Shindo::S1 as usize);
+                if steps == 0 {
+                    RISE_STEP_S
+                } else {
+                    ((peak - ts) / steps as f64).max(RISE_STEP_S)
+                }
+            }
+            _ => RISE_STEP_S,
+        };
         SiteResult {
             t_p: self.tt.time(Phase::P, h, deg),
-            t_s: self.tt.time(Phase::S, h, deg),
+            t_s,
+            rise,
             motion,
             jma_vs30_effect,
             dist,
@@ -470,6 +499,35 @@ mod tests {
         }
         assert_eq!(r.shindo_at(peak), Some(fin));
         assert!(r.shindo_at(peak - 0.01).unwrap() < fin);
+    }
+
+    /// Alt fay zamanlaması (t_tepe): fayın uzak ucunun ötesindeki saha son
+    /// değerine, kırılma oraya varıp S dalgası geldiğinde ulaşır; odak
+    /// yakınında kural en kısa adımdır.
+    #[test]
+    fn uzak_uctaki_saha_tepeye_kirilma_ile_ulasir() {
+        let t = tt();
+        let mut q = izmit();
+        q.mw = 7.8; // ~320 km'lik doğrultu atımlı fay, doğuya (90°)
+        let s = Scenario::new(q, &t);
+        let half = s.fault.length / 2.0;
+        assert!(half > 100.0, "{}", s.fault.length);
+        // Fayın doğu ucunun 20 km ötesi.
+        let east = geo::destination(q.epicenter, 90.0, half + 20.0);
+        let r = s.site(east, Site::reference);
+        let ts = r.t_s.unwrap();
+        let (_, path) = s.fault.distances_and_peak(east);
+        let peak = s.physical_peak(&path).unwrap();
+        // Kırılma ~half km'yi 2,7 km/s ile alır; ilk S'ten belirgin geç.
+        assert!(peak - ts > 10.0, "ts {ts} tepe {peak}");
+        assert!(r.rise > RISE_STEP_S);
+        assert!((r.t_peak().unwrap() - peak).abs() < 1e-9);
+        assert_eq!(r.shindo_at(peak), Some(r.motion.unwrap().shindo()));
+        assert!(r.shindo_at(peak - 0.5).unwrap() < r.motion.unwrap().shindo());
+        // Odağın yanındaki saha: en kısa adım (fiziksel tepe S ile hemen
+        // hemen aynı).
+        let near = s.site((29.97, 40.80), Site::reference);
+        assert_eq!(near.rise, RISE_STEP_S);
     }
 
     #[test]

@@ -273,7 +273,7 @@ fn region_events(results: &[compute::RegionResult]) -> Vec<RegionEvent> {
 /// - Shindo: bölgedeki en yüksek Shindo; 5- ve üstü bölgeler ile en güçlü
 ///   3 bölge (daha düşükler haritada ve şehir kartında görünür). Olay
 ///   zamanı, o şehrin kutusunun son değere vardığı an (S varışından sonra
-///   kademeli yükselme, `shaking::RISE_STEP_S`).
+///   kademeli yükselme; fiziksel tepe anı t_tepe, `SiteResult::rise`).
 fn city_events(layer: &CityLayer, results: &CityResults) -> Vec<CityEvent> {
     use std::collections::HashMap;
     let jma = |i: usize| results.sites[i].motion.map(|m| m.jma).unwrap_or(f64::MIN);
