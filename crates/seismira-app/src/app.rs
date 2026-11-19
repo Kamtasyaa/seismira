@@ -25,6 +25,7 @@ const RING_POINTS: usize = 256;
 
 const STORAGE_LANG: &str = "lang";
 const STORAGE_REDUCE_MOTION: &str = "reduce_motion";
+const STORAGE_FAULT_TRACE: &str = "fault_trace";
 
 /// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
 const BLINK_HZ: f64 = 1.0;
@@ -350,6 +351,9 @@ pub struct SeismiraApp {
     show_grid: bool,
     /// "Hareketi azalt": yanıp sönme yok, sabit kalın çizgi (Bölüm 3).
     reduce_motion: bool,
+    /// Simülasyon sonunda modelin fay kırılma izi (Bölüm 2.8; varsayılan
+    /// kapalı, Görünüm menüsü, kaydedilir).
+    show_fault_trace: bool,
     map: MapWidget,
     /// Sağ paneldeki taslak deprem.
     draft: panel::Draft,
@@ -431,6 +435,10 @@ impl SeismiraApp {
                 .storage
                 .and_then(|s| s.get_string(STORAGE_REDUCE_MOTION))
                 .is_some_and(|v| v == "1"),
+            show_fault_trace: cc
+                .storage
+                .and_then(|s| s.get_string(STORAGE_FAULT_TRACE))
+                .is_some_and(|v| v == "1"),
             map: MapWidget::new(paths::data_dir(), initial_view()),
             draft: panel::Draft::default(),
             sim: None,
@@ -490,6 +498,10 @@ impl SeismiraApp {
                 }
             }
             self.draft.has_epicenter = true;
+            // `SEISMIRA_DEMO_TRACE=1`: fay izi açık (kayıtlı ayara dokunmadan).
+            if std::env::var("SEISMIRA_DEMO_TRACE").is_ok_and(|v| v == "1") {
+                self.show_fault_trace = true;
+            }
             self.start_sim(ctx);
             self.clock.t = t;
             self.clock.playing = false;
@@ -524,6 +536,7 @@ impl SeismiraApp {
             ui.menu_button(t("menu-view"), |ui| {
                 ui.checkbox(&mut self.show_disclaimer, t("menu-disclaimer"));
                 ui.checkbox(&mut self.show_grid, t("menu-shake-grid"));
+                ui.checkbox(&mut self.show_fault_trace, t("menu-fault-trace"));
                 ui.checkbox(&mut self.reduce_motion, t("menu-reduce-motion"));
                 ui.checkbox(&mut self.show_text_test, t("menu-text-test"));
             });
@@ -599,7 +612,14 @@ impl SeismiraApp {
                 }
             }
         } else if self.draft.has_epicenter {
-            self.draw_fault_preview(ui, rect);
+            self.draw_fault(ui, rect, &self.draft.quake, false);
+        }
+        // Simülasyon bittiyse ve istendiyse modelin fay kırılma izi.
+        if let Some(sim) = &self.sim
+            && self.show_fault_trace
+            && self.clock.t >= sim.end_time()
+        {
+            self.draw_fault(ui, rect, &sim.quake, true);
         }
 
         // Model geçerlilik sınırı (kesikli): ötesinde şiddet tahmini yok.
@@ -751,10 +771,25 @@ fn quake_has_gmpe(q: &quake::Quake) -> bool {
 }
 
 impl SeismiraApp {
-    /// Fay önizlemesi: üst kenar (ince çizgi) ve eğimli fayda yüzey izdüşümü
-    /// (çok soluk). Bölüm 6: bu, sonuçtaki kırılma izi DEĞİLDİR.
-    fn draw_fault_preview(&self, ui: &egui::Ui, rect: egui::Rect) {
-        let fault = Fault::from_quake(&self.draft.quake);
+    /// Fay düzlemi: üst kenar ve eğimli fayda yüzey izdüşümü.
+    /// - Önizleme (`trace = false`, simülasyondan önce): ince ve soluk.
+    ///   Bölüm 6: bu, sonuçtaki kırılma izi DEĞİLDİR.
+    /// - Kırılma izi (`trace = true`, simülasyon sonunda, isteğe bağlı;
+    ///   Bölüm 2.8): hesapta kullanılan sonlu fay, belirgin. İlerleyiş
+    ///   animasyonu YOK (Bölüm 2).
+    fn draw_fault(&self, ui: &egui::Ui, rect: egui::Rect, quake: &quake::Quake, trace: bool) {
+        let fault = Fault::from_quake(quake);
+        let (outline, edge) = if trace {
+            (
+                Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 255, 255, 150)),
+                Stroke::new(3.0, Color32::WHITE),
+            )
+        } else {
+            (
+                Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 60)),
+                Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 255, 255, 170)),
+            )
+        };
         let densify = |a: (f64, f64), b: (f64, f64)| -> Vec<(f64, f64)> {
             let mut b = b;
             if (b.0 - a.0).abs() > 180.0 {
@@ -773,20 +808,10 @@ impl SeismiraApp {
             for k in 0..4 {
                 ring.extend(densify(c[k], c[(k + 1) % 4]));
             }
-            self.map.draw_lonlat_line(
-                ui,
-                rect,
-                &ring,
-                Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 60)),
-            );
+            self.map.draw_lonlat_line(ui, rect, &ring, outline);
         }
         let [a, b] = fault.top_edge_lonlat();
-        self.map.draw_lonlat_line(
-            ui,
-            rect,
-            &densify(a, b),
-            Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 255, 255, 170)),
-        );
+        self.map.draw_lonlat_line(ui, rect, &densify(a, b), edge);
     }
 
     /// Şehir kartı (fare üzerindeyken): Shindo ve olası aralık, PGA, PGV,
@@ -1475,6 +1500,10 @@ impl eframe::App for SeismiraApp {
         storage.set_string(
             STORAGE_REDUCE_MOTION,
             if self.reduce_motion { "1" } else { "0" }.to_owned(),
+        );
+        storage.set_string(
+            STORAGE_FAULT_TRACE,
+            if self.show_fault_trace { "1" } else { "0" }.to_owned(),
         );
     }
 }

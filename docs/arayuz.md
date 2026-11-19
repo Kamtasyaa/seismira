@@ -64,7 +64,11 @@ Görünüm:
 - Şiddet ölçeği: Shindo / MMI / ikisi birlikte (Faz 10'a ertelendi,
   2026-11-20; MMI şimdilik şehir kartında)
 - Katmanlar: bölge sınırı vurgusu, sıvılaşma, heyelan, tsunami
-- Simülasyon sonunda fay izini göster (varsayılan: kapalı)
+- Simülasyon sonunda fay izini göster (varsayılan: kapalı). UYGULANDI
+  (Faz 5, 2026-11-20): Görünüm menüsünde, kaydedilir; zaman çizgisinin
+  sonunda (S cephesi 100°'ye ulaşınca, ⏭ ile) hesapta kullanılan sonlu fay
+  çizilir: üst kenar kalın beyaz, yüzey izdüşümü ince. İlerleyiş animasyonu
+  yok. Simülasyondan önceki soluk önizleme ayrıdır (kırılma izi değildir).
 - Hareketi azalt
 
 Geçerlilik kuralları (yaklaşık değerler; her modelin yayımlanmış

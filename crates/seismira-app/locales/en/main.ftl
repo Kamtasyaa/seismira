@@ -6,6 +6,7 @@ disclaimer-close = Close notice
 menu-view = View
 menu-disclaimer = Educational notice
 menu-shake-grid = Shaking area
+menu-fault-trace = Fault trace at end of simulation
 menu-reduce-motion = Reduce motion
 menu-text-test = Text test
 menu-language = Language

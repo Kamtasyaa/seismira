@@ -6,6 +6,7 @@ disclaimer-close = Uyarıyı kapat
 menu-view = Görünüm
 menu-disclaimer = Eğitim uyarısı
 menu-shake-grid = Sarsıntı alanı
+menu-fault-trace = Simülasyon sonunda fay izi
 menu-reduce-motion = Hareketi azalt
 menu-text-test = Yazı testi
 menu-language = Dil
