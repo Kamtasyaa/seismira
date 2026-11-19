@@ -274,21 +274,7 @@ pub fn predict(imt: Imt, input: &Input) -> Option<LnMotion> {
         Imt::Pgv => Some(compute(&t.pgv, input)),
         Imt::Sa(period) => {
             let periods: Vec<f64> = t.sa.iter().map(|c| c.period.expect("SA")).collect();
-            if !(periods[0]..=*periods.last()?).contains(&period) {
-                return None;
-            }
-            let k = periods.partition_point(|&p| p < period);
-            if (periods[k] - period).abs() < 1e-9 {
-                return Some(compute(&t.sa[k], input));
-            }
-            let (a, b) = (compute(&t.sa[k - 1], input), compute(&t.sa[k], input));
-            let f = (period / periods[k - 1]).ln() / (periods[k] / periods[k - 1]).ln();
-            let lerp = |x: f64, y: f64| x + f * (y - x);
-            Some(LnMotion {
-                mean: lerp(a.mean, b.mean),
-                sigma: lerp(a.sigma, b.sigma),
-                tau: lerp(a.tau, b.tau),
-            })
+            super::interp_period(&periods, period, |k| compute(&t.sa[k], input))
         }
     }
 }

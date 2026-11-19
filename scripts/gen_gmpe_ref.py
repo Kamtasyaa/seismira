@@ -9,7 +9,13 @@ Kurulum ve çalıştırma (depo kökünden):
     .venv/bin/pip install pygmm==0.9.1
     .venv/bin/python scripts/gen_gmpe_ref.py
 
-Çıktı: data/test/cy14_ref.csv
+Çıktılar: data/test/cy14_ref.csv, data/test/psbah20_ref.csv
+
+Parker vd. (2020): pygmm sürümü nshmp-lib'in (USGS, CC0) uygulamasını ve
+katsayılarını izler; küresel model, epistemik dallar kapalı (orta dal).
+Levha içinde pygmm Zhyp'i Ztor + 0.48·6.5 km olarak tahmin eder; bizim
+uygulamamız odak derinliğini doğrudan kullanır. Karşılaştırma için pygmm'e
+Ztor = Zhyp − 3.12 km verilir.
 """
 
 import csv
@@ -77,7 +83,51 @@ def main() -> int:
         w.writeheader()
         w.writerows(rows)
     print(f"{len(rows)} senaryo, pygmm {pygmm.__version__} → {OUT / 'cy14_ref.csv'}")
+    psbah20()
     return 0
+
+
+PSBAH20_PERIODS = [0.3, 0.5, 0.6, 0.75, 1.0]
+
+
+def psbah20() -> None:
+    rows = []
+    dists = [1.0, 10.0, 30.0, 60.0, 150.0, 300.0, 450.0, 700.0, 1000.0]
+    vs30s = [760.0, 400.0, 250.0, 180.0, 1200.0, 1800.0]
+    cases = [("interface", m, 25.0) for m in [4.5, 5.5, 6.5, 7.5, 8.5, 9.1]]
+    cases += [
+        ("intraslab", m, z)
+        for m in [4.5, 5.5, 6.5, 7.1, 7.8, 8.4]
+        for z in [15.0, 40.0, 57.0, 120.0]
+    ]
+    for (event, mag, zhyp), rrup, vs30 in itertools.product(cases, dists, vs30s):
+        s = pygmm.Scenario(
+            mag=mag,
+            dist_rup=rrup,
+            depth_tor=zhyp - 0.48 * 6.5,
+            v_s30=vs30,
+            event_type=event,
+            region="global",
+        )
+        m = pygmm.ParkerEtAl2020(s, epistemic=False)
+        row = dict(
+            event=event, mag=mag, rrup=rrup, zhyp=zhyp, vs30=vs30,
+            ln_pga=float(np.log(m.pga)), sd_pga=float(m.ln_std_pga),
+            ln_pgv=float(np.log(m.pgv)), sd_pgv=float(m.ln_std_pgv),
+        )
+        psa = np.atleast_1d(m.interp_spec_accels(PSBAH20_PERIODS))
+        sds = np.atleast_1d(m.interp_ln_stds(PSBAH20_PERIODS))
+        for t, v, sd in zip(PSBAH20_PERIODS, psa, sds):
+            row[f"ln_sa{t}"] = float(np.log(v))
+            row[f"sd_sa{t}"] = float(sd)
+        rows.append(row)
+
+    path = OUT / "psbah20_ref.csv"
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    print(f"{len(rows)} senaryo, pygmm {pygmm.__version__} → {path}")
 
 
 if __name__ == "__main__":

@@ -78,6 +78,17 @@ license_checked = "2026-11-14"
 files = "crates/seismira-core/src/gmpe/cy14.csv"
 
 [[dataset]]
+id = "psbah20-coefficients"
+name = "Parker vd. (2020) NGA-Subduction GMPE katsayıları (küresel arayüz ve levha içi)"
+url = "https://code.usgs.gov/ghsc/nshmp/nshmp-lib"
+license = "CC0-1.0 / ABD kamu malı"
+attribution = "Parker, Stewart, Boore, Atkinson & Hassani (2020), PEER Report 2020/03; Earthquake Spectra 38(1), 2022. Katsayı dosyaları: USGS nshmp-lib."
+modified = false
+license_checked = "2026-11-20"
+snapshot = "nshmp-lib main b808438b; PSBAH20_interface.csv sha256 8d9d03c42806d0cf6bb4add115e09961de91d233f636baedb506205642c63ccf; PSBAH20_slab.csv sha256 a7079cd5db7282ab8bc34948fdd949ff0830f95c309d320d1410434525ee43a1"
+files = "crates/seismira-core/src/gmpe/psbah20_interface.csv, crates/seismira-core/src/gmpe/psbah20_slab.csv"
+
+[[dataset]]
 id = "usgs-shakemap-izmit1999"
 name = "USGS ShakeMap, 1999 İzmit (usp0009d4z): istasyon listesi, kırılma, bilgi (yalnızca doğrulama)"
 url = "https://earthquake.usgs.gov/earthquakes/eventpage/usp0009d4z"

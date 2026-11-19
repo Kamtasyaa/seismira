@@ -40,6 +40,16 @@ Sapmalar docs/dogrulama.md'ye yazılır ve kullanıcıya bildirilir.
 - Sonuç: 1944 karşılaştırmada en büyük |Δln| = 0.00000, σ farkı %0.000.
   Ölçüt (%1) sağlandı. İki bağımsız katsayı kaynağı da birebir aynı.
 
+### 2026-11-20 — GMPE birim testi: Parker vd. (2020) ↔ pygmm
+
+- Referans: pygmm 0.9.1 `ParkerEtAl2020` (küresel, `epistemic=False`).
+  `scripts/gen_gmpe_ref.py` → `data/test/psbah20_ref.csv`: 1620 senaryo
+  (arayüz M 4.5–9.1; levha içi M 4.5–8.4 × Zhyp 15/40/57/120 km; Rrup
+  1–1000 km; Vs30 180–1800), PGA, PGV, SA(0.3, 0.5, 0.6, 0.75, 1.0).
+- Sonuç: 11 340 karşılaştırmada en büyük |Δln| = 5e-15, σ farkı 2e-16.
+  Ölçüt (%1) sağlandı. pygmm katsayıları da nshmp-lib'den; katsayıların
+  PEER ekiyle karşılaştırması ve tek sapma (arayüz c6) docs/bilim.md 7.4.
+
 ### 2026-11-14 — Seyahat süreleri: tablo ↔ TauP
 
 - 4000 ızgara dışı nokta; en büyük ara değer hatası P 0.094 s, S 0.135 s.

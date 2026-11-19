@@ -1,10 +1,11 @@
 //! Deprem tanımı ve girdi geçerlilik kuralları (CLAUDE.md Bölüm 6).
 //!
-//! UYARI: Aralıklar CLAUDE.md'deki YAKLAŞIK tablodan alınmıştır ve henüz
-//! doğrulanmamıştır. Faz 3 (CY14) ve Faz 5 (Parker vd. 2020) modelleri
-//! eklenirken her modelin yayımlanmış geçerlilik aralığıyla değiştirilecek
-//! (docs/arayuz.md, "Geçerlilik kuralları" notu). Sessiz ekstrapolasyon
-//! yapılmaz: aralık dışı girdi engellenir ya da açıkça uyarılır.
+//! Aralıklar yer hareketi modellerinin yayımlanmış geçerlilik aralıklarından
+//! gelir: sığ kabukta CY14 (Faz 3), dalma-batmada Parker vd. (2020) (Faz 5,
+//! [`crate::gmpe::psbah20`]). Ortamların ALT derinlik sınırları (arayüz 5 km,
+//! levha içi 30 km) modelden değil sınıflandırmadan gelen yaklaşık
+//! değerlerdir (docs/arayuz.md, "Geçerlilik kuralları"). Sessiz
+//! ekstrapolasyon yapılmaz: aralık dışı girdi engellenir ya da açıkça uyarılır.
 
 /// Tektonik ortam.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -100,22 +101,29 @@ impl Quake {
     }
 }
 
-/// Bölüm 6 tablosu (yaklaşık; bkz. modül notu).
+/// Bölüm 6 tablosu (bkz. modül notu).
 pub mod limits {
+    use crate::gmpe::psbah20;
+
     /// Seyahat süresi tablosunun derinlik sınırı (km).
     pub const MAX_DEPTH: f64 = 700.0;
-    /// Bu derinliğin ötesi "derin odak": modeller geçersiz, kaba tahmin.
-    pub const DEEP_FOCUS_FROM: f64 = 300.0;
 
     pub const CRUST_MW: (f64, f64) = (4.0, 8.5);
     /// Sığ kabukta ters ve normal faylar için üst sınır.
     pub const CRUST_MW_MAX_DIP_SLIP: f64 = 8.0;
     pub const CRUST_DEPTH: (f64, f64) = (0.0, 35.0);
-    pub const INTERFACE_MW: (f64, f64) = (4.5, 9.5);
-    pub const INTERFACE_DEPTH: (f64, f64) = (5.0, 60.0);
-    pub const INTRASLAB_MW: (f64, f64) = (4.5, 8.0);
-    /// Levha içi: 30 km'den başlar; 300 km ötesi derin odak uyarısıyla izinli.
+    /// Arayüz: Parker vd. (2020) M 4.5–9.5, Zhyp ≤ 40 km.
+    pub const INTERFACE_MW: (f64, f64) = psbah20::INTERFACE_MW;
+    pub const INTERFACE_DEPTH: (f64, f64) = (5.0, psbah20::INTERFACE_ZHYP_MAX);
+    /// Levha içi: Parker vd. (2020) M 4.5–8.5.
+    pub const INTRASLAB_MW: (f64, f64) = psbah20::INTRASLAB_MW;
+    /// Levha içi: 30 km'den başlar. Modelin sınırı (200 km) ötesi
+    /// [`super::Issue::DeepFocus`] uyarısıyla seyahat süresi tablosunun
+    /// sınırına kadar izinli: dalgalar gösterilir, şiddet hesaplanmaz.
     pub const INTRASLAB_DEPTH: (f64, f64) = (30.0, MAX_DEPTH);
+    /// Bu derinliğin ötesinde yer hareketi modeli yok (Parker vd. 2020,
+    /// levha içi Zhyp ≤ 200 km).
+    pub const DEEP_FOCUS_FROM: f64 = psbah20::INTRASLAB_ZHYP_MAX;
 }
 
 /// Bir geçerlilik sorunu. `Block` simülasyonu engeller, `Warn` açıkça
@@ -128,8 +136,10 @@ pub enum Issue {
     DepthOutOfRange { min: f64, max: f64 },
     /// Dalma-batma arayüzü yalnızca ters fay olabilir.
     InterfaceNotReverse,
-    /// Derin odak (> 300 km): modeller geçersiz, sonuçlar kaba tahmin.
-    DeepFocus,
+    /// Odak yer hareketi modelinin derinlik sınırından derin
+    /// ([`limits::DEEP_FOCUS_FROM`]): şiddet hesaplanmaz, yalnızca dalgalar
+    /// gösterilir. Engellemez, açıkça uyarır.
+    DeepFocus { max: f64 },
     /// Eğim 0–90° dışında ya da sayı değil.
     BadGeometry,
     /// Sığ kabukta kırılmanın üst kenarı (Ztor) yer hareketi modelinin
@@ -147,7 +157,7 @@ impl Issue {
     pub fn blocks(self) -> bool {
         !matches!(
             self,
-            Issue::DeepFocus | Issue::RuptureSizeExtrapolated { .. }
+            Issue::DeepFocus { .. } | Issue::RuptureSizeExtrapolated { .. }
         )
     }
 }
@@ -184,7 +194,9 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
         out.push(Issue::InterfaceNotReverse);
     }
     if q.depth_km > DEEP_FOCUS_FROM && q.depth_km <= MAX_DEPTH {
-        out.push(Issue::DeepFocus);
+        out.push(Issue::DeepFocus {
+            max: DEEP_FOCUS_FROM,
+        });
     }
     let finite = [
         q.mw,
@@ -253,9 +265,11 @@ mod tests {
         assert!(matches!(validate(&q)[0], Issue::DepthOutOfRange { .. }));
         q.setting = Setting::Intraslab;
         assert!(validate(&q).is_empty());
+        q.depth_km = 200.0;
+        assert!(validate(&q).is_empty(), "modelin sınırı dahil");
         q.depth_km = 450.0;
         let issues = validate(&q);
-        assert_eq!(issues, vec![Issue::DeepFocus]);
+        assert_eq!(issues, vec![Issue::DeepFocus { max: 200.0 }]);
         assert!(!issues[0].blocks());
         q.depth_km = 701.0;
         assert!(validate(&q).iter().any(|i| i.blocks()));
@@ -270,6 +284,29 @@ mod tests {
         assert_eq!(validate(&q), vec![Issue::InterfaceNotReverse]);
         q.fault = FaultType::Reverse;
         assert!(validate(&q).is_empty());
+        // Parker vd. (2020): arayüzde Zhyp ≤ 40 km, M ≤ 9.5.
+        q.depth_km = 41.0;
+        assert_eq!(
+            validate(&q),
+            vec![Issue::DepthOutOfRange {
+                min: 5.0,
+                max: 40.0
+            }]
+        );
+        q.depth_km = 40.0;
+        q.mw = 9.6;
+        assert!(matches!(validate(&q)[..], [Issue::MwOutOfRange { max, .. }] if max == 9.5));
+    }
+
+    #[test]
+    fn levha_ici_buyukluk_siniri() {
+        let mut q = quake();
+        q.setting = Setting::Intraslab;
+        q.depth_km = 60.0;
+        q.mw = 8.5;
+        assert!(validate(&q).is_empty());
+        q.mw = 8.6;
+        assert!(matches!(validate(&q)[..], [Issue::MwOutOfRange { max, .. }] if max == 8.5));
     }
 
     #[test]

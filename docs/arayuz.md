@@ -61,7 +61,8 @@ Ana ayarlar:
 - Erken uyarı sistemi varsayımı (Bölüm 7.3)
 
 Görünüm:
-- Şiddet ölçeği: Shindo / MMI / ikisi birlikte
+- Şiddet ölçeği: Shindo / MMI / ikisi birlikte (Faz 10'a ertelendi,
+  2026-11-20; MMI şimdilik şehir kartında)
 - Katmanlar: bölge sınırı vurgusu, sıvılaşma, heyelan, tsunami
 - Simülasyon sonunda fay izini göster (varsayılan: kapalı)
 - Hareketi azalt
@@ -72,9 +73,13 @@ aralığından doğrula, kodda sabit olarak tut):
 | Ortam | Mw | Odak derinliği | Not |
 |---|---|---|---|
 | Sığ kabuk | 4.0 – ~8.5 (ters/normal ~8.0) | 0 – ~35 km | |
-| Dalma-batma arayüzü | ~4.5 – 9.5 | ~5 – ~60 km | yalnızca ters fay |
-| Levha içi | ~4.5 – ~8.0 | ~30 – ~300 km | |
-| Derin odak | | > ~300 km | modeller geçersiz, "kaba tahmin" etiketi |
+| Dalma-batma arayüzü | 4.5 – 9.5 | ~5 – 40 km | yalnızca ters fay |
+| Levha içi | 4.5 – 8.5 | ~30 – 200 km | |
+| Derin odak | | > 200 km | model yok: uyarı, dalgalar gösterilir, şiddet hesaplanmaz |
+
+Dalma-batma satırları Parker vd. (2020) raporundan DOĞRULANDI
+(2026-11-20, docs/bilim.md); alt derinlik sınırları (5 / 30 km) modelden
+değil, ortam sınıflandırmasından gelen yaklaşık değerlerdir.
 
 Aralık dışı girdi engellenir ya da açıkça uyarılır. Sessiz
 ekstrapolasyon yapılmaz.

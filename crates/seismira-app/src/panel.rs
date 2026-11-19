@@ -77,7 +77,7 @@ pub fn issue_text(lang: Lang, issue: Issue) -> String {
             &[("min", lang.num(min, 0)), ("max", lang.num(max, 0))],
         ),
         Issue::InterfaceNotReverse => lang.t("issue-interface"),
-        Issue::DeepFocus => lang.t("issue-deep"),
+        Issue::DeepFocus { max } => lang.t_args("issue-deep", &[("max", lang.num(max, 0))]),
         Issue::BadGeometry => lang.t("issue-geometry"),
         Issue::RuptureSizeExtrapolated { max } => {
             lang.t_args("issue-rupture-size", &[("max", lang.num(max, 1))])

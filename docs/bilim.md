@@ -312,6 +312,49 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
 - Belirsizlik: σ_I = √((1.82·σ_lnPGV / ln10)² + 0.19²); "olası aralık"
   ±1σ.
 
+### 7.4 Parker vd. (2020), dalma-batma (Faz 5, 2026-11-20)
+
+- Künye: Parker, Stewart, Boore, Atkinson & Hassani (2020), PEER Report
+  2020/03 (rapor metni okundu); dergi sürümü Earthquake Spectra 38(1),
+  456-493 (2022) (görülmedi: Boore'un sitesinin sertifikası süresi dolmuş).
+  Uygulama: `seismira-core/src/gmpe/psbah20.rs`.
+- Katsayılar: USGS nshmp-lib `PSBAH20_interface.csv`, `PSBAH20_slab.csv`
+  (CC0), main b808438b. PEER elektronik ekiyle (Tablo E1–E3,
+  PSHAB_Electronic_Supplement.zip, sha256 c83bcfae…f521) sütun sütun
+  karşılaştırıldı: kullanılan tüm küresel katsayılar aynı, TEK FARK arayüz
+  c6'sı (Mc üstü büyüklük eğimi). PGV ve 0.2–0.75 s'de ek c6 > c4 veriyor
+  (PGV: 1.844 / 1.336); nshmp-lib bu periyotlarda c6 = c4 kullanıyor (ilk
+  sürümü 2021'den beri). Rapor 4.3.2: katsayılar "c6 ≤ c4" kısıtıyla
+  bulundu ("ensures slowing of the magnitude-scaling for M > mc"); ekteki
+  değerler bu kısıtı ihlal ediyor. OpenQuake (yalnızca değer bakıldı) eki
+  izliyor. SEÇİM: nshmp-lib (kısıta uyan). Etki yalnızca arayüzde M > 7.9:
+  M9'da PGV farkı ln 0.56 (~1.75 kat, ~0.4 JMA birimi). AÇIK KONU: dergi
+  sürümünün tablosu ya da bir düzeltme notu görülünce kesinleşir.
+- Seçimler: küresel model (Mc arayüz 7.9, levha içi 7.6; Tablo 4.1);
+  epistemik dallar yok (orta dal); havza terimi yok; levha içi derinlik
+  terimi (Eş. 4.6) odak derinliğiyle (model Zhyp ile kuruldu; nshmp-lib
+  Ztor + 3.12 km kullanır).
+- Geçerlilik (rapor 8.2.1): arayüz M 4.5–9.5, Rrup 20–1000 km, Zhyp ≤ 40
+  km; levha içi M 4.5–8.5, Rrup 35–1000 km, Zhyp 0–200 km; Vs30 150–2000
+  m/s; yalnızca yay önü (forearc) sahalar. Girdi denetimi buna göre
+  güncellendi: arayüz derinliği 5–40 km (önce 5–60), levha içi M ≤ 8.5
+  (önce 8.0); levha içinde 200 km'den derin odak uyarılır, dalgalar
+  gösterilir, şiddet hesaplanmaz (önce 300 km "kaba tahmin" deniyordu,
+  ama kaba tahmin üreten bir model yoktu).
+- Kısa mesafe (Rrup < 20 / 35 km) BİLİNÇLİ OLARAK hesaplanır: verinin
+  alt sınırıdır, fonksiyonel biçim (yakın kaynak doygunluğu h, Eş. 4.4)
+  bu bölge için kurulmuştur; nshmp-lib ve pygmm de hesaplar. Büyük arayüz
+  depremlerinde kıyı şehirleri bu mesafededir.
+- Yay ardı (backarc) sahalar için model doğrulanmadı (rapor 8.2.1);
+  ayrım şimdilik yapılmıyor. AÇIK KONU.
+- Bölgesel katsayılar (Japonya Pasifik / Filipin, Orta Amerika ve Meksika,
+  Güney Amerika K/G, Tayvan, Alaska, Aleut, Cascadia) ekte var; henüz
+  kullanılmıyor (Faz 5'in sonraki adımı ya da Faz 9).
+- Test: pygmm 0.9.1 (nshmp-lib'i izler) ile 1620 senaryo × 7 ölçü = 11 340
+  karşılaştırma, en büyük ln farkı 5e-15 (docs/dogrulama.md). pygmm'in
+  katsayıları da nshmp-lib'den geldiği için bu test formül aktarımını
+  doğrular; katsayıların kendisi yukarıdaki ek karşılaştırmasıyla.
+
 ## Açık doğrulama notları
 
 - (Faz 0 notu) 7.1'deki moment bağıntısı: M0 = 10^(1.5·Mw + 9.1) N·m,
@@ -349,7 +392,10 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   terimleriyle; katsayılar ShakeMap `wgrw12.py` (CC0), makale görülmedi.
   Girdi iki yatay bileşenin büyüğü (Boore & Kishida 2017 ile RotD50'den).
   σ = 0,63. Şehir kartında Shindo'nun altında gösterilir
-  (`seismira-core/src/mmi.rs`). Henüz yok: haritada MMI ölçeği seçimi.
+  (`seismira-core/src/mmi.rs`). Haritada MMI ölçeği seçimi Faz 10'a
+  ERTELENDİ (2026-11-20): erken uyarı ve bölge mantığı JMA Shindo
+  sınıflarına bağlı; haritayı iki ölçekle boyamak bütün sınıf / renk /
+  bildirim hattını ikiye katlar. Kart MMI'yı zaten gösteriyor.
 - Zemin (Vs30) belirsizliği, 7.7 (2026-11-15): haritanın log standart
   sapması "olası aralık"a EKLENMEZ. Gerekçe: CY14'ün σ'sı Vs30'u
   ölçülmemiş ("inferred") sahalar için zaten büyütülmüştür (Eş. 13'teki
