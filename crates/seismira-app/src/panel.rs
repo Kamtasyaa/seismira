@@ -253,7 +253,7 @@ pub fn ui(
         };
         ui.label(RichText::new(format!("{icon} {}", issue_text(lang, issue))).color(color));
     }
-    if !has_gmpe(draft.quake.setting) {
+    if !has_gmpe(&draft.quake) {
         ui.label(RichText::new(format!("ⓘ {}", t("no-gmpe"))).color(WARN_COLOR));
     }
     if !draft.has_epicenter {

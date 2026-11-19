@@ -46,7 +46,7 @@ strike = Doğrultu (°)
 dip = Eğim (°)
 rake = Kayma açısı (°)
 fault-geometry = Fay geometrisi
-ranges-note = Geçerlilik aralıkları geçicidir; yer hareketi modelleri eklendikçe kesinleşecek.
+ranges-note = Geçerlilik aralıkları yer hareketi modellerinin yayımlanmış aralıklarından gelir (kabuk: CY14, dalma-batma: Parker vd. 2020).
 start-needs-epicenter = Başlatmak için önce merkez üssünü seçin.
 
 issue-mw = Bu ortam ve fay tipi için büyüklük { $min } – { $max } aralığında olmalı.
@@ -95,13 +95,13 @@ tip-vs30-built = Zemin: Vs30 ≈ { $v } m/s (USGS haritası, yerleşim ağırlı
 tip-vs30-reference = Zemin: referans Vs30 = { $v } m/s (harita değeri yok)
 tip-vs30-clamped = Hesapta model sınırına çekildi: { $v } m/s
 tip-vs30-sd = Zemin belirsizliği: Vs30 ×/÷ { $f } → şiddet ±{ $d }
-no-gmpe = Bu tektonik ortam için yer hareketi modeli henüz yok (Faz 5); yalnızca dalgalar gösterilir.
-no-gmpe-short = Bu ortam için şiddet hesabı henüz yok.
+no-gmpe = Bu derinlikte yer hareketi modeli yok; yalnızca dalgalar gösterilir.
+no-gmpe-short = Bu deprem için şiddet hesabı yok.
 advanced = İleri seviye
 hypo-along = Odak, doğrultu boyunca
 hypo-down = Odak, eğim boyunca
 rupture-size = Kırılma: { $l } × { $w } km, üst kenar { $ztor } km derinlikte
-model-limit = Tahmin sınırı: faya 300 km
+model-limit = Tahmin sınırı: faya { $km } km
 
 # Erken uyarı (Faz 4)
 early-warning = Erken uyarı (varsayımsal sistem): { $regions }

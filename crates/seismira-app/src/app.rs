@@ -454,6 +454,7 @@ impl SeismiraApp {
     }
 
     /// Geliştirme: `SEISMIRA_DEMO=boylam,enlem,Mw,derinlik,saniye[,doğrultu]` ile depremi
+    /// (ve isteğe bağlı `SEISMIRA_DEMO_SETTING=interface[,eğim]`)
     /// başlatıp verilen anda duraklatır (ekran görüntüsü testleri için).
     fn with_demo(mut self, ctx: &egui::Context) -> Self {
         let Some(v) = std::env::var("SEISMIRA_DEMO").ok().map(|s| {
@@ -475,6 +476,18 @@ impl SeismiraApp {
             q.depth_km = depth;
             if depth > quake::limits::CRUST_DEPTH.1 {
                 q.setting = quake::Setting::Intraslab;
+            }
+            // `SEISMIRA_DEMO_SETTING=interface[,eğim]`: dalma-batma arayüzü
+            // (ters fay; eğim verilmezse ters fayın varsayılanı).
+            if let Ok(s) = std::env::var("SEISMIRA_DEMO_SETTING") {
+                let mut it = s.split(',');
+                if it.next() == Some("interface") {
+                    q.setting = quake::Setting::Interface;
+                    q.fault = quake::FaultType::Reverse;
+                    let (dip, rake) = q.fault.default_dip_rake();
+                    q.dip = it.next().and_then(|d| d.trim().parse().ok()).unwrap_or(dip);
+                    q.rake = rake;
+                }
             }
             self.draft.has_epicenter = true;
             self.start_sim(ctx);
@@ -619,13 +632,10 @@ impl SeismiraApp {
         if let Some(sim) = &self.sim {
             self.map.draw_epicenter(ui, rect, sim.quake.epicenter);
             self.legend(ui, rect);
-            if self.results.is_some() && quake_has_gmpe(&sim.quake) {
-                city_layer::draw_legend(
-                    ui,
-                    rect,
-                    &lang.t("shindo-legend"),
-                    Some(&lang.t("model-limit")),
-                );
+            let gmm = seismira_core::shaking::Gmm::for_quake(&sim.quake);
+            if let (Some(_), Some(gmm)) = (&self.results, gmm) {
+                let limit = lang.t_args("model-limit", &[("km", lang.num(gmm.max_rrup_km(), 0))]);
+                city_layer::draw_legend(ui, rect, &lang.t("shindo-legend"), Some(&limit));
             }
         } else if self.draft.has_epicenter {
             self.map
@@ -737,7 +747,7 @@ fn paint_card(
 }
 
 fn quake_has_gmpe(q: &quake::Quake) -> bool {
-    seismira_core::shaking::has_gmpe(q.setting)
+    seismira_core::shaking::has_gmpe(q)
 }
 
 impl SeismiraApp {

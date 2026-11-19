@@ -81,10 +81,13 @@ impl GridSpec {
 }
 
 impl Domain {
-    /// Fayın Rrup ≤ [`cy14::MAX_RRUP_KM`] eğrisini kapsayan alan. Boylamlar
-    /// merkez üssüne göre açılır (180° meridyenini geçen alanlar sürekli).
+    /// Fayın Rrup ≤ model sınırı eğrisini kapsayan alan (kabukta 300, dalma-
+    /// batmada 1000 km). Boylamlar merkez üssüne göre açılır (180°
+    /// meridyenini geçen alanlar sürekli). Modeli olmayan depremde
+    /// çağrılmaz; çağrılırsa kabuk sınırı kullanılır.
     pub fn for_scenario(scenario: &Scenario, base: Base) -> Domain {
-        let contour = scenario.fault.rrup_contour(cy14::MAX_RRUP_KM, 180);
+        let max = scenario.max_rrup_km().unwrap_or(cy14::MAX_RRUP_KM);
+        let contour = scenario.fault.rrup_contour(max, 180);
         let lon0 = scenario.quake.epicenter.0;
         let unwrap = |lon: f64| lon0 + (lon - lon0 + 180.0).rem_euclid(360.0) - 180.0;
         let (mut w, mut e, mut s, mut n) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);

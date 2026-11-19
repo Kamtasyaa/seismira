@@ -350,6 +350,23 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
 - Bölgesel katsayılar (Japonya Pasifik / Filipin, Orta Amerika ve Meksika,
   Güney Amerika K/G, Tayvan, Alaska, Aleut, Cascadia) ekte var; henüz
   kullanılmıyor (Faz 5'in sonraki adımı ya da Faz 9).
+- Simülasyona bağlama (Faz 5 adım 3, 2026-11-20): `shaking::Gmm` depreme göre
+  modeli seçer (kabuk → CY14; arayüz → Parker arayüz; levha içi ≤ 200 km →
+  Parker levha içi; daha derin → model yok). Mesafe sınırı ve Vs30 aralığı
+  modelden gelir: dalma-batmada 1000 km ve 150–2000 m/s. Izgara alanı da
+  1000 km'ye büyür: Mw 9 Tōhoku benzeri senaryoda ince ızgara 1648×1296
+  (adım 2 hücre, ~1,9 km), referans makinede kaba 134 ms, ince 424 ms; en
+  yüksek bellek ~300 MB (Bölüm 11 içinde).
+- VARSAYIM: sarsıntı süresi (D5-95) dalma-batmada da Afshari & Stewart
+  (2016) kabuk modeliyle, girdileri model aralığına çekilerek (M ≤ 7.9,
+  Rrup ≤ 200 km) hesaplanıyor; büyük arayüz depremlerinde süre kısa kalır.
+  Yalnızca bölge sınırının "yatışmış" durumuna geçişini etkiler. Dalma-
+  batma için süre modeli AÇIK KONU (7.3).
+- Fay boyutu dalma-batmada hâlâ geçici: Wells & Coppersmith (1994) kabuk
+  alanı, genişlik sınırı yok (Mw 9 → 328 × 328 km; gözlenen Tōhoku ~500 ×
+  200 km). Strasser vd. (2010) ya da Allen & Hayes (2017) bağıntısının
+  birincil kaynağına erişilemedi (ikisi de SSA, kapalı erişim); kullanıcıya
+  soruldu (2026-11-20).
 - Test: pygmm 0.9.1 (nshmp-lib'i izler) ile 1620 senaryo × 7 ölçü = 11 340
   karşılaştırma, en büyük ln farkı 5e-15 (docs/dogrulama.md). pygmm'in
   katsayıları da nshmp-lib'den geldiği için bu test formül aktarımını

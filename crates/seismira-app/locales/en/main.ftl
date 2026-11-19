@@ -46,7 +46,7 @@ strike = Strike (°)
 dip = Dip (°)
 rake = Rake (°)
 fault-geometry = Fault geometry
-ranges-note = Validity ranges are provisional; they will be finalized as ground-motion models are added.
+ranges-note = Validity ranges come from the published ranges of the ground-motion models (crust: CY14, subduction: Parker et al. 2020).
 start-needs-epicenter = Choose an epicenter first.
 
 issue-mw = For this setting and fault type, magnitude must be between { $min } and { $max }.
@@ -95,13 +95,13 @@ tip-vs30-built = Site: Vs30 ≈ { $v } m/s (USGS map, weighted by built-up area)
 tip-vs30-reference = Site: reference Vs30 = { $v } m/s (no map value)
 tip-vs30-clamped = Clamped to the model limit: { $v } m/s
 tip-vs30-sd = Site uncertainty: Vs30 ×/÷ { $f } → intensity ±{ $d }
-no-gmpe = No ground-motion model for this tectonic setting yet (Phase 5); only waves are shown.
-no-gmpe-short = No intensity estimate for this setting yet.
+no-gmpe = No ground-motion model at this depth; only waves are shown.
+no-gmpe-short = No intensity estimate for this earthquake.
 advanced = Advanced
 hypo-along = Hypocenter, along strike
 hypo-down = Hypocenter, down dip
 rupture-size = Rupture: { $l } × { $w } km, top edge at { $ztor } km depth
-model-limit = Estimate limit: 300 km from fault
+model-limit = Estimate limit: { $km } km from fault
 
 # Erken uyarı (Faz 4)
 early-warning = Early warning (hypothetical system): { $regions }

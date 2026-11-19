@@ -157,11 +157,9 @@ impl Job {
                     }));
                 }
                 let felt_radius_deg = scenario.felt_radius_deg();
-                let model_limit = seismira_core::shaking::has_gmpe(quake.setting).then(|| {
-                    scenario
-                        .fault
-                        .rrup_contour(seismira_core::gmpe::cy14::MAX_RRUP_KM, 180)
-                });
+                let model_limit = scenario
+                    .max_rrup_km()
+                    .map(|max| scenario.fault.rrup_contour(max, 180));
                 log::info!(
                     "{} şehir hesaplandı ({} ms)",
                     sites.len(),
@@ -179,7 +177,7 @@ impl Job {
                     return;
                 }
                 ctx.request_repaint();
-                if seismira_core::shaking::has_gmpe(quake.setting) {
+                if scenario.gmm.is_some() {
                     shake_grid(
                         &scenario,
                         vs30.as_deref(),

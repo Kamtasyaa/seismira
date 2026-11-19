@@ -11,8 +11,10 @@
 //! tarafı pozitif), Ztor (üst kenar derinliği).
 //!
 //! Saha, merkez üssü çevresinde yerel düzleme jeodezik mesafe ve azimutla
-//! taşınır (azimutal eşit uzaklık izdüşümü). CY14'ün 300 km sınırı içinde
-//! bu yaklaşımın hatası ihmal edilebilir.
+//! taşınır (azimutal eşit uzaklık izdüşümü). Merkez üssüne uzaklık ve azimut
+//! tamdır; dik yönde ölçek hatası ≈ (d/R)²/6: CY14'ün 300 km sınırında
+//! %0,04, Parker vd. (2020)'nin 1000 km sınırında %0,4 (~4 km). Şiddete
+//! etkisi uzakta ihmal edilebilir (2026-11-20).
 
 use crate::geo;
 use crate::quake::{FaultType, Quake, Setting};
