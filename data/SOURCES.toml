@@ -89,7 +89,17 @@ snapshot = "nshmp-lib main b808438b; PSBAH20_interface.csv sha256 8d9d03c42806d0
 files = "crates/seismira-core/src/gmpe/psbah20_interface.csv, crates/seismira-core/src/gmpe/psbah20_slab.csv"
 
 [[dataset]]
-id = "usgs-shakemap-izmit1999"
+id = "psbah20-regional-coefficients"
+name = "Parker vd. (2020) bölgesel katsayıları (c0, a0, s1, s2), PEER 2020/03 elektronik eki Tablo E1–E2"
+url = "https://apps.peer.berkeley.edu/publications/peer_reports/reports_2020/PSHAB_Electronic_Supplement.zip"
+license = "Yayımlanmış katsayılar (bilimsel olgu); ek dosyası depoya alınmaz, yalnızca gereken sayılar"
+attribution = "Parker, Stewart, Boore, Atkinson & Hassani (2020), PEER Report 2020/03, Pacific Earthquake Engineering Research Center."
+modified = true            # yalnızca bölgesel sütunlar seçildi, bölge eşlemesi (scripts/gen_psbah20_regional.py)
+license_checked = "2026-11-20"
+snapshot = "PSHAB_Electronic_Supplement.zip sha256 c83bcfae6effd15ff3afcc09c9cf543a2189ecf2961d4ef3d3d2b4273e57f521"
+files = "crates/seismira-core/src/gmpe/psbah20_regional.csv"
+
+
 name = "USGS ShakeMap, 1999 İzmit (usp0009d4z): istasyon listesi, kırılma, bilgi (yalnızca doğrulama)"
 url = "https://earthquake.usgs.gov/earthquakes/eventpage/usp0009d4z"
 license = "Public Domain (USGS)"

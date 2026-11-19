@@ -199,6 +199,8 @@ impl<'a> Scenario<'a> {
                     zhyp: self.quake.depth_km,
                     vs30,
                     event,
+                    // Bölge seçimi Slab2 ile gelecek (Faz 5); şimdilik küresel.
+                    region: psbah20::Region::Global,
                 };
                 (
                     psbah20::predict(Imt::Pga, &input)?,

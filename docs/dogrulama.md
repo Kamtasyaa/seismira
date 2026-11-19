@@ -50,7 +50,16 @@ Sapmalar docs/dogrulama.md'ye yazılır ve kullanıcıya bildirilir.
   Ölçüt (%1) sağlandı. pygmm katsayıları da nshmp-lib'den; katsayıların
   PEER ekiyle karşılaştırması ve tek sapma (arayüz c6) docs/bilim.md 7.4.
 
-### 2026-11-14 — Seyahat süreleri: tablo ↔ TauP
+### 2026-11-20 — Parker vd. (2020) bölgesel model ↔ pygmm ve OpenQuake
+
+- pygmm 0.9.1: küresel, Alaska, Cascadia; 4860 senaryo, 34 020 karşılaştırma,
+  en büyük |Δln| 5e-9 (referans 10 basamağa yuvarlı).
+- OpenQuake 3.26.2 (AGPL; yalnızca çıktı): 12 bölgenin hepsi, arayüz M ≤ Mc,
+  levha içi Zhyp 15/60/120 km; 2415 senaryo, 9660 karşılaştırma, en büyük
+  |Δln| 4.6e-4, σ farkı 7e-11. `scripts/gen_psbah20_oq_ref.py` →
+  `data/test/psbah20_regional_ref.csv`. Ölçüt (%1) sağlandı.
+
+
 
 - 4000 ızgara dışı nokta; en büyük ara değer hatası P 0.094 s, S 0.135 s.
   Ölçüt (< 1 s) sağlandı. (Ayrıntı: docs/bilim.md 7.2.)

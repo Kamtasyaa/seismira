@@ -100,18 +100,22 @@ def psbah20() -> None:
         for m in [4.5, 5.5, 6.5, 7.1, 7.8, 8.4]
         for z in [15.0, 40.0, 57.0, 120.0]
     ]
-    for (event, mag, zhyp), rrup, vs30 in itertools.product(cases, dists, vs30s):
+    # Bölgeler: pygmm (nshmp-lib) küresel, Alaska ve Cascadia'yı destekler;
+    # diğer bölgeler (Japonya vb.) için referans uygulama yok.
+    for region, (event, mag, zhyp), rrup, vs30 in itertools.product(
+        ["global", "alaska", "cascadia"], cases, dists, vs30s
+    ):
         s = pygmm.Scenario(
             mag=mag,
             dist_rup=rrup,
             depth_tor=zhyp - 0.48 * 6.5,
             v_s30=vs30,
             event_type=event,
-            region="global",
+            region=region,
         )
         m = pygmm.ParkerEtAl2020(s, epistemic=False)
         row = dict(
-            event=event, mag=mag, rrup=rrup, zhyp=zhyp, vs30=vs30,
+            event=event, region=region, mag=mag, rrup=rrup, zhyp=zhyp, vs30=vs30,
             ln_pga=float(np.log(m.pga)), sd_pga=float(m.ln_std_pga),
             ln_pgv=float(np.log(m.pgv)), sd_pgv=float(m.ln_std_pgv),
         )
@@ -122,6 +126,11 @@ def psbah20() -> None:
             row[f"sd_sa{t}"] = float(sd)
         rows.append(row)
 
+    # 10 anlamlı basamak: test ölçütü %1, dosya küçük kalsın (depoda).
+    rows = [
+        {k: (f"{v:.10g}" if isinstance(v, float) else v) for k, v in r.items()}
+        for r in rows
+    ]
     path = OUT / "psbah20_ref.csv"
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))

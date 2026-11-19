@@ -345,11 +345,31 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   alt sınırıdır, fonksiyonel biçim (yakın kaynak doygunluğu h, Eş. 4.4)
   bu bölge için kurulmuştur; nshmp-lib ve pygmm de hesaplar. Büyük arayüz
   depremlerinde kıyı şehirleri bu mesafededir.
-- Yay ardı (backarc) sahalar için model doğrulanmadı (rapor 8.2.1);
-  ayrım şimdilik yapılmıyor. AÇIK KONU.
-- Bölgesel katsayılar (Japonya Pasifik / Filipin, Orta Amerika ve Meksika,
-  Güney Amerika K/G, Tayvan, Alaska, Aleut, Cascadia) ekte var; henüz
-  kullanılmıyor (Faz 5'in sonraki adımı ya da Faz 9).
+- Bölgesel uyarlama (2026-11-20): `psbah20::Region` (küresel, Alaska, Aleut,
+  Cascadia, Orta Amerika K/G, Japonya Pasifik / Filipin, Güney Amerika K/G,
+  Tayvan D/B). Bölgesel c0, a0, s1, s2 ekteki Tablo E1/E2'den
+  (`scripts/gen_psbah20_regional.py` → `gmpe/psbah20_regional.csv`; betik
+  ekin küresel / Alaska / Aleut / Cascadia değerlerinin nshmp-lib ile aynı
+  olduğunu da denetler), Mc Tablo 4.1'den. Rapor önerileri: a0 Cascadia
+  arayüzünde küresel; s2 Orta Amerika'da küresel; s1 yalnızca Japonya ve
+  Tayvan'da ayrı; Aleut Adaları NGA-Sub'un Alaska bölgesinde olduğundan a0
+  ve s2 Alaska'dan (nshmp-lib Aleut'u desteklemiyor). Orta Amerika arayüz
+  Mc'si iki alt bölgede 7.4 (tablo dipnotu; metin çıkarımında "7.41"
+  görünen, "7.4" ile dipnot işaretidir). Yeni Zelanda ve listede olmayan
+  zonlar küresel.
+- Bölgesel testler: pygmm ile küresel + Alaska + Cascadia 34 020
+  karşılaştırma (fark ~1e-9, yuvarlama); OpenQuake 3.26.2 (yalnızca çıktı,
+  `scripts/gen_psbah20_oq_ref.py`) ile 12 bölgenin hepsi, 9 660
+  karşılaştırma, en büyük ln farkı 4.6e-4. Arayüzde M ≤ Mc (c6 farkı).
+- Bölge SEÇİMİ henüz yok: simülasyon küresel modeli kullanıyor. Seçim ve yay
+  önü / yay ardı ayrımı Slab2 ile gelecek (aşağıda).
+- Yay ardı (rapor 8.3.2): model yalnızca yay önü sahalar için; yay ardı
+  kayıtları veriden çıkarılmış, Japonya'da yay ardında daha güçlü sönümlenme
+  gözlenmiş. NGA-Sub yay çizgileri "gözle" çizilmiş ve dosya olarak
+  yayımlanmamış (PEER 2020/02, Bölüm 4.8). Plan: yayı Slab2 levha derinliği
+  eş-eğrisiyle tanımlamak (kaynağı doğrulanacak). Tōhoku denemesinde Rusya
+  ve Sahalin'de Shindo 1–2 görüldü (kullanıcı ekran görüntüsü, 2026-11-20);
+  büyük olasılıkla fazla.
 - Simülasyona bağlama (Faz 5 adım 3, 2026-11-20): `shaking::Gmm` depreme göre
   modeli seçer (kabuk → CY14; arayüz → Parker arayüz; levha içi ≤ 200 km →
   Parker levha içi; daha derin → model yok). Mesafe sınırı ve Vs30 aralığı

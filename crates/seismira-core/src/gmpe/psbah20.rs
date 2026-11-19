@@ -21,9 +21,10 @@
 //!
 //! Kapsam ve seçimler:
 //! - Bileşen: RotD50.
-//! - Bölge: KÜRESEL model (köşe büyüklüğü arayüzde 7.9, levha içinde 7.6;
-//!   rapor Tablo 4.1). Bölgesel katsayılar (Japonya, Güney Amerika, Orta
-//!   Amerika ve Meksika vb.) raporun elektronik ekinde; henüz yok.
+//! - Bölge ([`Region`]): küresel model ya da raporun bölgesel uyarlamaları
+//!   (c0, a0, s1, s2: elektronik ek Tablo E1/E2, `psbah20_regional.csv`,
+//!   `scripts/gen_psbah20_regional.py`; köşe büyüklüğü Mc: Tablo 4.1).
+//!   Bölgeye göre değişmeyen katsayılar nshmp-lib dosyalarından.
 //! - Epistemik dallar (Ek E) KULLANILMAZ: orta dal, yani modelin kendi
 //!   medyanı (nshmp-lib `*_NO_EPI` karşılığı). Senaryo için en olası değer
 //!   budur; dalları birleştirmek medyanı yukarı kaydırırdı.
@@ -49,6 +50,89 @@ pub enum EventType {
     Intraslab,
 }
 
+/// Bölgesel uyarlama (rapor 4.3.4, 5.2.2, Tablo 4.1). NGA-Sub bölgeleri;
+/// listede olmayan dalma-batma zonları (ör. Yeni Zelanda, Akdeniz) küresel
+/// modeli kullanır.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Region {
+    Global,
+    Alaska,
+    /// Aleut Adaları: c0 ve Mc ayrı; a0 ve s2 Alaska bölgesinden.
+    Aleutian,
+    Cascadia,
+    /// Orta Amerika ve Meksika, kuzey / güney.
+    CamN,
+    CamS,
+    /// Japonya, Kuril-Kamçatka ve Japonya hendekleri (Pasifik levhası).
+    JapanPac,
+    /// Japonya, Nankai-Ryukyu (Filipin Denizi levhası).
+    JapanPhi,
+    /// Güney Amerika, kuzey / güney.
+    SaN,
+    SaS,
+    /// Tayvan, doğu / batı.
+    TaiwanE,
+    TaiwanW,
+}
+
+impl Region {
+    pub const ALL: [Region; 12] = [
+        Region::Global,
+        Region::Alaska,
+        Region::Aleutian,
+        Region::Cascadia,
+        Region::CamN,
+        Region::CamS,
+        Region::JapanPac,
+        Region::JapanPhi,
+        Region::SaN,
+        Region::SaS,
+        Region::TaiwanE,
+        Region::TaiwanW,
+    ];
+
+    /// `psbah20_regional.csv` içindeki ad (çeviri anahtarı için de).
+    pub fn key(self) -> &'static str {
+        match self {
+            Region::Global => "global",
+            Region::Alaska => "alaska",
+            Region::Aleutian => "aleutian",
+            Region::Cascadia => "cascadia",
+            Region::CamN => "cam_n",
+            Region::CamS => "cam_s",
+            Region::JapanPac => "japan_pac",
+            Region::JapanPhi => "japan_phi",
+            Region::SaN => "sa_n",
+            Region::SaS => "sa_s",
+            Region::TaiwanE => "taiwan_e",
+            Region::TaiwanW => "taiwan_w",
+        }
+    }
+
+    /// Köşe (doygunluk) büyüklüğü Mc, rapor Tablo 4.1: arayüz Campbell
+    /// (2020), levha içi Ji & Archuleta (2018). Orta Amerika arayüzünde iki
+    /// alt bölge için ortak 7.4 (tablo dipnotu 1).
+    pub fn mc(self, event: EventType) -> f64 {
+        let (interface, slab) = match self {
+            Region::Global => (7.9, 7.6),
+            Region::Alaska => (8.6, 7.20),
+            Region::Aleutian => (8.0, 7.98),
+            Region::Cascadia => (7.7, 7.20),
+            Region::CamN => (7.4, 7.40),
+            Region::CamS => (7.4, 7.60),
+            Region::JapanPac => (8.5, 7.65),
+            Region::JapanPhi => (7.7, 7.55),
+            Region::SaN => (8.5, 7.30),
+            Region::SaS => (8.6, 7.25),
+            Region::TaiwanE | Region::TaiwanW => (7.1, 7.70),
+        };
+        match event {
+            EventType::Interface => interface,
+            EventType::Intraslab => slab,
+        }
+    }
+}
+
 /// Bir saha için girdi.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Input {
@@ -60,6 +144,7 @@ pub struct Input {
     /// Üst 30 m ortalama kayma dalgası hızı (m/s).
     pub vs30: f64,
     pub event: EventType,
+    pub region: Region,
 }
 
 /// Modelin mesafe sınırı (km, Rrup), rapor 8.2.1.
@@ -94,10 +179,6 @@ const VREF: f64 = 760.0;
 const F3: f64 = 0.05;
 const DB1: f64 = 20.0;
 const DB2: f64 = 67.0;
-/// Küresel köşe büyüklükleri, Tablo 4.1 (arayüz: Campbell 2020; levha
-/// içi: Ji & Archuleta 2018).
-const MC_INTERFACE: f64 = 7.9;
-const MC_SLAB: f64 = 7.6;
 // φ modeli (Eş. 6.x): mesafe ve Vs30 köşeleri.
 const PHI_R1: f64 = 200.0;
 const PHI_R2: f64 = 500.0;
@@ -107,6 +188,8 @@ const PHI_V2: f64 = 500.0;
 #[derive(Clone, Debug)]
 struct Coeffs {
     period: Option<f64>, // None: PGA veya PGV satırı
+    /// Köşe büyüklüğü (bölgeye göre, Tablo 4.1).
+    mc: f64,
     c0: f64,
     c1: f64,
     a0: f64,
@@ -117,6 +200,9 @@ struct Coeffs {
     d: f64,
     m: f64,
     v2: f64,
+    /// Doğrusal zemin eğimleri (Eş. 4.8); s1 yalnızca Japonya ve Tayvan'da
+    /// s2'den farklı.
+    s1: f64,
     s2: f64,
     f4: f64,
     f5: f64,
@@ -133,9 +219,74 @@ struct Table {
     sa: Vec<Coeffs>,
 }
 
-static INTERFACE: LazyLock<Table> =
-    LazyLock::new(|| parse(include_str!("psbah20_interface.csv"), false));
-static SLAB: LazyLock<Table> = LazyLock::new(|| parse(include_str!("psbah20_slab.csv"), true));
+/// Her (olay tipi, bölge) için tablo: önce olay tipi, sonra `Region::ALL`
+/// sırası.
+static TABLES: LazyLock<Vec<Table>> = LazyLock::new(|| {
+    let regional = include_str!("psbah20_regional.csv");
+    [EventType::Interface, EventType::Intraslab]
+        .into_iter()
+        .flat_map(|event| {
+            let csv = match event {
+                EventType::Interface => include_str!("psbah20_interface.csv"),
+                EventType::Intraslab => include_str!("psbah20_slab.csv"),
+            };
+            Region::ALL.map(|region| {
+                let mut t = parse(csv, event == EventType::Intraslab);
+                regionalize(&mut t, regional, event, region);
+                t
+            })
+        })
+        .collect()
+});
+
+fn table(event: EventType, region: Region) -> &'static Table {
+    let e = match event {
+        EventType::Interface => 0,
+        EventType::Intraslab => 1,
+    };
+    let r = Region::ALL
+        .iter()
+        .position(|&x| x == region)
+        .expect("bölge");
+    &TABLES[e * Region::ALL.len() + r]
+}
+
+/// Bölgesel c0, a0, s1, s2 ve Mc'yi tabloya yazar. Her periyot için satır
+/// bulunmazsa panikler (test `bolgesel_tablolar_tam` korur).
+fn regionalize(t: &mut Table, csv: &str, event: EventType, region: Region) {
+    let ev = match event {
+        EventType::Interface => "interface",
+        EventType::Intraslab => "intraslab",
+    };
+    let mut lines = csv.lines().filter(|l| !l.trim_start().starts_with('#'));
+    let header: Vec<&str> = lines.next().expect("başlık").split(',').collect();
+    assert_eq!(header, ["event", "region", "T", "c0", "a0", "s1", "s2"]);
+    let mut found = 0;
+    for line in lines {
+        let f: Vec<&str> = line.split(',').map(str::trim).collect();
+        if f[0] != ev || f[1] != region.key() {
+            continue;
+        }
+        let num = |k: usize| -> f64 { f[k].parse().expect("sayı") };
+        let c = match f[2] {
+            "PGA" => &mut t.pga,
+            "PGV" => &mut t.pgv,
+            p => {
+                let p: f64 = p.parse().expect("periyot");
+                t.sa.iter_mut()
+                    .find(|c| c.period.is_some_and(|x| (x - p).abs() < 1e-9))
+                    .unwrap_or_else(|| panic!("{ev} {region:?}: {p} s tabloda yok"))
+            }
+        };
+        (c.c0, c.a0, c.s1, c.s2) = (num(3), num(4), num(5), num(6));
+        found += 1;
+    }
+    assert_eq!(found, t.sa.len() + 2, "{ev} {region:?}: eksik satır");
+    let mc = region.mc(event);
+    for c in [&mut t.pga, &mut t.pgv].into_iter().chain(t.sa.iter_mut()) {
+        c.mc = mc;
+    }
+}
 
 fn parse(csv: &str, slab: bool) -> Table {
     let mut lines = csv.lines().filter(|l| !l.trim_start().starts_with('#'));
@@ -177,6 +328,7 @@ fn parse(csv: &str, slab: bool) -> Table {
         let v = |k: usize| -> f64 { f[idx[k]].parse().expect("sayı") };
         let mut c = Coeffs {
             period: None,
+            mc: f64::NAN, // regionalize() yazar
             c0: v(0),
             c1: v(1),
             a0: v(2),
@@ -184,6 +336,7 @@ fn parse(csv: &str, slab: bool) -> Table {
             c5: v(4),
             c6: v(5),
             v2: v(6),
+            s1: v(7),
             s2: v(7),
             f4: v(8),
             f5: v(9),
@@ -216,7 +369,7 @@ fn parse(csv: &str, slab: bool) -> Table {
 fn ln_reference(c: &Coeffs, i: &Input) -> f64 {
     let m = i.mw;
     let slab = i.event == EventType::Intraslab;
-    let mc = if slab { MC_SLAB } else { MC_INTERFACE };
+    let mc = c.mc;
     // Eş. 4.4a / 4.4b: yakın kaynak doygunluğu.
     let h = if !slab {
         10f64.powf(-0.82 + 0.252 * m)
@@ -251,10 +404,9 @@ fn ln_reference(c: &Coeffs, i: &Input) -> f64 {
 
 /// Tek bir katsayı satırıyla hesap. `pga_ref`: Vs30 = 760 m/s'de PGA (g).
 fn compute(c: &Coeffs, i: &Input, pga_ref: f64) -> LnMotion {
-    // Eş. 4.8: doğrusal zemin terimi (küresel modelde s1 = s2).
-    let s1 = c.s2;
+    // Eş. 4.8: doğrusal zemin terimi.
     let flin = if i.vs30 <= V1 {
-        s1 * (i.vs30 / V1).ln() + c.s2 * (V1 / VREF).ln()
+        c.s1 * (i.vs30 / V1).ln() + c.s2 * (V1 / VREF).ln()
     } else if i.vs30 > c.v2 {
         c.s2 * (c.v2 / VREF).ln()
     } else {
@@ -297,10 +449,7 @@ pub fn predict(imt: Imt, input: &Input) -> Option<LnMotion> {
     if !in_range(input) {
         return None;
     }
-    let t: &Table = match input.event {
-        EventType::Interface => &INTERFACE,
-        EventType::Intraslab => &SLAB,
-    };
+    let t = table(input.event, input.region);
     let pga_ref = ln_reference(&t.pga, input).exp();
     match imt {
         Imt::Pga => Some(compute(&t.pga, input, pga_ref)),
@@ -342,6 +491,12 @@ mod tests {
                     "intraslab" => EventType::Intraslab,
                     e => panic!("{e}"),
                 },
+                region: match f[col("region")] {
+                    "global" => Region::Global,
+                    "alaska" => Region::Alaska,
+                    "cascadia" => Region::Cascadia,
+                    r => panic!("{r}"),
+                },
             };
             let mut check = |imt: Imt, mean: &str, sd: &str| {
                 let p = predict(imt, &input).unwrap_or_else(|| panic!("{input:?}"));
@@ -371,7 +526,7 @@ mod tests {
     /// olay tipinde ve her ölçüde.
     #[test]
     fn c6_kisiti() {
-        for t in [&*INTERFACE, &*SLAB] {
+        for t in TABLES.iter() {
             for c in [&t.pga, &t.pgv].into_iter().chain(&t.sa) {
                 assert!(c.c6 <= c.c4, "{:?}: c6 {} > c4 {}", c.period, c.c6, c.c4);
             }
@@ -385,7 +540,111 @@ mod tests {
             zhyp: 50.0,
             vs30: 760.0,
             event,
+            region: Region::Global,
         }
+    }
+
+    /// Bölgesel model ↔ OpenQuake (yalnızca çıktı karşılaştırması; kod
+    /// kopyalanmadı). Arayüzde M ≤ Mc (c6 farkı, modül notu). Ölçüt %1.
+    #[test]
+    fn openquake_bolgesel_referansla_yuzde_birden_az_fark() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/test/psbah20_regional_ref.csv"
+        );
+        let csv = std::fs::read_to_string(path).expect("referans dosyası");
+        let mut lines = csv.lines();
+        let header: Vec<&str> = lines.next().unwrap().split(',').collect();
+        let col = |n: &str| header.iter().position(|h| *h == n).unwrap();
+        let (mut worst_mean, mut worst_sd, mut n) = (0f64, 0f64, 0);
+        let mut seen = std::collections::HashSet::new();
+        for line in lines {
+            let f: Vec<&str> = line.split(',').collect();
+            let num = |n: &str| f[col(n)].parse::<f64>().unwrap();
+            let region = *Region::ALL
+                .iter()
+                .find(|r| r.key() == f[col("region")])
+                .unwrap();
+            seen.insert(region);
+            let input = Input {
+                mw: num("mag"),
+                rrup: num("rrup"),
+                zhyp: num("zhyp"),
+                vs30: num("vs30"),
+                event: match f[col("event")] {
+                    "interface" => EventType::Interface,
+                    _ => EventType::Intraslab,
+                },
+                region,
+            };
+            for (imt, c) in [
+                (Imt::Pga, "pga"),
+                (Imt::Pgv, "pgv"),
+                (Imt::Sa(0.3), "sa0.3"),
+                (Imt::Sa(1.0), "sa1.0"),
+            ] {
+                let p = predict(imt, &input).unwrap_or_else(|| panic!("{input:?}"));
+                let dm = (p.mean - num(&format!("ln_{c}"))).abs();
+                assert!(dm < 1.01f64.ln(), "{input:?} {c}: ln farkı {dm}");
+                worst_mean = worst_mean.max(dm);
+                worst_sd = worst_sd.max((p.sigma / num(&format!("sd_{c}")) - 1.0).abs());
+                n += 1;
+            }
+        }
+        eprintln!(
+            "OpenQuake: {n} karşılaştırma, ln farkı ≤ {worst_mean:.2e}, σ farkı ≤ {worst_sd:.2e}"
+        );
+        assert_eq!(seen.len(), Region::ALL.len());
+        assert!(worst_sd < 0.01, "en büyük σ göreli farkı {worst_sd}");
+    }
+
+    /// Her (olay tipi, bölge) tablosu kurulabiliyor: bölgesel dosyada her
+    /// periyot için satır var (yoksa `regionalize` panikler) ve Mc yazılmış.
+    #[test]
+    fn bolgesel_tablolar_tam() {
+        assert_eq!(TABLES.len(), 2 * Region::ALL.len());
+        for t in TABLES.iter() {
+            for c in [&t.pga, &t.pgv].into_iter().chain(&t.sa) {
+                assert!(c.mc.is_finite() && c.c0.is_finite() && c.s1.is_finite());
+            }
+        }
+        // Rapor 5.2.2: s1 yalnızca Japonya ve Tayvan'da s2'den farklı.
+        for ev in [EventType::Interface, EventType::Intraslab] {
+            for r in Region::ALL {
+                let t = table(ev, r);
+                let differs = [&t.pga, &t.pgv]
+                    .into_iter()
+                    .chain(&t.sa)
+                    .any(|c| c.s1 != c.s2);
+                let expect = matches!(
+                    r,
+                    Region::JapanPac | Region::JapanPhi | Region::TaiwanE | Region::TaiwanW
+                );
+                assert_eq!(differs, expect, "{ev:?} {r:?}");
+            }
+        }
+    }
+
+    /// Ekteki örnek değerler (Tablo E1, PGV satırı) ve Tablo 4.1 doğru
+    /// okunuyor: Japonya-Pasifik arayüzü.
+    #[test]
+    fn japonya_pasifik_katsayilari() {
+        let t = table(EventType::Interface, Region::JapanPac);
+        assert_eq!(t.pgv.c0, 8.772125851);
+        assert_eq!(t.pgv.a0, -2.39e-3);
+        assert_eq!((t.pgv.s1, t.pgv.s2), (-0.738, -0.738));
+        assert_eq!(t.pgv.mc, 8.5);
+        // Bölgeye göre değişmeyenler küresel tablodan.
+        let g = table(EventType::Interface, Region::Global);
+        assert_eq!(
+            (t.pgv.c1, t.pgv.c4, t.pgv.c6),
+            (g.pgv.c1, g.pgv.c4, g.pgv.c6)
+        );
+        // Levha içinde Japonya tek sabitli; Mc alt bölgeye göre.
+        let p = table(EventType::Intraslab, Region::JapanPac);
+        let f = table(EventType::Intraslab, Region::JapanPhi);
+        assert_eq!(p.pgv.c0, f.pgv.c0);
+        assert_eq!((p.pgv.mc, f.pgv.mc), (7.65, 7.55));
     }
 
     #[test]
