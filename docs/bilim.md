@@ -446,8 +446,12 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   (NGA-Sub veri tabanı), Bölüm 4.4, s. 65–66: Z_BC, "arayüz depremlerinin
   en büyük derinliğinde levha yüzeyinin ortalama derinliği", "50 km in ALK
   and CAM, 55 km in JPN and SAM" (Hayes vd. 2012; Tichelaar & Ruff 1993).
-  Bölgeden bağımsız 50 km seçildi. Sonuç (Tōhoku, eğim 14°): 519 × 207 km
-  (önce 328 × 328); gözlenen ~500 × 200 km. Çapraz denetim: nshmp-lib'de
+  Bölgeden bağımsız 50 km seçildi. Ek üst sınır (2026-11-20):
+  `INTERFACE_MAX_WIDTH_KM` = 196 km, Allen & Hayes (2017) ÖZETİ (USGS
+  Publications Warehouse 70189636 meta verisi; tam metin ücretli, görülmedi):
+  "the down-dip rupture width for interface earthquakes saturates near 200 km
+  (196 km on average)", yaklaşık Mw > 8,6. Sonuç (Tōhoku, eğim 14°, Mw 9,0):
+  547 × 196 km (önce 328 × 328); gözlenen ~450–500 × 200 km. Çapraz denetim: nshmp-lib'de
   (CC0) Shaw (2023) arayüz alanı log A = M − 4 olarak kodlu (kullanılmayan
   yardımcı fonksiyon, makale görülmedi); Mw 9'da 100 000 km², WC94 ters
   çözümü 107 000 km² (%7 fark). Levha içinde genişlik sınırı yok (kaynak

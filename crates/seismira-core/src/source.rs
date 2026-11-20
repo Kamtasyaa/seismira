@@ -34,6 +34,14 @@ pub const SEISMOGENIC_BOTTOM_KM: f64 = 20.0;
 /// uzunluk artar (kabuktaki [`SEISMOGENIC_BOTTOM_KM`] gibi).
 pub const INTERFACE_BOTTOM_KM: f64 = 50.0;
 
+/// Arayüz depreminde kırılma genişliğinin üst sınırı (km). Kaynak: Allen &
+/// Hayes (2017), BSSA 107(3), 1240–1253, doi:10.1785/0120160255, ÖZET (USGS
+/// Publications Warehouse 70189636; tam metin kapalı erişim, görülmedi):
+/// "the down-dip rupture width for interface earthquakes saturates near
+/// 200 km (196 km on average)", yaklaşık Mw > 8,6 için. [`INTERFACE_BOTTOM_KM`]
+/// sınırı çok yatık arayüzlerde (eğim < ~15°) bundan geniş fay verirdi.
+pub const INTERFACE_MAX_WIDTH_KM: f64 = 196.0;
+
 /// Fay alanı (km²), Wells & Coppersmith (1994, BSSA 84(4), 974-1002),
 /// Tablo 2A, "tüm fay tipleri" M–RA bağıntısı M = 4.07 + 0.98·log10(A)'nın
 /// tersi. USGS nshmp-lib de alanı bu tersten hesaplar
@@ -140,7 +148,10 @@ impl Fault {
             // bağlı bir sınır için kaynak bulunmadı).
             Setting::Intraslab => f64::INFINITY,
         };
-        let w_max = bottom / sin_d;
+        let w_max = match q.setting {
+            Setting::Interface => (bottom / sin_d).min(INTERFACE_MAX_WIDTH_KM),
+            _ => bottom / sin_d,
+        };
         let width = area.sqrt().min(w_max);
         let length = area / width;
         let vertical = width * sin_d;
@@ -375,24 +386,29 @@ mod tests {
         assert!((g.ztor + g.width / 2.0 - 10.0).abs() < 1e-9);
     }
 
-    /// 2011 Tōhoku benzeri: Mw 9, eğim 14°, odak 29 km. Genişlik arayüzün
-    /// alt sınırında (50 km) doyar: W = 50 / sin 14° ≈ 207 km, L = A / W
-    /// ≈ 520 km (gözlenen kırılma ~500 × 200 km). Sınır olmadan kare
-    /// (~328 × 328 km) çıkıyordu.
+    /// 2011 Tōhoku benzeri: Mw 9, eğim 14°, odak 29 km. Genişlik doyar:
+    /// 50 / sin 14° ≈ 207 km, Allen & Hayes (2017) üst sınırı 196 km; L = A / W
+    /// ≈ 549 km (gözlenen kırılma ~450–500 × 200 km). Sınır olmadan kare
+    /// (~328 × 328 km) çıkıyordu. Eğim 25°'de 50 km taban sınırı bağlar.
     #[test]
     fn arayuz_genisligi_doyar() {
         let mut q = quake(9.0, 29.0, FaultType::Reverse, 193.0);
         q.setting = Setting::Interface;
         q.dip = 14.0;
         let f = Fault::from_quake(&q);
-        let w_max = INTERFACE_BOTTOM_KM / 14f64.to_radians().sin();
-        assert!((f.width - w_max).abs() < 1e-9, "{f:?}");
+        assert!((f.width - INTERFACE_MAX_WIDTH_KM).abs() < 1e-9, "{f:?}");
         assert!((f.length * f.width - area_wc94(9.0)).abs() < 1e-6);
-        assert!((500.0..540.0).contains(&f.length), "{f:?}");
+        assert!((540.0..560.0).contains(&f.length), "{f:?}");
         assert!(
             f.ztor >= 0.0
                 && f.ztor + f.width * 14f64.to_radians().sin() <= INTERFACE_BOTTOM_KM + 1e-9
         );
+        // Dik arayüzde taban sınırı bağlar: 50 / sin 25° ≈ 118 km.
+        let mut steep = q;
+        steep.dip = 25.0;
+        let f = Fault::from_quake(&steep);
+        let w_max = INTERFACE_BOTTOM_KM / 25f64.to_radians().sin();
+        assert!((f.width - w_max).abs() < 1e-9, "{f:?}");
         // Küçük arayüz depremi doymaz (kare).
         q.mw = 7.0;
         let f = Fault::from_quake(&q);

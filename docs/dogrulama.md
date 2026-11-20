@@ -213,6 +213,18 @@ ayırır (`--csv` ile istasyon ayrıntısı). A, B, C tanımları yukarıdaki gi
 | C: bizim geometri + bizim Vs30 | −0.38 | 0.50 | −0.30 | %96 |
 | B, Mw 9,0 (uygulamadaki senaryo; fay 519 × 207 km) | −0.09 | 0.49 | −0.07 | %99 |
 | C, Mw 9,0 | −0.16 | 0.48 | −0.13 | %98 |
+| B, Mw 9,0, 196 km genişlik sınırıyla (fay 547 × 196 km) | −0.12 | 0.49 | −0.09 | %99 |
+| C, Mw 9,0, 196 km sınırıyla | −0.19 | 0.48 | −0.15 | %98 |
+| B, Mw 9,1, 196 km sınırıyla (fay 692 × 196 km) | −0.33 | 0.52 | −0.26 | %96 |
+| C, Mw 9,1, 196 km sınırıyla | −0.40 | 0.51 | −0.32 | %95 |
+
+SAPMA (kullanıcıya bildirildi, 2026-11-20): Allen & Hayes (2017) genişlik
+sınırı (196 km) eklenince fay uzadı; Mw 9,1'de C'nin ortalama sapması −0,32
+ile başlangıç ölçütünü (< 0,3) az farkla aşıyor. Sebep sınır değil, alan:
+WC94 (veri M ≤ 7,9) Mw 9,1'de 136 000 km² veriyor, gerçek kırılma ~450 × 200
+km. Dalma-batmaya özgü alan bağıntısı (Allen & Hayes 2017 tam metni ücretli)
+ya da hazır senaryoda gerçek fay geometrisi düzeltir. Mw 9,0 senaryosu
+ölçüt içinde.
 
 | Rrup (km) | n | ΔI (A) | ΔI (B) | ΔI (C) |
 |---|---|---|---|---|
