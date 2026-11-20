@@ -19,6 +19,10 @@ Adımlar:
 Depodaki küçük işlenmiş dosyalar (5 ve 6) silinirse bu betik aynılarını
 yeniden üretir; sıradan kullanımda dokunulmaz.
 
+Depoda olup bu betiğin ÜRETMEDİĞİ dosyalar (ağır ya da elle indirilen
+kaynak ister): data/traveltime (scripts/gen_traveltime.py, ObsPy),
+data/slab2 (scripts/gen_slab2.py, elle indirilen Slab2 arşivi + h5py).
+
 Her adım tekrar çalıştırılabilir; var olan doğru dosyalar yeniden indirilmez.
 """
 

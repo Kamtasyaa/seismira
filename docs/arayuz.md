@@ -51,6 +51,14 @@ Ana ayarlar:
 - Fay tipi: doğrultu atımlı / normal / ters
 - Fay doğrultusu (strike), eğimi (dip), kayma açısı (rake).
   Varsayılanlar fay tipinden ve dalma-batmada Slab2'den gelir.
+  UYGULAMA (2026-11-20): dalma-batma ortamı seçilip merkez üssü konunca
+  panel Slab2 zonunu, levha yüzeyinin derinliğini, doğrultusunu, eğimini ve
+  Parker bölgesini gösterir. Arayüz depreminde "Levha geometrisini uygula"
+  düğmesi doğrultu, eğim, odak derinliği (= levha yüzeyi) ve kayma açısını
+  (90°) doldurur; kendiliğinden UYGULANMAZ (kullanıcının girdiğini ezmemek
+  için). Levha 40 km'den derinse düğme yerine uyarı çıkar; levha içinde
+  odak levha yüzeyinin 10 km'den fazla üstündeyse uyarı çıkar. Merkez
+  üssünün altında levha yoksa "küresel katsayılar" notu.
 - Ayar sırasında haritada doğrultuyu gösteren ince bir önizleme
   çizgisi olur (bu, sonuçtaki kırılma izi değildir).
 

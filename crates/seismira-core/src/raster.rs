@@ -376,7 +376,7 @@ impl<B: AsRef<[u8]>> Raster<B> {
     }
 }
 
-fn decompress(src: &[u8], expected: usize) -> io::Result<Vec<u8>> {
+pub(crate) fn decompress(src: &[u8], expected: usize) -> io::Result<Vec<u8>> {
     use ruzstd::io::Read as _;
     let mut s = src;
     let mut dec =

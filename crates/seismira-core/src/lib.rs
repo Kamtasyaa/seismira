@@ -19,6 +19,7 @@ pub mod region;
 pub mod shaking;
 pub mod sim;
 pub mod site;
+pub mod slab;
 pub mod source;
 pub mod traveltime;
 pub mod warning;

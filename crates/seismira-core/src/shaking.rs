@@ -10,6 +10,7 @@ use crate::gmpe::{Imt, LnMotion, cy14};
 use crate::intensity::{self, Shindo};
 use crate::quake::{Quake, Setting};
 use crate::site::{REFERENCE_VS30, Site};
+use crate::slab::{self, Slab2};
 use crate::source::{self, Distances, Fault, PeakPath};
 use crate::traveltime::{Phase, TravelTimes};
 
@@ -41,6 +42,13 @@ pub struct SiteResult {
     /// [`RISE_STEP_S`]; fiziksel tepe anı (t_tepe, [`Scenario::physical_peak`])
     /// daha geçse son değere tam o anda varacak şekilde uzar.
     pub rise: f64,
+    /// Dalma-batma depreminde saha yay ardında (Slab2, [`Slab2::is_backarc`]).
+    /// Parker vd. (2020) yalnızca yay önü sahalar için kurulmuştur ve yay
+    /// ardı terimi yoktur (PEER 2020/03, 8.3.2); şiddet yine hesaplanır ama
+    /// arayüz bunu "model dışı bölge" diye belirtir. Japonya'da yay ardında
+    /// daha güçlü sönümlenme gözlenmiştir, yani tahmin büyük olasılıkla
+    /// fazladır.
+    pub backarc: bool,
 }
 
 /// S varışından sonra gösterilen Shindo'nun EN KISA bir sınıf yükselme
@@ -158,14 +166,40 @@ pub struct Scenario<'a> {
     pub fault: Fault,
     /// Yer hareketi modeli; yoksa yalnızca varış zamanları hesaplanır.
     pub gmm: Option<Gmm>,
+    /// Dalma-batmada merkez üssünün altındaki Slab2 zonu (bulunduysa).
+    pub slab_zone: Option<usize>,
+    /// Parker vd. (2020) bölgesi: zondan ([`slab::parker_region`]); zon
+    /// yoksa küresel.
+    pub region: psbah20::Region,
+    slab: Option<&'a Slab2>,
     tt: &'a TravelTimes,
 }
 
 impl<'a> Scenario<'a> {
+    /// Slab2 olmadan: dalma-batmada küresel model, yay ardı ayrımı yok.
     pub fn new(quake: Quake, tt: &'a TravelTimes) -> Self {
+        Self::with_slab(quake, tt, None)
+    }
+
+    pub fn with_slab(quake: Quake, tt: &'a TravelTimes, slab: Option<&'a Slab2>) -> Self {
+        let gmm = Gmm::for_quake(&quake);
+        let (lon, lat) = quake.epicenter;
+        let slab_zone = match gmm {
+            Some(Gmm::Psbah20(_)) => slab
+                .and_then(|m| m.locate(lon, lat, quake.depth_km, quake.setting))
+                .map(|h| h.zone),
+            _ => None,
+        };
+        let region = match (slab, slab_zone) {
+            (Some(m), Some(z)) => slab::parker_region(m.code(z), lon, lat),
+            _ => psbah20::Region::Global,
+        };
         Self {
             fault: Fault::from_quake(&quake),
-            gmm: Gmm::for_quake(&quake),
+            gmm,
+            slab_zone,
+            region,
+            slab,
             quake,
             tt,
         }
@@ -201,8 +235,7 @@ impl<'a> Scenario<'a> {
                     zhyp: self.quake.depth_km,
                     vs30,
                     event,
-                    // Bölge seçimi Slab2 ile gelecek (Faz 5); şimdilik küresel.
-                    region: psbah20::Region::Global,
+                    region: self.region,
                 };
                 (
                     psbah20::predict(Imt::Pga, &input)?,
@@ -269,7 +302,14 @@ impl<'a> Scenario<'a> {
             }
             _ => RISE_STEP_S,
         };
+        let backarc = motion.is_some()
+            && self
+                .slab
+                .zip(self.slab_zone)
+                .and_then(|(m, z)| m.is_backarc(z, lonlat.0, lonlat.1))
+                .unwrap_or(false);
         SiteResult {
+            backarc,
             t_p: self.tt.time(Phase::P, h, deg),
             t_s,
             rise,
@@ -528,6 +568,39 @@ mod tests {
         // hemen aynı).
         let near = s.site((29.97, 40.80), Site::reference);
         assert_eq!(near.rise, RISE_STEP_S);
+    }
+
+    /// Slab2 ile: bölge (Japonya – Pasifik) ve yay ardı işareti.
+    #[test]
+    fn slab2_bolge_ve_yay_ardi() {
+        let t = tt();
+        let slab = crate::slab::test_model();
+        let mut q = Quake::new((142.37, 38.30));
+        q.setting = Setting::Interface;
+        q.fault = FaultType::Reverse;
+        q.mw = 8.0;
+        q.depth_km = 24.0;
+        q.strike = 195.0;
+        q.dip = 10.0;
+        q.rake = 90.0;
+        let s = Scenario::with_slab(q, &t, Some(&slab));
+        assert_eq!(s.region, psbah20::Region::JapanPac);
+        let sendai = s.site((140.87, 38.27), Site::reference);
+        let akita = s.site((140.10, 39.72), Site::reference);
+        assert!(!sendai.backarc && akita.backarc);
+        // Bölgesel model küreselden farklı sonuç verir.
+        let global = Scenario::new(q, &t).site((140.87, 38.27), Site::reference);
+        assert!(!global.backarc);
+        let (a, b) = (sendai.motion.unwrap().jma, global.motion.unwrap().jma);
+        assert!((a - b).abs() > 0.01, "bölgesel {a} küresel {b}");
+        // Sığ kabukta Slab2 kullanılmaz.
+        let mut crust = q;
+        crust.setting = Setting::ShallowCrust;
+        crust.mw = 7.0;
+        crust.depth_km = 10.0;
+        let s = Scenario::with_slab(crust, &t, Some(&slab));
+        assert_eq!((s.slab_zone, s.region), (None, psbah20::Region::Global));
+        assert!(!s.site((140.10, 39.72), Site::reference).backarc);
     }
 
     #[test]

@@ -13,7 +13,7 @@
 | Japonya tahmin bölgeleri (isteğe bağlı) | JMA GIS verisi | Kontrol et |
 | Şehirler, nüfus, çok dilli adlar | GeoNames | CC BY 4.0 |
 | Seyahat süreleri | ak135, tablo bizim üretimimiz | Model yayımlanmış |
-| Dalma-batma geometrisi | USGS Slab2 | Kontrol et |
+| Dalma-batma geometrisi | USGS Slab2 (Hayes 2018) | Kamu malı (DOĞRULANDI 2026-11-20) |
 | Levha sınırları, tektonik bölgeleme | Bird (2003) PB2002 veya USGS STREC | Kontrol et |
 | Vs30 | USGS küresel Vs30 | Kontrol et |
 | Yükselti, eğim, CTI | Copernicus DEM GLO-90 veya SRTM | Kontrol et |
@@ -134,3 +134,26 @@ Lisans kuralları:
   yalnızca clippy adımında. Sebep: CI en yeni kararlı Rust'ı kullanıyor
   (1.100), yerel Arch paketi daha eski (1.99); yeni clippy uyarısı üç commit
   boyunca Windows ve macOS testlerinin hiç çalışmamasına yol açmıştı.
+
+## Slab2 (Faz 5, 2026-11-20)
+
+- Kaynak: Hayes, G. (2018), Slab2 - A Comprehensive Subduction Zone Geometry
+  Model, USGS data release, doi:10.5066/F7PV6JNV. Meta veri (Slab2.xml):
+  erişim ve kullanım kısıtı "none"; USGS verisi, kamu malı.
+- İndirme: ScienceBase betikleri 403 ile engelliyor; kullanıcı ana kaydın
+  "Attached Files" bölümünden `Slab2Distribute_Mar2018.tar.gz` (140 MB,
+  SHA256 3f53a835…7b1d) dosyasını tarayıcıyla indirdi → `data/raw/slab2/`.
+  Arşivde 27 zon, her zon için dep / dip / str / thk / unc ızgaraları
+  (GMT NetCDF-4, 0,05° ya da 0,02°).
+- İşleme: `.venv/bin/python scripts/gen_slab2.py` (numpy, scipy, h5py) →
+  `data/slab2/slab2.sslb` (1,85 MB; yalnızca derinlik, u16 0,05 km, zon
+  başına 3° genişletilmiş, levha dışı hücreler en yakın levha derinliğiyle
+  dolu + bayrak; zstd). Eğim ve doğrultu uygulamada türetilir: Slab2'nin
+  dip / str ızgaraları derinliğin merkezi farkıyla birebir aynı (`--check`:
+  26 zonda fark < 0,01°, Sumatra-Java'da medyan 0,2° / 0,8°). Çıktı
+  tekrarlanabilir (iki çalıştırma bayt bayt aynı).
+- Depoda: `.sslb` ve `data/test/slab2_ref.csv` (324 düğümlük test
+  referansı). Gerekçe CLAUDE.md Bölüm 5 istisnası: ham veri elle indirilir,
+  testler dosyayı okur. Uygulama dosya yoksa dalma-batmada küresel modelle
+  çalışır.
+

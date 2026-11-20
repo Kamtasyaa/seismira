@@ -3,6 +3,7 @@
 use eframe::egui::{self, Align2, Color32, FontId, RichText, Stroke};
 use seismira_core::intensity::Shindo;
 use seismira_core::sim::{Event, EventKind, Simulation};
+use seismira_core::slab::Slab2;
 use seismira_core::source::Fault;
 use seismira_core::traveltime::{Front, Phase, TravelTimes};
 use seismira_core::{geo, mercator, quake};
@@ -364,6 +365,9 @@ pub struct SeismiraApp {
     cities: Result<CityLayer, String>,
     /// Vs30 haritası; yoksa referans zemin kullanılır (kartta belirtilir).
     vs30: Option<Arc<compute::Vs30>>,
+    /// Slab2 levha geometrisi (~2 MB, açılışta okunur; zonlar ilk
+    /// kullanımda açılır). Yoksa dalma-batmada küresel model.
+    slab: Option<Arc<Slab2>>,
     /// Bölge kimliği rasterı (il / eyalet); yoksa bölge bildirimleri
     /// GeoNames admin1 adlarıyla şehirlerden üretilir.
     regions: Option<Arc<compute::Regions>>,
@@ -425,6 +429,10 @@ impl SeismiraApp {
         let regions = compute::Regions::load(&paths::data_dir().join("regions"))
             .inspect_err(|e| log::warn!("bölge verisi yok: {e}"))
             .ok();
+        let slab = Slab2::load(&paths::data_dir().join("slab2").join("slab2.sslb"))
+            .map(Arc::new)
+            .inspect_err(|e| log::warn!("Slab2 yok, dalma-batmada küresel model: {e}"))
+            .ok();
         Self {
             lang,
             assets,
@@ -446,6 +454,7 @@ impl SeismiraApp {
             travel_times,
             cities,
             vs30,
+            slab,
             regions,
             region_events: Vec::new(),
             region_results: Vec::new(),
@@ -917,6 +926,9 @@ impl SeismiraApp {
                     Vs30Source::Built => "tip-vs30-built",
                 };
                 lines.push((lang.t_args(key, &[("v", v)]), weak));
+                if r.backarc {
+                    lines.push((lang.t("tip-backarc"), text));
+                }
                 if let (Some(sd), Some(effect)) = (r.site.vs30_ln_sd, r.jma_vs30_effect) {
                     lines.push((
                         lang.t_args(
@@ -1083,15 +1095,15 @@ impl SeismiraApp {
         if self.sim.is_some()
             && let Ok(layer) = &self.cities
         {
-            self.job = Some(compute::Job::spawn(
-                self.draft.quake,
-                layer.cities.clone(),
-                layer.sites.clone(),
+            let data = compute::Datasets {
+                cities: layer.cities.clone(),
+                city_sites: layer.sites.clone(),
                 tt,
-                self.vs30.clone(),
-                self.regions.clone(),
-                ctx.clone(),
-            ));
+                vs30: self.vs30.clone(),
+                regions: self.regions.clone(),
+                slab: self.slab.clone(),
+            };
+            self.job = Some(compute::Job::spawn(self.draft.quake, data, ctx.clone()));
         }
         self.clock = Clock {
             t: 0.0,
@@ -1403,7 +1415,8 @@ impl eframe::App for SeismiraApp {
                         && self.travel_times.is_ok()
                         && !issues.iter().any(|i| i.blocks());
                     let running = self.sim.is_some();
-                    match panel::ui(ui, lang, &mut self.draft, &issues, can_run, running) {
+                    let slab = self.slab.as_deref();
+                    match panel::ui(ui, lang, &mut self.draft, slab, &issues, can_run, running) {
                         panel::Action::Changed | panel::Action::Stop => self.cancel_sim(),
                         panel::Action::Start => {
                             let ctx = ui.ctx().clone();

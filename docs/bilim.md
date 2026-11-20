@@ -378,15 +378,52 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   karşılaştırma (fark ~1e-9, yuvarlama); OpenQuake 3.26.2 (yalnızca çıktı,
   `scripts/gen_psbah20_oq_ref.py`) ile 12 bölgenin hepsi, 9 660
   karşılaştırma, en büyük ln farkı 4.6e-4. Arayüzde M ≤ Mc (c6 farkı).
-- Bölge SEÇİMİ henüz yok: simülasyon küresel modeli kullanıyor. Seçim ve yay
-  önü / yay ardı ayrımı Slab2 ile gelecek (aşağıda).
+- Bölge SEÇİMİ (2026-11-20, Slab2 ile): merkez üssünün altındaki Slab2 zonu
+  (`slab::Slab2::locate`; birden çok levha üst üsteyse levha yüzeyi odak
+  derinliğine en yakın olan; levha içinde odak yüzeyin en çok 10 km
+  üstünde olabilir) → `slab::parker_region`. Alt bölge sınırlarını Campbell
+  (2020, Earthquake Spectra 36, doi:10.1177/8755293019899957, kapalı erişim)
+  tanımlar; görülmedi. Kullanılan sınırlar VARSAYIM:
+  - Alaska / Aleut: Unimak Geçidi, 164,5° B (doğusu Alaska).
+  - Güney Amerika kuzey / güney: Arica dirseği, 18,3° G. Gerekçe: rapor
+    (s. 31) güneyde 13, kuzeyde 2 arayüz depremi sayar; veri tabanı raporu
+    (PEER 2020/02, Bölüm 4) depremlerin Şili'de yoğunlaştığını, Peru'dan
+    kuzeyde seyrek olduğunu söyler (Peru: 2001 Arequipa, 2007 Pisco).
+  - Orta Amerika kuzey / güney: Meksika–Guatemala sınırı, 92,2° B. İki alt
+    bölgenin c0, a0, s1, s2'si aynı; yalnızca levha içi Mc (7,40 / 7,60)
+    farklı. Puebla 2017 (Mw 7,1) iki Mc'nin de altında, etkisi yok.
+  - Tayvan: Ryukyu zonunun 123° D batısı doğu, Manila zonunun 21° K kuzeyi
+    batı alt bölgesi; katsayılar ve Mc ikisinde aynı (rapor s. 31).
+  - Izu-Bonin → Japonya – Pasifik levhası (aynı dalan levha); Ryukyu-Nankai
+    → Japonya – Filipin Denizi levhası.
+  - Diğer zonlar (Yeni Zelanda, Hellen, Calabria, Mekran, Endonezya,
+    Karayipler...) küresel.
+  Duyarlılık: Japonya Pasifik ile küresel model arasında Mw 8, Sendai'de
+  ~0,05 şiddet birimi fark (test `slab2_bolge_ve_yay_ardi`); uzak mesafede
+  bölgesel a0 (sönümlenme) farkı büyür. Slab2 bulunamazsa ya da merkez
+  üssünün altında levha yoksa küresel model; panel bunu söyler.
 - Yay ardı (rapor 8.3.2): model yalnızca yay önü sahalar için; yay ardı
   kayıtları veriden çıkarılmış, Japonya'da yay ardında daha güçlü sönümlenme
   gözlenmiş. NGA-Sub yay çizgileri "gözle" çizilmiş ve dosya olarak
-  yayımlanmamış (PEER 2020/02, Bölüm 4.8). Plan: yayı Slab2 levha derinliği
-  eş-eğrisiyle tanımlamak (kaynağı doğrulanacak). Tōhoku denemesinde Rusya
-  ve Sahalin'de Shindo 1–2 görüldü (kullanıcı ekran görüntüsü, 2026-11-20);
-  büyük olasılıkla fazla.
+  yayımlanmamış (PEER 2020/02, Bölüm 4.8). Rapor bir yay ardı terimi
+  (Eş. 8.2: yolun yay ardındaki kısmı için ek sönümlenme a_BA) yalnızca
+  "planlıyor"; katsayısı YOK. Tōhoku denemesinde Rusya ve Sahalin'de
+  Shindo 1–2 görüldü (kullanıcı ekran görüntüsü, 2026-11-20).
+  UYGULAMA (2026-11-20): yay çizgisi = Slab2 levha yüzeyinin 105 km eş-
+  derinlik eğrisi. Kaynak: Syracuse & Abers (2006), G³ 7, Q05017,
+  doi:10.1029/2005GC001045, özet (makale metni görülmedi; Wiley 403):
+  volkanların altındaki levha derinliği H, 500 km'lik yay parçalarında
+  72–173 km, küresel ortalama 105 km. Saha, altındaki levha (levha dışında
+  en yakın levha hücresi) 105 km'den derinse yay ardıdır
+  (`slab::Slab2::is_backarc`). Zonun 3° genişletilmiş ızgarası dışındaki
+  sahalar sınıflanmaz. Denetim (test `yay_onu_ve_ardi`): Sendai ve hendeğin
+  okyanus tarafı yay önü; Akita, Vladivostok, Yujno-Sahalinsk yay ardı.
+  KARAR: yay ardında şiddet YİNE hesaplanır (Parker'ın yay ardı katsayısı
+  yok; başka bir modelin terimini eklemek melez model olur), şehir kartında
+  "yay ardı: model yalnızca yay önü için kuruldu, tahmin büyük olasılıkla
+  fazla" notu çıkar (Bölüm 6: sessiz ekstrapolasyon yok). Izgara hücreleri
+  işaretlenmez. Tōhoku denemesinde Akita 5+ çıkıyor; gözlem daha düşüktü
+  (Faz 5 doğrulamasında sayıyla bakılacak).
 - Simülasyona bağlama (Faz 5 adım 3, 2026-11-20): `shaking::Gmm` depreme göre
   modeli seçer (kabuk → CY14; arayüz → Parker arayüz; levha içi ≤ 200 km →
   Parker levha içi; daha derin → model yok). Mesafe sınırı ve Vs30 aralığı

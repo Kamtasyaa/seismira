@@ -164,6 +164,23 @@ mod tests {
         }
     }
 
+    /// Slab2 zon adları ve Parker bölge adları çeviride var (anahtar koddan
+    /// üretiliyor: `slab-zone-<kod>`, `parker-region-<ad>`).
+    #[test]
+    fn slab2_zon_ve_bolge_adlari() {
+        let keys = messages("tr");
+        let p = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/slab2/slab2.sslb");
+        let slab = seismira_core::slab::Slab2::load(std::path::Path::new(p)).unwrap();
+        for z in 0..slab.len() {
+            let k = format!("slab-zone-{}", slab.code(z));
+            assert!(keys.contains_key(&k), "{k} yok");
+        }
+        for r in seismira_core::gmpe::psbah20::Region::ALL {
+            let k = format!("parker-region-{}", r.key());
+            assert!(keys.contains_key(&k), "{k} yok");
+        }
+    }
+
     #[test]
     fn dil_kodu_ayristirma() {
         assert_eq!(Lang::from_code("tr-TR"), Some(Lang::Tr));

@@ -1,8 +1,9 @@
 //! Sağ panel: deprem ayarları ve geçerlilik uyarıları (CLAUDE.md Bölüm 6).
 
 use eframe::egui::{self, Color32, RichText};
-use seismira_core::quake::{FaultType, Issue, Quake, Setting};
+use seismira_core::quake::{FaultType, Issue, Quake, Setting, limits};
 use seismira_core::shaking::has_gmpe;
+use seismira_core::slab::{self, Slab2};
 use seismira_core::source::Fault;
 
 use crate::i18n::Lang;
@@ -89,10 +90,89 @@ pub fn issue_text(lang: Lang, issue: Issue) -> String {
     }
 }
 
+/// Dalma-batma: merkez üssünün altındaki Slab2 levhası, Parker bölgesi ve
+/// arayüz depremi için "levha geometrisini uygula" (doğrultu, eğim, odak
+/// derinliği = levha yüzeyi, kayma açısı 90°). Değerler öneridir; kullanıcı
+/// sonra değiştirebilir (docs/arayuz.md).
+fn slab_section(ui: &mut egui::Ui, lang: Lang, q: &mut Quake, slab: &Slab2) {
+    let (lon, lat) = q.epicenter;
+    // Odak derinliğine en yakın levha; ortamdan bağımsız (levha içinde odağın
+    // levhanın üstünde kaldığını da göstermek için).
+    let Some(hit) = slab.locate(lon, lat, q.depth_km, Setting::Interface) else {
+        ui.label(
+            RichText::new(format!("ⓘ {}", lang.t("slab-none")))
+                .small()
+                .weak(),
+        );
+        return;
+    };
+    let code = slab.code(hit.zone);
+    let g = hit.geometry;
+    let region = slab::parker_region(code, lon, lat);
+    ui.label(
+        RichText::new(lang.t_args(
+            "slab-info",
+            &[
+                ("zone", lang.t(&format!("slab-zone-{code}"))),
+                ("d", lang.num(g.depth_km, 0)),
+                ("strike", lang.num(g.strike, 0)),
+                ("dip", lang.num(g.dip, 0)),
+            ],
+        ))
+        .small(),
+    );
+    ui.label(
+        RichText::new(lang.t_args(
+            "slab-region",
+            &[("region", lang.t(&format!("parker-region-{}", region.key())))],
+        ))
+        .small()
+        .weak(),
+    );
+    match q.setting {
+        Setting::Interface => {
+            let (lo, hi) = limits::INTERFACE_DEPTH;
+            if (lo..=hi).contains(&g.depth_km) {
+                if ui.button(lang.t("slab-apply")).clicked() {
+                    q.strike = (g.strike.round()).rem_euclid(360.0);
+                    q.dip = g.dip.round().max(1.0);
+                    q.depth_km = g.depth_km.round().clamp(lo, hi);
+                    q.rake = 90.0;
+                    q.fault = FaultType::Reverse;
+                }
+            } else {
+                ui.label(
+                    RichText::new(format!(
+                        "⚠ {}",
+                        lang.t_args(
+                            "slab-too-deep",
+                            &[("d", lang.num(g.depth_km, 0)), ("max", lang.num(hi, 0))]
+                        )
+                    ))
+                    .small()
+                    .color(WARN_COLOR),
+                );
+            }
+        }
+        Setting::Intraslab if q.depth_km < g.depth_km - 10.0 => {
+            ui.label(
+                RichText::new(format!(
+                    "⚠ {}",
+                    lang.t_args("slab-above", &[("d", lang.num(g.depth_km, 0))])
+                ))
+                .small()
+                .color(WARN_COLOR),
+            );
+        }
+        _ => {}
+    }
+}
+
 pub fn ui(
     ui: &mut egui::Ui,
     lang: Lang,
     draft: &mut Draft,
+    slab: Option<&Slab2>,
     issues: &[Issue],
     can_run: bool,
     running: bool,
@@ -161,6 +241,20 @@ pub fn ui(
             }
             ui.end_row();
         });
+
+    if q.setting != Setting::ShallowCrust && draft.has_epicenter {
+        ui.add_space(4.0);
+        match slab {
+            Some(slab) => slab_section(ui, lang, q, slab),
+            None => {
+                ui.label(
+                    RichText::new(format!("ⓘ {}", t("slab-missing")))
+                        .small()
+                        .weak(),
+                );
+            }
+        }
+    }
 
     ui.add_space(4.0);
     egui::CollapsingHeader::new(t("fault-geometry"))

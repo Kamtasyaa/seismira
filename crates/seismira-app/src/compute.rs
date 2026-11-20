@@ -9,6 +9,7 @@ use seismira_core::cities::City;
 use seismira_core::quake::Quake;
 use seismira_core::shaking::{Scenario, SiteResult};
 use seismira_core::site::{Site, Vs30Map};
+use seismira_core::slab::Slab2;
 use seismira_core::traveltime::TravelTimes;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -120,16 +121,26 @@ pub struct Job {
     rx: Receiver<JobMsg>,
 }
 
+/// Hesabın okuduğu, açılışta yüklenen veri (paylaşılır, kopyalanmaz).
+pub struct Datasets {
+    pub cities: Arc<Vec<City>>,
+    pub city_sites: Option<Arc<Vec<Site>>>,
+    pub tt: Arc<TravelTimes>,
+    pub vs30: Option<Arc<Vs30>>,
+    pub regions: Option<Arc<Regions>>,
+    pub slab: Option<Arc<Slab2>>,
+}
+
 impl Job {
-    pub fn spawn(
-        quake: Quake,
-        cities: Arc<Vec<City>>,
-        city_sites: Option<Arc<Vec<Site>>>,
-        tt: Arc<TravelTimes>,
-        vs30: Option<Arc<Vs30>>,
-        regions: Option<Arc<Regions>>,
-        ctx: eframe::egui::Context,
-    ) -> Self {
+    pub fn spawn(quake: Quake, data: Datasets, ctx: eframe::egui::Context) -> Self {
+        let Datasets {
+            cities,
+            city_sites,
+            tt,
+            vs30,
+            regions,
+            slab,
+        } = data;
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = channel();
         let flag = cancel.clone();
@@ -137,7 +148,14 @@ impl Job {
             .name("sarsıntı-hesabı".into())
             .spawn(move || {
                 let started = std::time::Instant::now();
-                let scenario = Scenario::new(quake, &tt);
+                let scenario = Scenario::with_slab(quake, &tt, slab.as_deref());
+                if let Some(z) = scenario.slab_zone {
+                    log::info!(
+                        "Slab2 zonu {}, Parker bölgesi {}",
+                        slab.as_deref().map_or("?", |m| m.code(z)),
+                        scenario.region.key()
+                    );
+                }
                 let mut sites = Vec::with_capacity(cities.len());
                 for (i, c) in cities.iter().enumerate() {
                     if i % 1024 == 0 && flag.load(Ordering::Relaxed) {
