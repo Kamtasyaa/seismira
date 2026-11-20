@@ -230,6 +230,35 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   doğrulanır; farklı veri seti kullanılırsa belgelenir.
 - Çıktı: hücre başına olasılık; haritada kırmızı tonlu kareler
   (yoğunluk = olasılık).
+- FAZ 7 ADIM 1 BULGULARI (2026-11-20, uygulanmadı):
+  - Künye düzeltmesi: Zhu, Baise & Thompson (2017), "An Updated Geospatial
+    Liquefaction Model for Global Application", BSSA 107(3), 1365–1385,
+    doi:10.1785/0120160198 (Earthquake Spectra DEĞİL). Kapalı erişim.
+  - Referans uygulama: USGS groundfailure (code.usgs.gov/ghsc/esi/
+    groundfailure/groundfailure, CC0 / kamu malı), commit fa7bd289
+    (2026-08-27), `src/gfail/models/zhu_2017.py`, `jessee_2018.py`,
+    `defaultconfigfiles/models/*.ini`.
+  - Zhu 2017 (genel model, USGS kodu): X = 8.801 + 0.334·ln(PGV·SF)
+    − 1.918·ln(Vs30) + 0.0005408·yağış(mm) − 0.2054·min(dc, dr)(km)
+    − 0.0333·wtd(m); SF = 1/(1 + e^(−2(M−6))). Kırpma: yağış 0–2500 mm,
+    PGV 0–150 cm/s. Alansal kaplama: 0.4915 / (1 + 42.4·e^(−9.165·P))².
+    Maske: eğim 0–5° dışı, Vs30 > 620 m/s, PGV < 3 cm/s, PGA < %10 g.
+  - Nowicki Jessee 2018 (USGS kodu): X = −6.30 + 1.65·ln(PGV)
+    + 0.06·eğim(°) + litoloji + 0.03·CTI + arazi örtüsü
+    + 0.01·ln(PGV)·eğim(°); litoloji ve arazi örtüsü sınıf katsayıları
+    girdi dosyalarına gömülü (GLIM_replace, globcover_replace): MAKALE
+    TABLOSU GEREKLİ (makale açık erişim ama yayıncı betiğe 403; kullanıcıdan
+    PDF istendi). USGS değişikliği: pekişmemiş tortul −3.21 → −1.36
+    (makalede −3.22 yazıyor olabilir; doğrula). Kırpma: CTI 0–19, PGV 0–211.
+    Alansal kaplama: exp(−7.592 + 5.237P − 3.042P² + 4.035P³). Maske:
+    eğim < 2° (ini) / < 5° (USGS sayfası), PGA < %2 g.
+  - Girdi verisi durumu (betikle erişim, 2026-11-20): GMTED2010 7,5″
+    (USGS edcintl, erişilebilir), CHELSA bio12 yağış (erişilebilir; USGS
+    WorldClim kullanmış), HydroRIVERS v1.0 (erişilebilir), Fan 2013 su
+    seviyesi (thredds-gfnl.usc.es, erişilebilir), GLiM (PANGAEA dosya
+    bağlantısı 500 verdi), GlobCover 2009 (ESA DUE sitesi yanıt vermiyor),
+    HYDRO1k CTI (USGS eski adresi 404), NASA kıyı uzaklığı (OB.DAAC'a
+    taşınmış). Lisansların HİÇBİRİ henüz kontrol edilmedi.
 
 ### 7.10 Tsunami
 
