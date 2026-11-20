@@ -99,10 +99,13 @@ fn slab_section(ui: &mut egui::Ui, lang: Lang, q: &mut Quake, slab: &Slab2) {
     // Odak derinliğine en yakın levha; ortamdan bağımsız (levha içinde odağın
     // levhanın üstünde kaldığını da göstermek için).
     let Some(hit) = slab.locate(lon, lat, q.depth_km, Setting::Interface) else {
+        // Uyarı (gri not değil): levhasız yerde arayüz / levha içi depremi
+        // olası değil. Engellenmez: Slab2 her zonu kapsamaz (ör. Kıbrıs,
+        // Cebelitarık yayları).
         ui.label(
-            RichText::new(format!("ⓘ {}", lang.t("slab-none")))
+            RichText::new(format!("⚠ {}", lang.t("slab-none")))
                 .small()
-                .weak(),
+                .color(WARN_COLOR),
         );
         return;
     };

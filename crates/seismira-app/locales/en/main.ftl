@@ -122,7 +122,7 @@ region-blind = Early warning: blind zone (the alert comes after the first S)
 region-not-covered = Outside early-warning coverage (below Shindo 4)
 
 ## Slab2 slab geometry and Parker et al. (2020) region (Phase 5)
-slab-none = No Slab2 subducting slab beneath this point; the subduction model uses global coefficients without a forearc / backarc distinction.
+slab-none = According to Slab2 there is no subducting slab beneath this point, so a subduction earthquake may not be expected here (Slab2 does not cover every zone, e.g. the Cyprus arc). The estimate uses global coefficients without a forearc / backarc distinction.
 slab-missing = Slab2 data not found; the subduction model uses global coefficients.
 slab-info = Slab ({ $zone }, Slab2): surface at { $d } km, strike { $strike }°, dip { $dip }°
 slab-region = Parker et al. (2020) region: { $region }

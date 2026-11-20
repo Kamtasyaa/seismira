@@ -58,7 +58,10 @@ Ana ayarlar:
   (90°) doldurur; kendiliğinden UYGULANMAZ (kullanıcının girdiğini ezmemek
   için). Levha 40 km'den derinse düğme yerine uyarı çıkar; levha içinde
   odak levha yüzeyinin 10 km'den fazla üstündeyse uyarı çıkar. Merkez
-  üssünün altında levha yoksa "küresel katsayılar" notu.
+  üssünün altında levha yoksa sarı UYARI (gri not değil; kullanıcı
+  denemesi 2026-11-20, İyon Denizi'nde Mw 9 arayüz): orada dalma-batma
+  depremi beklenmeyebilir, hesap küresel katsayılarla. Engellenmez, çünkü
+  Slab2 her zonu kapsamaz (Kıbrıs, Cebelitarık yayları yok).
 - Ayar sırasında haritada doğrultuyu gösteren ince bir önizleme
   çizgisi olur (bu, sonuçtaki kırılma izi değildir).
 

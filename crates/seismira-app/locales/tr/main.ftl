@@ -122,7 +122,7 @@ region-blind = Erken uyarı: kör bölge (uyarı ilk S'ten sonra geliyor)
 region-not-covered = Erken uyarı kapsamı dışında (Shindo 4'ün altı)
 
 ## Slab2 levha geometrisi ve Parker vd. (2020) bölgesi (Faz 5)
-slab-none = Bu noktanın altında Slab2 dalma-batma levhası yok; dalma-batma modeli küresel katsayılarla, yay önü / yay ardı ayrımı yapılmadan hesaplanır.
+slab-none = Slab2'ye göre bu noktanın altında dalma-batma levhası yok; burada dalma-batma depremi beklenmeyebilir (Slab2 her zonu kapsamaz, ör. Kıbrıs yayı). Hesap küresel katsayılarla, yay önü / yay ardı ayrımı yapılmadan yapılır.
 slab-missing = Slab2 verisi bulunamadı; dalma-batma modeli küresel katsayılarla hesaplanır.
 slab-info = Levha ({ $zone }, Slab2): yüzey { $d } km, doğrultu { $strike }°, eğim { $dip }°
 slab-region = Parker vd. (2020) bölgesi: { $region }
