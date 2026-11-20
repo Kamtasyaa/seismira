@@ -6,6 +6,7 @@
 pub mod cities;
 pub mod component;
 pub mod duration;
+pub mod exposure;
 pub mod geo;
 pub mod gmpe;
 pub mod grid;

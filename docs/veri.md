@@ -157,3 +157,28 @@ Lisans kuralları:
   testler dosyayı okur. Uygulama dosya yoksa dalma-batmada küresel modelle
   çalışır.
 
+## ESRM20 bina stoku ve kırılganlık (Faz 6, 2026-11-20)
+
+- Kaynak: efehr/esrm20 (EFEHR GitLab), commit b2368bee (2025-01-19), CC BY
+  4.0 (LICENSE okundu). `scripts/fetch_esrm20.py` 181 dosyayı (44 ülke ×
+  konut/ticari/sanayi + eşleme + kırılganlık XML) indirir, SHA256 listesini
+  yazar (673 MB; Fransa konut dosyası Git LFS'te, `lfs=true` ile).
+- Bina stoku idari birim düzeyinde; düzey ülkeye göre değişir (Türkiye il,
+  Almanya / Fransa / İtalya ilçe ve altı, Andorra / Monaco ülke). Her kayıt
+  koordinatıyla Natural Earth Admin-1 bölgesine atanır
+  (`seismira-data exposure`); denizde kalan nokta 0,5° içinde aynı ülkenin
+  en yakın bölgesine taşınır (1445 nokta). Hiç kara noktası olmayan Monaco
+  ülke kısıtsız. Bölgesiz kalan: 372 bina (Meis / Kastellorizo; Yunan
+  bölgesi 0,5° içinde yok).
+- Sonuç `data/exposure/esrm20.sexp` (0,29 MB, depoda; üretim için 673 MB
+  indirme gerekiyor): 1570 bölge, 511 kırılganlık tipi, 142,6 milyon bina.
+  Türkiye denetimi: 81 ilin 80'i ESRM20 il toplamlarıyla birebir; Edirne'ye
+  komşu ülkeden 17,6 bina düşüyor (sınır noktası). ESRM20 il adlarında yazım
+  farkları var (Afyon, "Kinkkale", "Zinguldak"); eşleme koordinatla olduğu
+  için etkisiz.
+- Kırılganlık XML'i OpenQuake `logncdf` (doğrusal ortalama, standart
+  sapma) → medyan, β. ESRM20 xlsx "Final" sayfasıyla denetlendi
+  (CR_LDUAL-DUH_H1: 1,388 g, β 0,359). Dört sınır durumunun β'sı her tipte
+  aynı (fark ≤ 0,01 denetimi). Şiddet ölçüleri: SA(0.6) 233, SA(1.0) 170,
+  PGA 71, SA(0.3) 37 tip.
+

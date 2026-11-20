@@ -131,6 +131,17 @@ snapshot = "stationlist.json sha256 24cd9999af4b168517f9a2d6acadc05c3b26ed16f325
 files = "data/raw/validation/tohoku2011/ (depoda değil)"
 
 [[dataset]]
+id = "esrm20"
+name = "ESRM20, European Seismic Risk Model 2020: bina stoku (44 ülke, idari birim) ve kırılganlık eğrileri (çeşitli şiddet ölçüleri)"
+url = "https://gitlab.seismo.ethz.ch/efehr/esrm20"
+license = "CC-BY-4.0"
+attribution = "Crowley, H., Dabbeek, J., Despotaki, V., Rodrigues, D., Martins, L., Silva, V., Romão, X., Pereira, N., Weatherill, G., Danciu, L. (2021). European Seismic Risk Model (ESRM20). EFEHR Technical Report 002, V1.0.1, 84 pp, doi:10.7414/EUC-EFEHR-TR002-ESRM20."
+modified = true            # bina sayıları Natural Earth Admin-1 bölgelerine toplandı (konut + ticari + sanayi), taksonomi ESRM20 eşlemesiyle kırılganlık tiplerine dağıtıldı, eğriler medyan/β biçimine çevrildi
+license_checked = "2026-11-20"
+snapshot = "efehr/esrm20 commit b2368bee1f992a0db9f4db69b42143c19f5486c7 (2025-01-19); dosya özetleri data/raw/esrm20/<commit>/MANIFEST.sha256 (scripts/fetch_esrm20.py)"
+files = "data/exposure/esrm20.sexp (seismira-data exposure)"
+
+[[dataset]]
 id = "usgs-slab2"
 name = "USGS Slab2: dalma-batma levha geometrisi (27 zon, levha yüzeyi derinliği)"
 url = "https://doi.org/10.5066/F7PV6JNV"

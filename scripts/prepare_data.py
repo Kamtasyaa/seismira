@@ -22,6 +22,9 @@ yeniden üretir; sıradan kullanımda dokunulmaz.
 Depoda olup bu betiğin ÜRETMEDİĞİ dosyalar (ağır ya da elle indirilen
 kaynak ister): data/traveltime (scripts/gen_traveltime.py, ObsPy),
 data/slab2 (scripts/gen_slab2.py, elle indirilen Slab2 arşivi + h5py).
+data/exposure/esrm20.sexp: python3 scripts/fetch_esrm20.py (673 MB) +
+`seismira-data exposure data/raw/esrm20/<commit> data/regions/admin1.sras
+data/exposure/esrm20.sexp`.
 
 Her adım tekrar çalıştırılabilir; var olan doğru dosyalar yeniden indirilmez.
 """

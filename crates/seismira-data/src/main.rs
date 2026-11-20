@@ -8,6 +8,7 @@
 //! seismira-data vs30 <median.tif> <sd.tif> <çıktı.sras>
 //! seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>
 //! seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>
+//! seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>
 //! ```
 
 use anyhow::{Context, Result, bail};
@@ -17,6 +18,7 @@ use shapefile::{Point, Polygon, PolygonRing, Polyline, Shape, ShapeReader};
 use std::path::Path;
 
 mod city_sites;
+mod exposure;
 mod geotiff;
 mod regions;
 mod vs30;
@@ -42,6 +44,9 @@ fn main() -> Result<()> {
             Path::new(ghsl),
             Path::new(output),
         ),
+        [cmd, esrm20, regions, output] if cmd == "exposure" => {
+            exposure::run(Path::new(esrm20), Path::new(regions), Path::new(output))
+        }
         [cmd, shp, vs30, ghsl, raster, info] if cmd == "regions" => regions::run(
             Path::new(shp),
             Path::new(vs30),
@@ -54,7 +59,8 @@ fn main() -> Result<()> {
              seismira-data geonames <cities15000.txt> <admin1CodesASCII.txt> <çıktı.scty>\n  \
              seismira-data vs30 <median.tif> <sd.tif> <çıktı.sras>\n  \
              seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>\n  \
-             seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>"
+             seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>\n  \
+             seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>"
         ),
     }
 }
