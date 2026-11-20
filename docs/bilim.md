@@ -196,6 +196,29 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   ±1 standart sapma kaydırılmasıyla verilir.
 - Hasar durumları: hafif / orta / ağır / göçme. Tüm sonuçlar
   "tahmini" etiketlidir.
+- UYGULAMA (Faz 6, 2026-11-20; `seismira-core/src/exposure.rs`,
+  `damage.rs`):
+  - Veri: ESRM20 (CC BY 4.0) bina stoku 44 ülke, Natural Earth Admin-1
+    bölgelerine toplanmış (docs/veri.md); kırılganlık
+    `fragility_ESRM20_Various_IM.xml` (511 tip; PGA, SA 0,3 / 0,6 / 1,0 s).
+    Yalnızca Avrupa ve Türkiye; diğer yerlerde kart "bina verisi yok" der.
+  - Stok bölgenin yerleşim hücrelerine (GHSL ≥ %1, 30″) EŞİT dağılmış
+    kabul edilir. Sarsıntı ızgarası adımının iki katıyla örneklenen her
+    yerleşim hücresi bölgenin adım² / toplam payını temsil eder; model
+    alanı dışındaki hücreler hasarsız. Hücrede dört şiddet ölçüsü
+    (`Scenario::ln_motion`; SA 0,6 s tabloda yok, 0,5 ile 0,75 arasında
+    log-log ara değer) bölgenin bina karışımına uygulanır.
+  - Belirsizlik: P(DS ≥ k) = Φ((ln IM − ln θ_k) / √(β² + φ²)), φ olay içi
+    sapma; olası aralık ln IM ± τ. Φ: Numerical Recipes `erfcc` (Abramowitz
+    & Stegun tablosuyla test).
+  - Hasarsızlık sınırı (OpenQuake `noDamageLimit`, 0,05 g) medyan şiddete
+    uygulanır (OpenQuake tek değere uygular).
+  - Bileşen: GMPE'ler RotD50; ESRM20 eğrileri ortalama yatay bileşen için
+    türetilmiş (Crowley vd. 2021, doğrula); düzeltme yapılmadı.
+  - Şehir kartı: şehrin sahasında, bulunduğu bölgenin bina karışımıyla
+    hasar ORANI (sayı değil); "ilin bina dağılımıyla" etiketli.
+  - Kart gösterimi (kullanıcı kararı 2026-11-20): bina sayısı + yüzde;
+    sayılar 2 anlamlı basamağa yuvarlanır.
 
 ### 7.9 Sıvılaşma ve heyelan
 

@@ -169,3 +169,12 @@ slab-zone-sol = Solomon Adaları
 slab-zone-sul = Sulawesi
 slab-zone-sum = Sumatra-Cava
 slab-zone-van = Vanuatu
+
+## Tahmini bina hasarı (Faz 6, ESRM20)
+region-damage-head = Tahmini bina hasarı (ESRM20, ilde { $n } bina):
+region-damage-heavy = Ağır hasar veya göçme: ~{ $n } bina (%{ $p }; olası %{ $lo }–{ $hi })
+region-damage-heavy-none = Ağır hasar veya göçme: beklenmiyor (1 binadan az)
+region-damage-moderate = Orta hasar: ~{ $n } bina (%{ $p })
+region-damage-nodata = Bu bölge için bina verisi yok (ESRM20 yalnızca Avrupa ve Türkiye).
+tip-damage = Tahmini ağır hasar veya göçme: %{ $p } (olası %{ $lo }–{ $hi })
+tip-damage-note = (ilin bina dağılımıyla; şehrin kendi bina verisi değil)

@@ -169,3 +169,12 @@ slab-zone-sol = Solomon Islands
 slab-zone-sul = Sulawesi
 slab-zone-sum = Sumatra-Java
 slab-zone-van = Vanuatu
+
+## Estimated building damage (Phase 6, ESRM20)
+region-damage-head = Estimated building damage (ESRM20, { $n } buildings in the region):
+region-damage-heavy = Extensive damage or collapse: ~{ $n } buildings ({ $p }%; likely range { $lo }–{ $hi }%)
+region-damage-heavy-none = Extensive damage or collapse: not expected (fewer than 1 building)
+region-damage-moderate = Moderate damage: ~{ $n } buildings ({ $p }%)
+region-damage-nodata = No building data for this region (ESRM20 covers Europe and Türkiye only).
+tip-damage = Estimated extensive damage or collapse: { $p }% (likely range { $lo }–{ $hi }%)
+tip-damage-note = (using the region's building mix, not the city's own data)

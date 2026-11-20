@@ -6,6 +6,7 @@
 //! `cancel` bayrağıyla anında durdurulur.
 
 use seismira_core::cities::City;
+use seismira_core::exposure::Exposure;
 use seismira_core::quake::Quake;
 use seismira_core::shaking::{Scenario, SiteResult};
 use seismira_core::site::{Site, Vs30Map};
@@ -106,6 +107,26 @@ pub struct CityResults {
     pub model_limit: Option<Vec<(f64, f64)>>,
 }
 
+/// Tahmini bina hasarı (Faz 6): bölgeler (kimliğe göre sıralı) ve
+/// şehirler (şehir listesiyle aynı sıra; bulunduğu bölgenin bina karışımıyla
+/// hasar durumu ORANLARI: medyan, −1τ, +1τ).
+pub struct DamageResults {
+    pub regions: Vec<seismira_core::damage::RegionDamage>,
+    pub cities: Vec<Option<[seismira_core::exposure::Damage; 3]>>,
+}
+
+impl DamageResults {
+    pub fn region(
+        &self,
+        id: seismira_core::region::RegionId,
+    ) -> Option<&seismira_core::damage::RegionDamage> {
+        self.regions
+            .binary_search_by_key(&id, |r| r.id)
+            .ok()
+            .map(|i| &self.regions[i])
+    }
+}
+
 /// Arka plan işinin ürettiği sonuçlar (geliş sırasıyla).
 pub enum JobMsg {
     Cities(CityResults),
@@ -114,6 +135,8 @@ pub enum JobMsg {
     /// İnce ızgaradan bölge özetleri (kimliğe göre sıralı) ve bu
     /// bölgelerin sınır geometrisi.
     Regions(Vec<RegionResult>, Option<Arc<crate::map::RegionLines>>),
+    /// Bölge özetlerinden sonra gelir (hesap daha uzun).
+    Damage(DamageResults),
 }
 
 pub struct Job {
@@ -129,6 +152,7 @@ pub struct Datasets {
     pub vs30: Option<Arc<Vs30>>,
     pub regions: Option<Arc<Regions>>,
     pub slab: Option<Arc<Slab2>>,
+    pub exposure: Option<Arc<Exposure>>,
 }
 
 impl Job {
@@ -140,6 +164,7 @@ impl Job {
             vs30,
             regions,
             slab,
+            exposure,
         } = data;
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = channel();
@@ -199,7 +224,7 @@ impl Job {
                     shake_grid(
                         &scenario,
                         vs30.as_deref(),
-                        regions.as_deref(),
+                        (regions.as_deref(), exposure.as_deref()),
                         (&cities, &sites_for_regions),
                         &flag,
                         &tx,
@@ -235,7 +260,7 @@ impl Drop for Job {
 fn shake_grid(
     scenario: &Scenario,
     vs30: Option<&Vs30>,
-    regions: Option<&Regions>,
+    (regions, exposure): (Option<&Regions>, Option<&Exposure>),
     (cities, sites): (&[City], &[SiteResult]),
     cancel: &AtomicBool,
     tx: &std::sync::mpsc::Sender<JobMsg>,
@@ -293,6 +318,59 @@ fn shake_grid(
             }
         }
         ctx.request_repaint();
+    }
+    if let (Some(reg), Some(exp)) = (regions, exposure) {
+        let started = std::time::Instant::now();
+        let ids = match reg.map.window(domain.col0, domain.row0, domain.w, domain.h) {
+            Ok(ids) => ids,
+            Err(e) => {
+                log::error!("bölge penceresi okunamadı: {e}");
+                return;
+            }
+        };
+        // Hasar için ince adımın iki katı yeterli (bölge toplamı; her
+        // örnek hücre adım² hücreyi temsil eder).
+        let Some(by_region) = seismira_core::damage::regions(
+            scenario,
+            exp,
+            &domain,
+            (step * 2).max(2),
+            &ids,
+            window.as_deref(),
+            cancel,
+        ) else {
+            return; // iptal
+        };
+        let city: Vec<_> = cities
+            .iter()
+            .zip(sites)
+            .map(|(c, r)| {
+                r.motion?;
+                let id = reg.map.id_at(c.lon, c.lat).ok().filter(|&id| id != 0)?;
+                seismira_core::damage::city_fractions(
+                    scenario,
+                    exp,
+                    id,
+                    (c.lon, c.lat),
+                    r.vs30_used,
+                )
+            })
+            .collect();
+        log::info!(
+            "bina hasarı: {} bölge, {} şehir ({} ms)",
+            by_region.len(),
+            city.iter().filter(|c| c.is_some()).count(),
+            started.elapsed().as_millis()
+        );
+        if tx
+            .send(JobMsg::Damage(DamageResults {
+                regions: by_region,
+                cities: city,
+            }))
+            .is_ok()
+        {
+            ctx.request_repaint();
+        }
     }
 }
 

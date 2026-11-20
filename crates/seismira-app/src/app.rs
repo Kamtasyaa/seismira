@@ -368,6 +368,10 @@ pub struct SeismiraApp {
     /// Slab2 levha geometrisi (~2 MB, açılışta okunur; zonlar ilk
     /// kullanımda açılır). Yoksa dalma-batmada küresel model.
     slab: Option<Arc<Slab2>>,
+    /// ESRM20 bina stoku ve kırılganlık (~0,3 MB, açılışta okunur).
+    exposure: Option<Arc<seismira_core::exposure::Exposure>>,
+    /// Son hesabın tahmini bina hasarı.
+    damage: Option<compute::DamageResults>,
     /// Bölge kimliği rasterı (il / eyalet); yoksa bölge bildirimleri
     /// GeoNames admin1 adlarıyla şehirlerden üretilir.
     regions: Option<Arc<compute::Regions>>,
@@ -429,6 +433,14 @@ impl SeismiraApp {
         let regions = compute::Regions::load(&paths::data_dir().join("regions"))
             .inspect_err(|e| log::warn!("bölge verisi yok: {e}"))
             .ok();
+        let exposure_path = paths::data_dir().join("exposure").join("esrm20.sexp");
+        let exposure = std::fs::File::open(&exposure_path)
+            .and_then(|f| seismira_core::exposure::Exposure::read(&mut std::io::BufReader::new(f)))
+            .map(Arc::new)
+            .inspect_err(|e| {
+                log::warn!("{}: {e} (bina hasarı gösterilmez)", exposure_path.display())
+            })
+            .ok();
         let slab = Slab2::load(&paths::data_dir().join("slab2").join("slab2.sslb"))
             .map(Arc::new)
             .inspect_err(|e| log::warn!("Slab2 yok, dalma-batmada küresel model: {e}"))
@@ -455,6 +467,8 @@ impl SeismiraApp {
             cities,
             vs30,
             slab,
+            exposure,
+            damage: None,
             regions,
             region_events: Vec::new(),
             region_results: Vec::new(),
@@ -929,6 +943,21 @@ impl SeismiraApp {
                 if r.backarc {
                     lines.push((lang.t("tip-backarc"), text));
                 }
+                if let Some([m, lo, hi]) = self.damage.as_ref().and_then(|d| d.cities[i]) {
+                    let heavy = |d: [f64; 4]| d[2] + d[3];
+                    lines.push((
+                        lang.t_args(
+                            "tip-damage",
+                            &[
+                                ("p", fmt_percent(lang, heavy(m))),
+                                ("lo", fmt_percent(lang, heavy(lo))),
+                                ("hi", fmt_percent(lang, heavy(hi))),
+                            ],
+                        ),
+                        text,
+                    ));
+                    lines.push((lang.t("tip-damage-note"), weak));
+                }
                 if let (Some(sd), Some(effect)) = (r.site.vs30_ln_sd, r.jma_vs30_effect) {
                     lines.push((
                         lang.t_args(
@@ -1055,6 +1084,46 @@ impl SeismiraApp {
                 }
             });
         }
+        match self.damage.as_ref().and_then(|d| d.region(id)) {
+            Some(d) if d.buildings > 0.0 => {
+                let heavy = |x: &[f64; 4]| x[2] + x[3];
+                let pct = |x: f64| fmt_percent(lang, x / d.buildings);
+                lines.push((
+                    lang.t_args("region-damage-head", &[("n", fmt_count(lang, d.buildings))]),
+                    weak,
+                ));
+                let h = heavy(&d.median);
+                lines.push((
+                    if h < 1.0 {
+                        lang.t("region-damage-heavy-none")
+                    } else {
+                        lang.t_args(
+                            "region-damage-heavy",
+                            &[
+                                ("n", fmt_count(lang, h)),
+                                ("p", pct(h)),
+                                ("lo", pct(heavy(&d.low))),
+                                ("hi", pct(heavy(&d.high))),
+                            ],
+                        )
+                    },
+                    text,
+                ));
+                if d.median[1] >= 1.0 {
+                    lines.push((
+                        lang.t_args(
+                            "region-damage-moderate",
+                            &[("n", fmt_count(lang, d.median[1])), ("p", pct(d.median[1]))],
+                        ),
+                        text,
+                    ));
+                }
+            }
+            _ if self.damage.is_some() && self.exposure.is_some() => {
+                lines.push((lang.t("region-damage-nodata"), weak));
+            }
+            _ => {}
+        }
         paint_card(ui, rect, at, lines, Some(s.max));
     }
 
@@ -1070,6 +1139,7 @@ impl SeismiraApp {
         self.city_events.clear();
         self.region_events.clear();
         self.region_results.clear();
+        self.damage = None;
         self.alert = None;
         self.sim = None;
         self.clock = Clock {
@@ -1102,6 +1172,7 @@ impl SeismiraApp {
                 vs30: self.vs30.clone(),
                 regions: self.regions.clone(),
                 slab: self.slab.clone(),
+                exposure: self.exposure.clone(),
             };
             self.job = Some(compute::Job::spawn(self.draft.quake, data, ctx.clone()));
         }
@@ -1463,6 +1534,7 @@ impl eframe::App for SeismiraApp {
                         };
                         self.region_results = r;
                     }
+                    compute::JobMsg::Damage(d) => self.damage = Some(d),
                 }
             }
             if done {
@@ -1578,5 +1650,58 @@ mod tests {
             );
             img.save(out.join(&name)).unwrap();
         }
+    }
+}
+
+/// Tahmini bina sayısı: 2 anlamlı basamağa yuvarlanır (≥ 100), binlik
+/// ayraçla ("12 000"). Yanlış kesinlik izlenimi vermemek için.
+fn fmt_count(lang: Lang, n: f64) -> String {
+    let r = if n >= 100.0 {
+        let mag = 10f64.powi(n.log10().floor() as i32 - 1);
+        (n / mag).round() * mag
+    } else {
+        n.round()
+    };
+    let digits = format!("{}", r as u64);
+    let sep = match lang {
+        Lang::Tr => '.',
+        Lang::En => ',',
+    };
+    let mut out = String::new();
+    for (k, ch) in digits.chars().enumerate() {
+        if k > 0 && (digits.len() - k) % 3 == 0 {
+            out.push(sep);
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// Oran (0–1) → yüzde metni: %10 altı bir ondalık, üstü tam sayı; %0,1
+/// altı "<0,1".
+fn fmt_percent(lang: Lang, x: f64) -> String {
+    let p = x * 100.0;
+    if p < 0.05 {
+        format!("<{}", lang.num(0.1, 1))
+    } else if p < 10.0 {
+        lang.num(p, 1)
+    } else {
+        lang.num(p, 0)
+    }
+}
+
+#[cfg(test)]
+mod damage_fmt_tests {
+    use super::*;
+
+    #[test]
+    fn sayi_ve_yuzde_bicimi() {
+        assert_eq!(fmt_count(Lang::Tr, 12_345.0), "12.000");
+        assert_eq!(fmt_count(Lang::En, 1_234_567.0), "1,200,000");
+        assert_eq!(fmt_count(Lang::Tr, 87.4), "87");
+        assert_eq!(fmt_count(Lang::Tr, 156.0), "160");
+        assert_eq!(fmt_percent(Lang::Tr, 0.0312), "3,1");
+        assert_eq!(fmt_percent(Lang::En, 0.256), "26");
+        assert_eq!(fmt_percent(Lang::Tr, 0.0001), "<0,1");
     }
 }

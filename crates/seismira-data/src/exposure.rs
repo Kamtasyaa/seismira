@@ -255,6 +255,26 @@ pub fn run(esrm20: &Path, regions: &Path, output: &Path) -> Result<()> {
         let code = code.map_or("?".into(), |c| String::from_utf8_lossy(&c).to_string());
         println!("{country} ({code}): {country_total:.0} bina");
     }
+    // Bölge başına yerleşim hücresi sayısı (tüm raster, 512 satırlık
+    // şeritler hâlinde; ~22 MB / şerit).
+    let g = map.grid();
+    let mut built: HashMap<u16, u32> = HashMap::new();
+    let band = 512u32;
+    for row0 in (0..g.height).step_by(band as usize) {
+        let h = band.min(g.height - row0);
+        for raw in map.window(0, i64::from(row0), g.width, h)? {
+            let id = raw & seismira_core::region::ID_MASK;
+            if id != 0 && raw & seismira_core::region::BUILT_BIT != 0 {
+                *built.entry(id).or_default() += 1;
+            }
+        }
+    }
+    let no_built = stock.keys().filter(|id| !built.contains_key(id)).count();
+    if no_built > 0 {
+        println!(
+            "  {no_built} bölgede yerleşim hücresi yok (stok yine yazılır, hasar hesaplanmaz)"
+        );
+    }
     let exposure = Exposure {
         fragility,
         regions: stock
@@ -263,7 +283,11 @@ pub fn run(esrm20: &Path, regions: &Path, output: &Path) -> Result<()> {
                 let mut entries: Vec<(u16, f32)> =
                     m.into_iter().map(|(t, n)| (t, n as f32)).collect();
                 entries.sort_by_key(|e| e.0);
-                RegionStock { id, entries }
+                RegionStock {
+                    id,
+                    built_cells: built.get(&id).copied().unwrap_or(0),
+                    entries,
+                }
             })
             .collect(),
     };

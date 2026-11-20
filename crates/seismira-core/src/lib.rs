@@ -5,6 +5,7 @@
 
 pub mod cities;
 pub mod component;
+pub mod damage;
 pub mod duration;
 pub mod exposure;
 pub mod geo;

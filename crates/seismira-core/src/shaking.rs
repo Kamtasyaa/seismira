@@ -210,10 +210,15 @@ impl<'a> Scenario<'a> {
         self.gmm.map(Gmm::max_rrup_km)
     }
 
-    fn motion(&self, d: &Distances, vs30: f64) -> Option<Motion> {
-        let (pga, pgv) = match self.gmm? {
-            Gmm::Cy14 => {
-                let input = cy14::Input {
+    /// Herhangi bir yer hareketi ölçüsü (ln, g ya da cm/s): depremin
+    /// modeliyle (CY14 ya da Parker vd. 2020, bölgesiyle). SA'da tabloda
+    /// olmayan periyot log-log ara değerle ([`crate::gmpe`]). Model yoksa,
+    /// mesafe ya da girdi aralık dışıysa `None`. Bileşen: RotD50.
+    pub fn ln_motion(&self, imt: Imt, d: &Distances, vs30: f64) -> Option<LnMotion> {
+        match self.gmm? {
+            Gmm::Cy14 => cy14::predict(
+                imt,
+                &cy14::Input {
                     mw: self.quake.mw,
                     rrup: d.rrup,
                     rjb: d.rjb,
@@ -222,27 +227,31 @@ impl<'a> Scenario<'a> {
                     dip: self.fault.dip,
                     fault: self.quake.fault,
                     vs30,
-                };
-                (
-                    cy14::predict(Imt::Pga, &input)?,
-                    cy14::predict(Imt::Pgv, &input)?,
-                )
-            }
-            Gmm::Psbah20(event) => {
-                let input = psbah20::Input {
+                },
+            ),
+            Gmm::Psbah20(event) => psbah20::predict(
+                imt,
+                &psbah20::Input {
                     mw: self.quake.mw,
                     rrup: d.rrup,
                     zhyp: self.quake.depth_km,
                     vs30,
                     event,
                     region: self.region,
-                };
-                (
-                    psbah20::predict(Imt::Pga, &input)?,
-                    psbah20::predict(Imt::Pgv, &input)?,
-                )
-            }
-        };
+                },
+            ),
+        }
+    }
+
+    /// Hesapta kullanılan Vs30: modelin aralığına çekilmiş.
+    pub fn clamp_vs30(&self, vs30: f64) -> f64 {
+        let (lo, hi) = self.gmm.map_or((0.0, f64::INFINITY), Gmm::vs30_range);
+        vs30.clamp(lo, hi)
+    }
+
+    fn motion(&self, d: &Distances, vs30: f64) -> Option<Motion> {
+        let pga = self.ln_motion(Imt::Pga, d, vs30)?;
+        let pgv = self.ln_motion(Imt::Pgv, d, vs30)?;
         let (mw, v) = (self.quake.mw, pgv.median());
         Some(Motion {
             pga,

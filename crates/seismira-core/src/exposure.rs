@@ -22,15 +22,17 @@
 //!          2 SA0.6, 3 SA1.0), 3 bayt boşluk, f32 medyan ×4 (g), f32 β,
 //!          f32 hasarsızlık sınırı (g)
 //! u32 bölge sayısı
-//! her bölge: u16 bölge kimliği, u16 kayıt sayısı, kayıtlar: u16 tip sırası,
-//!            f32 bina sayısı (konut + ticari + sanayi)
+//! her bölge: u16 bölge kimliği, u32 yerleşim hücresi sayısı (bölge
+//!            rasterında BUILT_BIT'li 30″ hücre), u16 kayıt sayısı,
+//!            kayıtlar: u16 tip sırası, f32 bina sayısı (konut + ticari +
+//!            sanayi)
 //! ```
 
 use crate::gmpe::Imt;
 use std::io::{self, Read, Write};
 
 const MAGIC: &[u8; 4] = b"SEXP";
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 /// Hasar durumları (ESRM20 sınır durumları): hafif, orta, ağır, göçme.
 pub const N_DS: usize = 4;
@@ -112,6 +114,10 @@ impl Fragility {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RegionStock {
     pub id: u16,
+    /// Bölgenin tüm yerleşim hücreleri (30″). Bina stoku bu hücrelere
+    /// eşit dağılmış kabul edilir; sarsıntı alanı bölgenin bir kısmını
+    /// kapsıyorsa kalan hücreler hasarsız sayılır.
+    pub built_cells: u32,
     pub entries: Vec<(u16, f32)>,
 }
 
@@ -184,6 +190,7 @@ impl Exposure {
         w.write_all(&(self.regions.len() as u32).to_le_bytes())?;
         for r in &self.regions {
             w.write_all(&r.id.to_le_bytes())?;
+            w.write_all(&r.built_cells.to_le_bytes())?;
             let n = u16::try_from(r.entries.len()).map_err(|_| bad("kayıt çok"))?;
             w.write_all(&n.to_le_bytes())?;
             for &(t, b) in &r.entries {
@@ -242,6 +249,7 @@ impl Exposure {
         let mut regions = Vec::with_capacity(n);
         for _ in 0..n {
             let id = u16_(r)?;
+            let built_cells = u32_(r)?;
             let k = usize::from(u16_(r)?);
             let mut entries = Vec::with_capacity(k);
             for _ in 0..k {
@@ -251,7 +259,11 @@ impl Exposure {
                 }
                 entries.push((t, f32_(r)?));
             }
-            regions.push(RegionStock { id, entries });
+            regions.push(RegionStock {
+                id,
+                built_cells,
+                entries,
+            });
         }
         if !regions.is_sorted_by_key(|r: &RegionStock| r.id) {
             return Err(bad("bölgeler sıralı değil"));
@@ -333,6 +345,7 @@ mod tests {
             }],
             regions: vec![RegionStock {
                 id: 7,
+                built_cells: 10,
                 entries: vec![(0, 1000.0)],
             }],
         }

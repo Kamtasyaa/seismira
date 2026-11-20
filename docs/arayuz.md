@@ -182,6 +182,10 @@ Uygulama notları:
   aralık, tahmini hasar, S − P, erken uyarı süresi.
 - Bölge kartı: en yüksek Shindo, tahmini hasar (bölge düzeyi),
   tsunami kategorisi ve varış süresi.
+  UYGULAMA (Faz 6): "Tahmini bina hasarı (ESRM20, ilde N bina)", "Ağır
+  hasar veya göçme: ~X bina (%p; olası %a–b)", "Orta hasar: ~Y bina (%q)".
+  Şehir kartında yalnızca oran, "ilin bina dağılımıyla" notuyla. Hasar
+  sonucu bölge özetinden sonra ayrı mesajla gelir (Mw 7,8'de ~25 ms).
 - Köşede ölçek açıklaması (Shindo renkleri JMA paletinden; tsunami
   sarı/kırmızı/mor).
 - Şehirler nüfusa ve yakınlaştırmaya göre gösterilir.
