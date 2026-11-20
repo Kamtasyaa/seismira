@@ -291,3 +291,50 @@ PGV 12 cm/s, tahmin 20 cm/s.
   σ aynı. Ölçüt (%1) sağlandı. Elle denetim: arayüz M 4, Rrup 5 km, Vs30 150
   → ln D 2,6465 (OpenQuake 2,646588).
 
+## Faz 6: bina hasarı doğrulaması, 2023 Kahramanmaraş (2026-11-20)
+
+- Komut: `seismira-data validate-damage data/validation/kahramanmaras2023/sbb_hasar_2023-03-06.csv data/raw/esrm20/exposure_repo/Exposure_Model_Turkey_Res.csv`
+  (ESRM20 konut sayısı için efehr/esrm20_exposure, commit 92dba863,
+  sha256 59e046a4…2434; depoda değil).
+- Model: uygulamanın zinciri (bizim fay, Vs30 haritası, ESRM20, CY14). İki
+  ana şok (USGS Mw 7,8 Pazarcık 227,6°/89°; Mw 7,5 Elbistan 277,2°/78°) ayrı
+  hesaplanıp il oranları 1 − (1 − f₁)(1 − f₂) ile birleştirildi; artçılar
+  yok. Aralık: ±1τ (iki olayda aynı yönde).
+- Gözlem: SBB "2023 Kahramanmaraş ve Hatay Depremleri Raporu" (Mart 2023),
+  Tablo 20 (ÇŞİDB, 6 Mart 2023): acil yıkılacak + ağır hasarlı + yıkık
+  KONUT; payda ESRM20 konut sayısı. Ülke düzeyinde bina: Tablo 12 (232 632
+  bina) / Tablo 11 MAKS (2 618 697 bina).
+
+| İl | ESRM20 bina | MAKS bina | model ağır+göçme % (olası) | gözlenen konut % | model / gözlenen |
+|---|---|---|---|---|---|
+| Adana | 278602 | 451117 | 5.1 (2.5–9.5) | 0.6 | 9.07 |
+| Adıyaman | 55418 | 120496 | 24.7 (15.3–36.7) | 58.8 | 0.42 |
+| Diyarbakır | 119669 | 225679 | 0.3 (0.1–0.8) | 3.2 | 0.08 |
+| Elazığ | 57241 | 123713 | 1.6 (0.6–3.6) | 11.5 | 0.14 |
+| Gaziantep | 227079 | 305683 | 8.7 (5.2–13.7) | 5.4 | 1.62 |
+| Kahramanmaraş | 124454 | 243153 | 18.4 (11.8–27.1) | 41.9 | 0.44 |
+| Malatya | 90980 | 178987 | 23.2 (15.0–33.4) | 50.2 | 0.46 |
+| Hatay | 198681 | 406849 | 22.3 (15.4–30.7) | 55.1 | 0.40 |
+| Kilis | 16222 | 37312 | 5.0 (2.6–9.0) | 8.5 | 0.59 |
+| Osmaniye | 75168 | 143080 | 7.8 (3.9–14.0) | 11.0 | 0.71 |
+| Şanlıurfa | 181902 | 382628 | 1.1 (0.4–2.7) | 1.2 | 0.97 |
+
+- 11 il toplamı: model %10,2 (bina), gözlenen %8,9 (bina, ülke toplamı) /
+  %17,3 (konut). İl başına ln(model/gözlenen konut) ortalama −0,55 (×0,57),
+  std 1,24.
+- Değerlendirme (kullanıcıya bildirildi):
+  - Bina düzeyinde toplam UYUMLU (%10,2 / %8,9). Kabul ölçütü bu iş için
+    tanımlı değildi; ilk ölçüm olarak kaydedildi.
+  - Konut oranı bina oranının ~2 katı (çöken çok katlı binalarda konut
+    çok): ağır etkilenen dört ilde (Hatay, Kahramanmaraş, Adıyaman,
+    Malatya) model / gözlenen konut 0,40–0,46, bina oranına çevrilince
+    (÷ ~1,95) ~0,8–0,9.
+  - Uzak illerde saçılım büyük: Adana ×9 fazla, Elazığ / Diyarbakır ×0,1
+    az. Sebep büyük ölçüde geometri: tek düzlem, merkez üssünde ortalanmış
+    320 km fay; gerçek kırılma ~350 km, çift yönlü, Elbistan kırılması
+    Malatya'ya uzanıyor. Hazır senaryoda (Faz 10) gerçek fay izi verilmeli.
+  - SAPMA: ESRM20 bina sayıları MAKS'ın ~yarısı (11 il: 1,43 / 2,62
+    milyon). Kartlardaki "~N bina" sayıları büyük olasılıkla düşük; oranlar
+    etkilenmez. ESRM20 Türkiye stoku 2011 sayımına dayanıyor olabilir
+    (doğrula: ESRM20 teknik rapor, Türkiye bölümü).
+

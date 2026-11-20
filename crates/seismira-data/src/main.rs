@@ -21,6 +21,7 @@ mod city_sites;
 mod exposure;
 mod geotiff;
 mod regions;
+mod validate_damage;
 mod vs30;
 
 fn main() -> Result<()> {
@@ -44,6 +45,9 @@ fn main() -> Result<()> {
             Path::new(ghsl),
             Path::new(output),
         ),
+        [cmd, sbb, dwellings] if cmd == "validate-damage" => {
+            validate_damage::run(Path::new(sbb), Path::new(dwellings))
+        }
         [cmd, esrm20, regions, output] if cmd == "exposure" => {
             exposure::run(Path::new(esrm20), Path::new(regions), Path::new(output))
         }

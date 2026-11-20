@@ -131,6 +131,16 @@ snapshot = "stationlist.json sha256 24cd9999af4b168517f9a2d6acadc05c3b26ed16f325
 files = "data/raw/validation/tohoku2011/ (depoda değil)"
 
 [[dataset]]
+id = "sbb-kahramanmaras-2023"
+name = "SBB 2023 Kahramanmaraş ve Hatay Depremleri Raporu: il bazında hasar tespiti ve bina sayıları (yalnızca doğrulama)"
+url = "https://www.sbb.gov.tr/wp-content/uploads/2023/03/2023-Kahramanmaras-ve-Hatay-Depremleri-Raporu.pdf"
+license = "Kamu kurumu raporu; yalnızca birkaç sayı (Tablo 11, 12, 20) kaynak gösterilerek alındı"
+attribution = "T.C. Cumhurbaşkanlığı Strateji ve Bütçe Başkanlığı (2023). 2023 Kahramanmaraş ve Hatay Depremleri Raporu. Kaynak tablolar: ÇŞİDB hasar tespiti (6 Mart 2023), İçişleri Bakanlığı MAKS."
+modified = false
+license_checked = "2026-11-20"
+files = "data/validation/kahramanmaras2023/sbb_hasar_2023-03-06.csv"
+
+[[dataset]]
 id = "esrm20"
 name = "ESRM20, European Seismic Risk Model 2020: bina stoku (44 ülke, idari birim) ve kırılganlık eğrileri (çeşitli şiddet ölçüleri)"
 url = "https://gitlab.seismo.ethz.ch/efehr/esrm20"

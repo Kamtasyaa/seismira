@@ -1,0 +1,18 @@
+# T.C. Cumhurbaşkanlığı Strateji ve Bütçe Başkanlığı (SBB), "2023 Kahramanmaraş ve Hatay Depremleri Raporu" (Mart 2023),
+# https://www.sbb.gov.tr/wp-content/uploads/2023/03/2023-Kahramanmaras-ve-Hatay-Depremleri-Raporu.pdf
+# Tablo 11: Depremden Etkilenen İllerde Toplam Bina Sayısı (Kaynak: İçişleri Bakanlığı, MAKS) -> bina_toplam (Genel Toplam)
+# Tablo 20: İl Bazında Hasar Tespit Raporu, 6 Mart 2023 (Kaynak: ÇŞİDB) -> konut_agir_yikik (Toplam Acil+Ağır+Yıkık Konut Sayısı), konut_orta
+# Ülke toplamı (Tablo 12, bina): yıkık 35355, acil yıkılacak 17491, ağır hasarlı 179786, orta hasarlı 40228; tespit edilen 1712182 bina.
+# İki ana şokun (Mw 7.8 Pazarcık, Mw 7.5 Elbistan) ve artçıların ortak sonucudur.
+iso,il,bina_toplam,konut_agir_yikik,konut_orta
+TR-01,Adana,451117,2952,11768
+TR-02,Adıyaman,120496,56256,18715
+TR-21,Diyarbakır,225679,8602,11209
+TR-23,Elazığ,123713,10156,15220
+TR-27,Gaziantep,305683,29155,20251
+TR-46,Kahramanmaraş,243153,99326,17887
+TR-44,Malatya,178987,71519,12801
+TR-31,Hatay,406849,215255,25957
+TR-79,Kilis,37312,2514,1303
+TR-80,Osmaniye,143080,16111,4122
+TR-63,Şanlıurfa,382628,6163,6041
