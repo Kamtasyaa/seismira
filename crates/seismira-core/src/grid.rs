@@ -16,7 +16,7 @@
 use crate::duration;
 use crate::gmpe::cy14;
 use crate::intensity::Shindo;
-use crate::shaking::Scenario;
+use crate::shaking::{Gmm, Scenario};
 use crate::site::{REFERENCE_VS30, Site, Vs30Source};
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -209,7 +209,16 @@ pub fn compute(
                     match (r.motion, r.t_p, r.t_s, r.t_peak()) {
                         (Some(m), Some(tp), Some(ts), Some(peak)) => {
                             let q = &scenario.quake;
-                            let (d, _) = duration::d595(q.mw, r.dist.rrup, r.vs30_used, q.fault);
+                            let (d, _) = match scenario.gmm {
+                                Some(Gmm::Psbah20(event)) => duration::bahrampouri2021::d595(
+                                    q.mw,
+                                    r.dist.rrup,
+                                    r.vs30_used,
+                                    event,
+                                    q.fault,
+                                ),
+                                _ => duration::d595(q.mw, r.dist.rrup, r.vs30_used, q.fault),
+                            };
                             let c = m.shindo() as u8;
                             let rise = r.rise as f32;
                             (

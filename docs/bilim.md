@@ -434,11 +434,20 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   1000 km'ye büyür: Mw 9 Tōhoku benzeri senaryoda ince ızgara 1648×1296
   (adım 2 hücre, ~1,9 km), referans makinede kaba 134 ms, ince 424 ms; en
   yüksek bellek ~300 MB (Bölüm 11 içinde).
-- VARSAYIM: sarsıntı süresi (D5-95) dalma-batmada da Afshari & Stewart
-  (2016) kabuk modeliyle, girdileri model aralığına çekilerek (M ≤ 7.9,
-  Rrup ≤ 200 km) hesaplanıyor; büyük arayüz depremlerinde süre kısa kalır.
-  Yalnızca bölge sınırının "yatışmış" durumuna geçişini etkiler. Dalma-
-  batma için süre modeli AÇIK KONU (7.3).
+- Sarsıntı süresi (D5-95), dalma-batma (2026-11-20): Bahrampouri,
+  Rodriguez-Marek & Green (2021), Earthquake Spectra 37(2), 903–920,
+  doi:10.1177/8755293020970971 (kullanıcının getirdiği yayımlanmış PDF;
+  Eş. 7–12, Tablo 1–2 sayfa görüntüsünden doğrulandı). Arayüz ve levha içi
+  ayrı katsayılar; KiK-net verisi, M 4–9, dalma-batma Rrup ≤ 500 km.
+  δZ1 = 0 (Z1 bilinmiyor). Aralık dışı girdi uca çekilir (yalnızca "sarsıntı
+  bitti" görseli). Kabukta Afshari & Stewart (2016) kalır.
+  Tablo notu: levha içi m3 üç değer, etiketsiz; kabuk sütunundaki sırayla
+  (RS 5,828 / SS 4,231 / NS 5,496) okundu. OpenQuake da aynı eşlemeyi
+  kullanıyor (çıktı karşılaştırması). Metin (s. 908) normal faylarda sürenin
+  daha kısa olduğunu söylüyor, ama tabloda NS'nin m3'ü RS'ninkine yakın ve
+  SS'ninkinden büyük; tablo uygulandı (kabuk sütununda da aynı durum var).
+  Etkisi: Mw 9 arayüz, 300 km'de ~108 s (AS16 uca çekilmiş haliyle ~40 s
+  kalıyordu); Tōhoku kayıtlarında 100–200 s.
 - Fay boyutu, dalma-batma arayüzü (2026-11-20): alan yine Wells &
   Coppersmith (1994) (doğrulanmış; M > 7,9 ekstrapolasyon uyarısı sürüyor),
   ama genişlik artık arayüzün sismojenik alt sınırıyla doyuyor:

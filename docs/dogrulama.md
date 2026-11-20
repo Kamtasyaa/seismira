@@ -281,3 +281,13 @@ PGV 12 cm/s, tahmin 20 cm/s.
 - Otomatik test: `puebla_2017_dogrulamasi_kayitli_degerlerde` (A ve B
   satırları, ±0,01; Vs30 haritası CI'da yok).
 
+### 2026-11-20 — Süre modeli birim testi: Bahrampouri vd. (2021) ↔ OpenQuake
+
+- Referans: OpenQuake 3.26.2 `BahrampouriEtAldm2021SInter` / `SSlab`
+  (AGPL; yalnızca çıktı, `scripts/gen_duration_sub_ref.py` →
+  `data/test/duration_sub_ref.csv`): 768 senaryo (arayüz RS; levha içi
+  RS/SS/NS; M 4–9; Rrup 5–500 km; Vs30 150–1200).
+- Sonuç: en büyük |Δln D| = 4.6e-5 (%0,005; OpenQuake'in δZ1 yuvarlaması),
+  σ aynı. Ölçüt (%1) sağlandı. Elle denetim: arayüz M 4, Rrup 5 km, Vs30 150
+  → ln D 2,6465 (OpenQuake 2,646588).
+

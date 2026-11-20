@@ -81,6 +81,123 @@ pub fn d595(mw: f64, rrup_km: f64, vs30: f64, fault: FaultType) -> (f64, f64) {
     (ln_d.exp(), (tau * tau + phi * phi).sqrt())
 }
 
+/// Dalma-batma (arayüz ve levha içi) sarsıntı süresi D5-95: Bahrampouri,
+/// Rodriguez-Marek & Green (2021).
+///
+/// Kaynak: Bahrampouri, M., Rodriguez-Marek, A. & Green, R. A. (2021).
+/// Ground motion prediction equations for significant duration using the
+/// KiK-net database. Earthquake Spectra 37(2), 903–920.
+/// doi:10.1177/8755293020970971. Denklemler 7–12, katsayılar Tablo 1
+/// (D5-95), standart sapmalar Tablo 2 (makalenin yayımlanmış sürümü
+/// okundu, 2026-11-20; tablo sayfa görüntüsünden doğrulandı):
+/// - ln D = ln(F_source + F_path) + F_site (Eş. 7)
+/// - F_source = 10^(m1·(M − m2)) + m3 (Eş. 8)
+/// - F_path = slope·Rrup (Rrup ≤ R1), slope·[R1 + MSE·(Rrup − R1)] (Rrup > R1)
+///   (Eş. 9); slope = r1 + r2·(M − 4) (Eş. 10); MSE = 0 (M ≤ M1),
+///   (M − M1)/(M2 − M1) (M1 < M ≤ M2), 1 (M > M2) (Eş. 11)
+/// - F_site = s1·ln(min(Vs30, 600)/600) + s2·min(δZ1, 250) + s3 (Eş. 12).
+///   δZ1 = 0 alınır (Z1 bilinmiyor; CY14 ve AS16'daki seçimle tutarlı).
+/// - σ = √(φSS² + τ² + φS2S²) (Eş. 14, Tablo 2).
+///
+/// Levha içinde m3 fay tipine bağlı; Tablo 1'de değerler kabuk sütunuyla
+/// aynı sırada (RS, SS, NS) verilmiş, etiket yalnızca kabuk sütununda.
+/// NOT: tabloda NS'nin m3'ü en büyük, oysa metin (s. 908) "normal
+/// faylarda süre daha kısa" diyor; tablo uygulandı (docs/bilim.md).
+///
+/// Geçerlilik (makale): M 4–9, KiK-net verisi; dalma-batma kayıtları
+/// Rrup ≤ 500 km ile sınırlı. Dışındaki girdiler uca çekilir (AS16 ile
+/// aynı gerekçe: süre yalnızca "sarsıntı bitti" görselinde kullanılır).
+pub mod bahrampouri2021 {
+    use crate::gmpe::psbah20::EventType;
+    use crate::quake::FaultType;
+
+    pub const MW_RANGE: (f64, f64) = (4.0, 9.0);
+    pub const RRUP_RANGE: (f64, f64) = (0.0, 500.0);
+    /// Vs30 alt sınırı (m/s): Parker vd. (2020) aralığıyla aynı; site
+    /// terimi 600 m/s üstünde zaten sabit.
+    pub const VS30_MIN: f64 = 150.0;
+
+    struct Coeffs {
+        m1: f64,
+        m2: f64,
+        /// RS, SS, NS (arayüzde üçü aynı).
+        m3: [f64; 3],
+        mag1: f64,
+        mag2: f64,
+        r1: f64,
+        r2: f64,
+        big_r1: f64,
+        s1: f64,
+        s3: f64,
+        /// φSS, τ, φS2S (Tablo 2).
+        sd: [f64; 3],
+    }
+
+    // Tablo 1 ve 2, D5-95. s2 (δZ1 eğimi) δZ1 = 0 olduğu için kullanılmaz:
+    // levha içi 0.001409, arayüz 0.001234.
+    const INTRASLAB: Coeffs = Coeffs {
+        m1: 0.3850,
+        m2: 4.1604,
+        m3: [5.828, 4.231, 5.496],
+        mag1: 5.5,
+        mag2: 8.0,
+        r1: 0.09936,
+        r2: 0.02495,
+        big_r1: 200.0,
+        s1: -0.2440,
+        s3: -0.04109,
+        sd: [0.335, 0.194, 0.245],
+    };
+    const INTERFACE: Coeffs = Coeffs {
+        m1: 0.2384,
+        m2: 4.16,
+        m3: [8.4117; 3],
+        mag1: 5.5,
+        mag2: 8.0,
+        r1: 0.08862,
+        r2: 0.04194,
+        big_r1: 200.0,
+        s1: -0.2875,
+        s3: -0.03137,
+        sd: [0.275, 0.191, 0.223],
+    };
+
+    /// D5-95 (s) medyanı ve ln standart sapması. Girdiler geçerlilik
+    /// aralığına çekilir.
+    pub fn d595(
+        mw: f64,
+        rrup_km: f64,
+        vs30: f64,
+        event: EventType,
+        fault: FaultType,
+    ) -> (f64, f64) {
+        let c = match event {
+            EventType::Interface => &INTERFACE,
+            EventType::Intraslab => &INTRASLAB,
+        };
+        let m = mw.clamp(MW_RANGE.0, MW_RANGE.1);
+        let r = rrup_km.clamp(RRUP_RANGE.0, RRUP_RANGE.1);
+        let v = vs30.max(VS30_MIN);
+        let m3 = c.m3[match fault {
+            FaultType::Reverse => 0,
+            FaultType::StrikeSlip => 1,
+            FaultType::Normal => 2,
+        }];
+        let source = 10f64.powf(c.m1 * (m - c.m2)) + m3;
+        let slope = c.r1 + c.r2 * (m - 4.0);
+        let mse = ((m - c.mag1) / (c.mag2 - c.mag1)).clamp(0.0, 1.0);
+        let path = if r <= c.big_r1 {
+            slope * r
+        } else {
+            slope * (c.big_r1 + mse * (r - c.big_r1))
+        };
+        let site = c.s1 * (v.min(600.0) / 600.0).ln() + c.s3;
+        let ln_d = (source + path).ln() + site;
+        let [a, b, d] = c.sd;
+        (ln_d.exp(), (a * a + b * b + d * d).sqrt())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,6 +225,60 @@ mod tests {
             n += 1;
         }
         assert_eq!(n, 810);
+    }
+
+    /// Bahrampouri vd. (2021) ↔ OpenQuake 3.26.2 (yalnızca çıktı,
+    /// `scripts/gen_duration_sub_ref.py`): arayüz ve levha içi (RS/SS/NS),
+    /// M 4–9, Rrup 5–500 km, Vs30 150–1200.
+    #[test]
+    fn bahrampouri_openquake_ile_ayni() {
+        use crate::gmpe::psbah20::EventType;
+        let csv = include_str!("../../../data/test/duration_sub_ref.csv");
+        let mut n = 0;
+        for line in csv.lines().skip(1) {
+            let f: Vec<&str> = line.split(',').collect();
+            let num = |i: usize| f[i].parse::<f64>().unwrap();
+            let event = match f[0] {
+                "interface" => EventType::Interface,
+                _ => EventType::Intraslab,
+            };
+            let fault = match f[1] {
+                "RS" => FaultType::Reverse,
+                "SS" => FaultType::StrikeSlip,
+                _ => FaultType::Normal,
+            };
+            let (d, sigma) = bahrampouri2021::d595(num(2), num(3), num(4), event, fault);
+            assert!(
+                // En büyük fark 4,6e-5 (%0,005); OpenQuake'in δZ1 hesabındaki
+                // yuvarlama (z1pt0 = −999 dalı), katsayılar aynı.
+                (d.ln() - num(5)).abs() < 1e-4,
+                "{line}: ln D = {} (beklenen {})",
+                d.ln(),
+                num(5)
+            );
+            assert!((sigma - num(6)).abs() < 1e-3, "{line}: σ = {sigma}");
+            n += 1;
+        }
+        assert_eq!(n, 768);
+    }
+
+    #[test]
+    fn dalma_batma_suresi_kabuktan_uzun_ve_m9_gercekci() {
+        use crate::gmpe::psbah20::EventType;
+        let rs = FaultType::Reverse;
+        // Makalenin ana bulgusu: aynı M ve mesafede dalma-batma süresi
+        // kabuktakinden uzun.
+        let crust = d595(7.0, 100.0, 400.0, rs).0;
+        let sub = bahrampouri2021::d595(7.0, 100.0, 400.0, EventType::Interface, rs).0;
+        assert!(sub > crust, "kabuk {crust} dalma-batma {sub}");
+        // Mw 9, 300 km: ~1,5–2 dakika (Tōhoku kayıtları 100–200 s).
+        let m9 = bahrampouri2021::d595(9.0, 300.0, 400.0, EventType::Interface, rs).0;
+        assert!((90.0..200.0).contains(&m9), "{m9}");
+        // Aralık dışı uca çekilir.
+        assert_eq!(
+            bahrampouri2021::d595(9.5, 800.0, 100.0, EventType::Interface, rs),
+            bahrampouri2021::d595(9.0, 500.0, 150.0, EventType::Interface, rs)
+        );
     }
 
     #[test]
