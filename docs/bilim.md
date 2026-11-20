@@ -446,7 +446,7 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   kullanıyor (çıktı karşılaştırması). Metin (s. 908) normal faylarda sürenin
   daha kısa olduğunu söylüyor, ama tabloda NS'nin m3'ü RS'ninkine yakın ve
   SS'ninkinden büyük; tablo uygulandı (kabuk sütununda da aynı durum var).
-  Etkisi: Mw 9 arayüz, 300 km'de ~108 s (AS16 uca çekilmiş haliyle ~40 s
+  Etkisi: Mw 9 arayüz, 300 km, Vs30 400: ~108 s (AS16 uca çekilmiş haliyle ~60 s
   kalıyordu); Tōhoku kayıtlarında 100–200 s.
 - Fay boyutu, dalma-batma arayüzü (2026-11-20): alan yine Wells &
   Coppersmith (1994) (doğrulanmış; M > 7,9 ekstrapolasyon uyarısı sürüyor),
