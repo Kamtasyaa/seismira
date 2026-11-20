@@ -436,11 +436,24 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   Rrup ≤ 200 km) hesaplanıyor; büyük arayüz depremlerinde süre kısa kalır.
   Yalnızca bölge sınırının "yatışmış" durumuna geçişini etkiler. Dalma-
   batma için süre modeli AÇIK KONU (7.3).
-- Fay boyutu dalma-batmada hâlâ geçici: Wells & Coppersmith (1994) kabuk
-  alanı, genişlik sınırı yok (Mw 9 → 328 × 328 km; gözlenen Tōhoku ~500 ×
-  200 km). Strasser vd. (2010) ya da Allen & Hayes (2017) bağıntısının
-  birincil kaynağına erişilemedi (ikisi de SSA, kapalı erişim); kullanıcıya
-  soruldu (2026-11-20).
+- Fay boyutu, dalma-batma arayüzü (2026-11-20): alan yine Wells &
+  Coppersmith (1994) (doğrulanmış; M > 7,9 ekstrapolasyon uyarısı sürüyor),
+  ama genişlik artık arayüzün sismojenik alt sınırıyla doyuyor:
+  `source::INTERFACE_BOTTOM_KM` = 50 km. Kaynak: PEER Report 2020/02
+  (NGA-Sub veri tabanı), Bölüm 4.4, s. 65–66: Z_BC, "arayüz depremlerinin
+  en büyük derinliğinde levha yüzeyinin ortalama derinliği", "50 km in ALK
+  and CAM, 55 km in JPN and SAM" (Hayes vd. 2012; Tichelaar & Ruff 1993).
+  Bölgeden bağımsız 50 km seçildi. Sonuç (Tōhoku, eğim 14°): 519 × 207 km
+  (önce 328 × 328); gözlenen ~500 × 200 km. Çapraz denetim: nshmp-lib'de
+  (CC0) Shaw (2023) arayüz alanı log A = M − 4 olarak kodlu (kullanılmayan
+  yardımcı fonksiyon, makale görülmedi); Mw 9'da 100 000 km², WC94 ters
+  çözümü 107 000 km² (%7 fark). Levha içinde genişlik sınırı yok (kaynak
+  bulunamadı).
+  Erişilemeyen birincil kaynaklar (hepsi betik indirmesine kapalı, 2026-11-20):
+  Strasser vd. 2010, Allen & Hayes 2017, Shaw 2023 (SSA, kapalı);
+  Thingbaijam vd. 2017 (Bristol AAM, 403); Murotani vd. 2008 (EPS, Springer
+  JS doğrulaması), 2013 (GRL, Wiley 403; Zisin, J-STAGE bağlantıyı kesiyor).
+  PDF gelirse dalma-batmaya özgü alan bağıntısıyla değiştirilecek.
 - Test: pygmm 0.9.1 (nshmp-lib'i izler) ile 1620 senaryo × 7 ölçü = 11 340
   karşılaştırma, en büyük ln farkı 5e-15 (docs/dogrulama.md). pygmm'in
   katsayıları da nshmp-lib'den geldiği için bu test formül aktarımını

@@ -24,6 +24,16 @@ use crate::quake::{FaultType, Quake, Setting};
 /// Hiposantr daha derindeyse taban hiposantrı kapsayacak kadar iner.
 pub const SEISMOGENIC_BOTTOM_KM: f64 = 20.0;
 
+/// Dalma-batma arayüzünün sismojenik alt sınırı (km): arayüz depremlerinin
+/// en derin olduğu yerde levha yüzeyinin ortalama derinliği, "Z_BC".
+/// Kaynak: Contreras vd., PEER Report 2020/02 (NGA-Sub veri tabanı),
+/// Bölüm 4.4, s. 65–66 (Hayes vd. 2012; Tichelaar & Ruff 1993'e dayanır):
+/// "50 km in ALK and CAM, 55 km in JPN and SAM". Bölgeden bağımsız alt
+/// değer seçildi (55 km genişliği ~%10 artırırdı). Arayüz fayı bu
+/// derinliği aşamaz: büyük depremde genişlik doyar, alan korunarak
+/// uzunluk artar (kabuktaki [`SEISMOGENIC_BOTTOM_KM`] gibi).
+pub const INTERFACE_BOTTOM_KM: f64 = 50.0;
+
 /// Fay alanı (km²), Wells & Coppersmith (1994, BSSA 84(4), 974-1002),
 /// Tablo 2A, "tüm fay tipleri" M–RA bağıntısı M = 4.07 + 0.98·log10(A)'nın
 /// tersi. USGS nshmp-lib de alanı bu tersten hesaplar
@@ -125,9 +135,10 @@ impl Fault {
         let area = area_wc94(q.mw);
         let bottom = match q.setting {
             Setting::ShallowCrust => SEISMOGENIC_BOTTOM_KM.max(q.depth_km + 1.0),
-            // Faz 5'te Slab2 ve Strasser vd. (2010) ile değişecek; şimdilik
-            // derinlik sınırı yok.
-            Setting::Interface | Setting::Intraslab => f64::INFINITY,
+            Setting::Interface => INTERFACE_BOTTOM_KM.max(q.depth_km + 1.0),
+            // Levha içi: genişlik sınırı yok (VARSAYIM; levha kalınlığına
+            // bağlı bir sınır için kaynak bulunmadı).
+            Setting::Intraslab => f64::INFINITY,
         };
         let w_max = bottom / sin_d;
         let width = area.sqrt().min(w_max);
@@ -362,6 +373,30 @@ mod tests {
         let g = Fault::from_quake(&quake(5.0, 10.0, FaultType::StrikeSlip, 0.0));
         assert!((g.length - g.width).abs() < 1e-9);
         assert!((g.ztor + g.width / 2.0 - 10.0).abs() < 1e-9);
+    }
+
+    /// 2011 Tōhoku benzeri: Mw 9, eğim 14°, odak 29 km. Genişlik arayüzün
+    /// alt sınırında (50 km) doyar: W = 50 / sin 14° ≈ 207 km, L = A / W
+    /// ≈ 520 km (gözlenen kırılma ~500 × 200 km). Sınır olmadan kare
+    /// (~328 × 328 km) çıkıyordu.
+    #[test]
+    fn arayuz_genisligi_doyar() {
+        let mut q = quake(9.0, 29.0, FaultType::Reverse, 193.0);
+        q.setting = Setting::Interface;
+        q.dip = 14.0;
+        let f = Fault::from_quake(&q);
+        let w_max = INTERFACE_BOTTOM_KM / 14f64.to_radians().sin();
+        assert!((f.width - w_max).abs() < 1e-9, "{f:?}");
+        assert!((f.length * f.width - area_wc94(9.0)).abs() < 1e-6);
+        assert!((500.0..540.0).contains(&f.length), "{f:?}");
+        assert!(
+            f.ztor >= 0.0
+                && f.ztor + f.width * 14f64.to_radians().sin() <= INTERFACE_BOTTOM_KM + 1e-9
+        );
+        // Küçük arayüz depremi doymaz (kare).
+        q.mw = 7.0;
+        let f = Fault::from_quake(&q);
+        assert!((f.width - f.length).abs() < 1e-9, "{f:?}");
     }
 
     #[test]
