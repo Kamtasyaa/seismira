@@ -45,9 +45,9 @@ pub struct SiteResult {
     /// Dalma-batma depreminde saha yay ardında (Slab2, [`Slab2::is_backarc`]).
     /// Parker vd. (2020) yalnızca yay önü sahalar için kurulmuştur ve yay
     /// ardı terimi yoktur (PEER 2020/03, 8.3.2); şiddet yine hesaplanır ama
-    /// arayüz bunu "model dışı bölge" diye belirtir. Japonya'da yay ardında
-    /// daha güçlü sönümlenme gözlenmiştir, yani tahmin büyük olasılıkla
-    /// fazladır.
+    /// arayüz bunu belirtir. Japonya'da yay ardında daha güçlü sönümlenme
+    /// gözlenmiştir; Tōhoku 2011 istasyonlarında fark küçük ama aynı yönde
+    /// (docs/dogrulama.md).
     pub backarc: bool,
 }
 

@@ -420,10 +420,13 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   okyanus tarafı yay önü; Akita, Vladivostok, Yujno-Sahalinsk yay ardı.
   KARAR: yay ardında şiddet YİNE hesaplanır (Parker'ın yay ardı katsayısı
   yok; başka bir modelin terimini eklemek melez model olur), şehir kartında
-  "yay ardı: model yalnızca yay önü için kuruldu, tahmin büyük olasılıkla
-  fazla" notu çıkar (Bölüm 6: sessiz ekstrapolasyon yok). Izgara hücreleri
-  işaretlenmez. Tōhoku denemesinde Akita 5+ çıkıyor; gözlem daha düşüktü
-  (Faz 5 doğrulamasında sayıyla bakılacak).
+  "yay ardı: model yay önü verisiyle kuruldu; burada tahmin fazla olabilir"
+  notu çıkar (Bölüm 6: sessiz ekstrapolasyon yok). Izgara hücreleri
+  işaretlenmez. Tōhoku istasyonlarıyla ölçüldü (docs/dogrulama.md, Faz 5):
+  Japon Denizi tarafında model ~%15–30 fazla, yani etki gerçek ama küçük
+  (ilk metin "büyük olasılıkla fazla" idi, yumuşatıldı). Akita şehri:
+  gözlenen PGV 12, tahmin 20 cm/s. Yay çizgisi Kuzeydoğu Japonya'da gerçek
+  volkanik cepheden ~20–40 km batıda (cephenin altında levha 84–90 km).
 - Simülasyona bağlama (Faz 5 adım 3, 2026-11-20): `shaking::Gmm` depreme göre
   modeli seçer (kabuk → CY14; arayüz → Parker arayüz; levha içi ≤ 200 km →
   Parker levha içi; daha derin → model yok). Mesafe sınırı ve Vs30 aralığı

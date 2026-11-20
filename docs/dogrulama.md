@@ -187,3 +187,85 @@ denetleniyor (`seismira-data`, `izmit_1999_dogrulamasi_kayitli_degerlerde`):
 bilinçliyse yeni sayılar buraya yazılıp testteki beklenen değerler
 güncellenir. C (Vs30 haritası) ve Kahramanmaraş elle çalıştırılır; verileri
 depoda değil. Komutun çıktısı aynı (yeniden çalıştırıldı, tablo birebir).
+
+## Faz 5: dalma-batma doğrulaması (2026-11-20)
+
+Araç: `seismira-data validate-shakemap` artık `--setting interface|intraslab`
+ve `--slab data/slab2/slab2.sslb` alır (Parker vd. 2020; bölge, uygulamadaki
+gibi merkez üssünün Slab2 zonundan) ve istasyonları yay önü / yay ardı diye
+ayırır (`--csv` ile istasyon ayrıntısı). A, B, C tanımları yukarıdaki gibi.
+
+### 2011 Tōhoku (USGS Mw 9.1), arayüz
+
+- Veri: USGS ShakeMap atlas `stationlist.json` (4 MB, depoda değil:
+  `data/raw/validation/tohoku2011/`, URL ve SHA256 SOURCES.toml'da); 1204
+  istasyon, model aralığında (Rrup ≤ 1000 km) 1189. Kırılma (ShakeMap,
+  Suzuki vd. 2011): ~36,0–39,9° K, 10–50 km derinlik.
+- Komut: `seismira-data validate-shakemap <stationlist.json> 142.373 38.297 29 9.1 193 14 RS --setting interface --slab data/slab2/slab2.sslb --vs30 data/vs30/vs30.sras`
+  (merkez üssü ve derinlik USGS; doğrultu / eğim USGS W-faz düğüm düzlemi).
+- Bölge Japonya – Pasifik (Slab2 zonu kur). Bizim fay: Mw 9,1'de 657 × 207 km.
+
+| Karşılaştırma | ort. ln(göz/tah) | std ln | ort. ΔI | \|ΔI\| < 1 |
+|---|---|---|---|---|
+| A: ShakeMap mesafeleri, bölgesel (Japonya Pasifik) | −0.01 | 0.47 | −0.01 | %99 |
+| A: ShakeMap mesafeleri, KÜRESEL model (karşılaştırma) | +0.43 | 0.59 | +0.34 | %93 |
+| B: bizim geometri | −0.31 | 0.51 | −0.24 | %96 |
+| C: bizim geometri + bizim Vs30 | −0.38 | 0.50 | −0.30 | %96 |
+| B, Mw 9,0 (uygulamadaki senaryo; fay 519 × 207 km) | −0.09 | 0.49 | −0.07 | %99 |
+| C, Mw 9,0 | −0.16 | 0.48 | −0.13 | %98 |
+
+| Rrup (km) | n | ΔI (A) | ΔI (B) | ΔI (C) |
+|---|---|---|---|---|
+| 50–100 | 113 | +0.10 | +0.00 | −0.01 |
+| 100–150 | 144 | −0.05 | −0.18 | −0.19 |
+| 150–200 | 147 | −0.08 | −0.25 | −0.27 |
+| 200–300 | 189 | −0.06 | −0.31 | −0.36 |
+| 300–500 | 408 | −0.10 | −0.43 | −0.48 |
+| 500–1000 | 188 | +0.25 | +0.04 | −0.11 |
+
+Yay önü / yay ardı (A): yay önü 419 istasyon +0.03, yay ardı 770 istasyon
+−0.03 (ΔI). Bölgelere göre (ln, A): Tōhoku Pasifik kıyısı yay önü −0.15,
+Tōhoku Japon Denizi tarafı yay ardı −0.32; Akita şehri (AKT010) gözlenen
+PGV 12 cm/s, tahmin 20 cm/s.
+
+- Değerlendirme: ölçütler sağlandı (Mw 9,1 C'de ort. ΔI −0,30 sınırda).
+  BÖLGESELLEŞTİRME ÇOK ÖNEMLİ: küresel modelle A +0,34 / std 0,59, Japonya
+  Pasifik katsayılarıyla −0,01 / 0,47.
+- B / C'deki fazla tahmin (Mw 9,1) 150–500 km'de büyüyor: bizim fay (WC94
+  alanı, M > 7,9 ekstrapolasyon) 657 km uzunlukta, gerçek kırılma ~450 km;
+  merkezlenmiş fay güneyde Kanto'ya fazla uzanıyor. Dalma-batmaya özgü alan
+  bağıntısı (PDF bekleniyor) ve hazır senaryoda gerçek fay geometrisi bunu
+  düzeltir. Mw 9,0'da (alan %20 küçük) sapma −0,07'ye iniyor.
+- Yay ardı: Japon Denizi tarafında model ~%15–30 fazla (ln −0.17 farkı,
+  ~0,1–0,4 Shindo birimi); Parker raporunun "Japonya'da yay ardında daha
+  güçlü sönümlenme" gözlemiyle aynı yönde, ama küçük. Kart notu buna göre
+  yumuşatıldı ("tahmin fazla olabilir").
+- Yay çizgisi denetimi: Slab2'ye göre Kuzeydoğu Japonya volkanik cephesinin
+  (Iwate, Kurikoma, Zao, Azuma, Nasu) altında levha 84–90 km derinlikte;
+  küresel ortalama 105 km eşiği yayı orada ~20–40 km fazla batıda çiziyor
+  (sınırdaki birkaç istasyon yay önü sayılıyor). Zon başına eşik için
+  Syracuse & Abers (2006) tablosu gerekir (görülmedi).
+
+### 2017 Puebla (Mw 7.1), levha içi
+
+- Veri: USGS ShakeMap atlas `stationlist.json`, `data/validation/puebla2017/`
+  (depoda, 480 KB). 29 UNAM istasyonu, hepsi TEK kanallı ("UNK"; bileşen
+  tanımı belirtilmemiş, değer olduğu gibi kullanıldı; büyük yatay bileşense
+  gözlenen ~%10 fazla görünür). Mexico City istasyonları bu listede yok
+  (USGS us v13 listesinde de aynı 29 istasyon).
+- Komut: `seismira-data validate-shakemap data/validation/puebla2017/stationlist.json -98.4887 18.5499 48 7.1 299 44 NS --setting intraslab --slab data/slab2/slab2.sslb --vs30 data/vs30/vs30.sras`
+  (USGS Mww düğüm düzlemi 1; düzlem 2 (108° / 47°) neredeyse aynı sonuç).
+- Bölge Orta Amerika kuzey (Slab2 zonu cam). Fay 35 × 35 km, Ztor 35,8 km.
+
+| Karşılaştırma | ort. ln(göz/tah) | std ln | ort. ΔI | \|ΔI\| < 1 |
+|---|---|---|---|---|
+| A: ShakeMap mesafeleri | +0.25 | 0.59 | +0.20 | %97 |
+| B: bizim geometri | +0.15 | 0.59 | +0.12 | %97 |
+| C: bizim geometri + bizim Vs30 | +0.00 | 0.56 | +0.00 | %97 |
+
+- Değerlendirme: ölçütler sağlandı. Model hafifçe az tahmin ediyor
+  (tek kanallı gözlem büyük bileşense bunun bir kısmı ondandır). 500 km
+  ötesinde 3 istasyonda +0,8 (az veri).
+- Otomatik test: `puebla_2017_dogrulamasi_kayitli_degerlerde` (A ve B
+  satırları, ±0,01; Vs30 haritası CI'da yok).
+

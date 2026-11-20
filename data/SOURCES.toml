@@ -109,6 +109,28 @@ license_checked = "2026-11-14"
 files = "data/validation/izmit1999/*"
 
 [[dataset]]
+id = "usgs-shakemap-puebla2017"
+name = "USGS ShakeMap, 2017 Puebla (us2000ar20, atlas): istasyon listesi (yalnızca doğrulama)"
+url = "https://earthquake.usgs.gov/earthquakes/eventpage/us2000ar20"
+license = "Public Domain (USGS)"
+attribution = "U.S. Geological Survey, ShakeMap (atlas)."
+modified = false
+license_checked = "2026-11-20"
+snapshot = "stationlist.json (atlas 1594399976203) sha256 63b30526ee60ae78743eff4c844b5c97a27af7008259905c9eddb9a2fd0d1d57"
+files = "data/validation/puebla2017/stationlist.json"
+
+[[dataset]]
+id = "usgs-shakemap-tohoku2011"
+name = "USGS ShakeMap, 2011 Tōhoku (official20110311054624120_30, atlas): istasyon listesi (yalnızca doğrulama; 4 MB, depoda değil)"
+url = "https://earthquake.usgs.gov/product/shakemap/official20110311054624120_30/atlas/1594161746661/download/stationlist.json"
+license = "Public Domain (USGS)"
+attribution = "U.S. Geological Survey, ShakeMap (atlas). Kırılma: Suzuki vd. (2011), GRL 38, L00G16."
+modified = false
+license_checked = "2026-11-20"
+snapshot = "stationlist.json sha256 24cd9999af4b168517f9a2d6acadc05c3b26ed16f3259087ddbfb91de1d57b03"
+files = "data/raw/validation/tohoku2011/ (depoda değil)"
+
+[[dataset]]
 id = "usgs-slab2"
 name = "USGS Slab2: dalma-batma levha geometrisi (27 zon, levha yüzeyi derinliği)"
 url = "https://doi.org/10.5066/F7PV6JNV"
