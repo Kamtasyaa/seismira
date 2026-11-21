@@ -18,10 +18,10 @@
 | Vs30 | USGS küresel Vs30 | Kontrol et |
 | Yükselti, eğim, CTI | Copernicus DEM GLO-90 veya SRTM | Kontrol et |
 | Deniz derinliği | GEBCO | Kontrol et |
-| Yağış | WorldClim (dağıtımı kısıtlı olabilir) veya CHELSA | Kontrol et |
-| Yeraltı su seviyesi | Fan vd. (2013) | Kontrol et |
-| Nehirler | HydroSHEDS / HydroRIVERS | Kontrol et |
-| Litoloji | GLiM (Hartmann & Moosdorf 2012) | Kontrol et |
+| Yağış | CHELSA V2.1 klimatolojileri (bio12) | CC0 1.0 (EnviDat, DOĞRULANDI 2026-11-22) |
+| Yeraltı su seviyesi | Fan vd. (2017) WTD, USC thredds | "Yalnızca araştırma amaçlı serbest": dağıtım için yazardan İZİN İSTENİYOR (2026-11-22) |
+| Nehirler | GMTED2010'dan kendi ürettiğimiz ağ (HydroSHEDS KULLANILMAZ) | Kamu malı türevi (karar 2026-11-22) |
+| Litoloji | GLiM (Hartmann & Moosdorf 2012) | 0,5° raster PANGAEA'da CC BY 3.0; vektör sürüm (CCGM) KONTROL ET |
 | Arazi örtüsü | GlobCover 2009 veya ESA WorldCover | Kontrol et |
 | Avrupa + Türkiye bina stoku, kırılganlık, site modeli | ESRM20 (risk.EFEHR) | CC BY 4.0 |
 | Diğer ülkeler bina stoku ve kırılganlık | GEM | CC BY-NC-SA 4.0, ticari YOK |
@@ -182,3 +182,39 @@ Lisans kuralları:
   aynı (fark ≤ 0,01 denetimi). Şiddet ölçüleri: SA(0.6) 233, SA(1.0) 170,
   PGA 71, SA(0.3) 37 tip.
 
+
+## Faz 7 girdileri: lisans kontrolü (2026-11-22)
+
+- CHELSA V2.1 klimatolojileri: EnviDat paketi `chelsa-climatologies`,
+  lisans CC0 1.0 (API `package_show`, 2026-11-22). Zhu 2017 WorldClim
+  (1950–2000) yağışıyla kalibre edildi; CHELSA farklı bir ürün, sapma
+  doğrulamada (adım 5) ölçülecek.
+- HydroSHEDS v1 / HydroRIVERS: lisans (TechDoc v1.4 Ek A) ticari kullanım
+  dahil serbest AMA dağıtım yalnızca "en az bu lisans kadar koruyucu" bir
+  son kullanıcı sözleşmesiyle, tek başına ürün olarak dağıtım yasak, tersine
+  mühendislik yasağı ve WWF'ye karşı tazmin yükümlülüğü var. GPL-3.0 açık
+  kaynak dağıtımla uyumsuz sayıldı. KARAR (kullanıcı, 2026-11-22): nehir ağı
+  GMTED2010 (kamu malı) yükseklik verisinden akış birikimiyle kendimiz
+  üretilir. HydroSHEDS da SRTM'den aynı yöntemle üretildiği için yaklaşım
+  benzer; eşik ve sapma belgelenir, USGS Ground Failure ile karşılaştırılır.
+  Aynı akış birikimi heyelan modelinin CTI girdisi için de kullanılır
+  (HYDRO1k CTI'nin USGS adresi 404).
+- Fan vd. yeraltı su seviyesi: `http://thredds-gfnl.usc.es/thredds/catalog/
+  GLOBALWTDFTP/annualmeans/` (https çalışmıyor), 5 kıta NetCDF, ~340 MB.
+  Dosyadaki sürüm Fan vd. (2017, PNAS 114(40), 10572–10577) "annual mean";
+  Zhu 2017'nin kalibre edildiği Fan, Li & Miguez-Macho (2013, Science 339,
+  940–943) değil. Global öznitelik: "These data can be used freely for
+  research purposes provided that the following source is acknowledged".
+  Yeniden dağıtım izni yok. KARAR (kullanıcı, 2026-11-22): veri sorumlusu
+  Gonzalo Miguez-Macho'dan (USC) e-postayla izin istenir; yanıt gelene kadar
+  veri yalnızca yerelde geliştirme/doğrulama için kullanılır, pakete girmez.
+  İzin gelmezse: Zhu 2017 kıyı modeli (wtd istemez) ya da başka WTD verisi.
+- Kıyıya uzaklık: Natural Earth (kamu malı) kıyı çizgisinden kendimiz
+  hesaplarız (USGS NASA Ocean Color ürününü kullanmış; taşınmış).
+- GLiM: PANGAEA 788537 (CC BY 3.0) yalnızca 0,5° raster ve dosya tanıtıcısı
+  bozuk ("handle not found"). Jessee 2018 vektör GLiM'i 250 m'ye
+  rasterlamış. Vektör sürüm Hamburg Üniversitesi sayfasında CCGM üzerinden
+  dağıtılıyor (Dropbox, `LiMW_GIS 2015.gdb.zip`, 1,14 GB); lisansı henüz
+  GÖRÜLMEDİ.
+- GlobCover 2009: ESA DUE sitesi yanıt vermiyor (2026-11-22 de). Alternatif:
+  aynı LCCS sınıf sistemini kullanan ESA CCI Land Cover (lisansı kontrol et).

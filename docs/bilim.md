@@ -259,6 +259,33 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     bağlantısı 500 verdi), GlobCover 2009 (ESA DUE sitesi yanıt vermiyor),
     HYDRO1k CTI (USGS eski adresi 404), NASA kıyı uzaklığı (OB.DAAC'a
     taşınmış). Lisansların HİÇBİRİ henüz kontrol edilmedi.
+- JESSEE 2018 MAKALESİNDEN DOĞRULAMA (2026-11-22; PDF kullanıcıdan, JGR
+  Earth Surface 123, 1835–1859, Tablo 3 s. 1846, Eş. 8–9; tablo sayfası
+  görüntü olarak okundu, işaretler teyitli):
+  - Eş. 8: logit(P) = a + b·ln(PGV) + c·eğim + d·litoloji + e·arazi örtüsü
+    + f·CTI + g·ln(PGV)·eğim. a = −6.30, b = 1.65, c = 0.06, f = 0.03,
+    g = 0.01. PGV cm/s (ShakeMap), eğim derece (GMTED 7,5″ medyan
+    yükseklikten, GMT ile), CTI = ln(A / tan α) (Moore 1991, 30″).
+    USGS koduyla birebir aynı.
+  - Litoloji (GLiM üst sınıflar; "glim75cN" numaraları GLiM kodlarının
+    alfabetik sırası: 1 ev, 2 ig, 3 mt … 15 vi, 16 wb): mt −1.87, nd −0.66,
+    pa −0.78, pb −1.88, pi −1.61, py −1.05, sc −0.95, sm −1.36, ss −1.92,
+    su −3.22, va −1.54, vb −1.50, vi −0.81. Tabloda olmayan ev (evaporit) ve
+    ig (buzul) = 0 (R'de ilk düzey referanstır; ev referans, ig eğitim
+    verisinde yok sayıldı: VARSAYIM). Su kütleleri (wb) analizden çıkarılmış
+    (s. 1840).
+  - USGS değişikliği: pekişmemiş tortul (su) −3.22 → −1.36 (kod sabiti
+    OLD = −3.21 ile eşleşiyor; makalede −3.22). Gerekçe USGS notunda: düşük
+    eğimde temsil edildiği için katsayı aşırı negatif. SEÇİM: USGS'in
+    işletimdeki değeri (−1.36) kullanılır, makale değeri belgede kalır.
+  - Arazi örtüsü (GlobCover 2009 sınıfları): 14 0.91, 20 0.88, 30 0.78,
+    40 0.68, 50 0.30, 60 1.77, 70 1.71, 90 −1.26, 100 1.50, 110 0.68,
+    120 1.13, 130 0.79, 140 1.03, 150 0.54, 160 2.34, 180 1.19, 190 0.30,
+    200 −0.06, 220 −0.18, 230 −1.08. Tabloda olmayan 11, 170, 210 = 0
+    (11 referans düzey; 210 su).
+  - Eş. 9 alansal kaplama: LP = exp(−7.592 + 5.237P − 3.042P² + 4.035P³)
+    (işaretler PDF metninde kayboluyor; USGS kodu ve Şekil 10 eğrisiyle
+    teyit: P = 1'de ~%25,6; Şekil 10 ekseni %0–25).
 
 ### 7.10 Tsunami
 
