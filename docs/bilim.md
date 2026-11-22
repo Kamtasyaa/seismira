@@ -352,6 +352,11 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     (logitte ±0,7 ve ±1,5); doğrulamada duyarlılık ölçülmeli. İyileştirme
     adayı: ağaç örtüsü yoğunluğu katmanıyla (ör. MODIS VCF) %40 eşiğinde
     ayırmak.
+    Başka aday: Copernicus CGLS-LC100 2019 (Zenodo 3939050,
+    `PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif`,
+    1 713 345 228 B): kapalı (111–116) / açık (121–126) orman sınıfları
+    doğrudan var. 2026-11-22'de indirme yarıda kesildi (1,02 GB, açılamıyor),
+    2026-11-23'te silindi; gerekirse yeniden indir, lisansı kontrol et.
   - Su (210) ve veri yok (0) → model uygulanmaz.
 - HEYELAN STATİK ÖN HESAP (2026-11-22): `seismira-data ls-static` →
   data/ground/ls_static.sras (365 MB, 2 dk; biçim seismira-core
