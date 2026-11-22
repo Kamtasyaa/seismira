@@ -145,6 +145,7 @@ impl GeoTiff {
             Ok(DecodingResult::F64(v)) => v.into_iter().map(|x| x as f32).collect(),
             Ok(DecodingResult::U32(v)) => v.into_iter().map(|x| x as f32).collect(),
             Ok(DecodingResult::U16(v)) => v.into_iter().map(f32::from).collect(),
+            Ok(DecodingResult::I16(v)) => v.into_iter().map(f32::from).collect(),
             Ok(DecodingResult::U8(v)) => v.into_iter().map(f32::from).collect(),
             Ok(_) => bail!("desteklenmeyen örnek türü"),
             Err(e) if e.to_string().contains("lzw end code") => {

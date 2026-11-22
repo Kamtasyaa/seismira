@@ -9,17 +9,20 @@
 //! seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>
 //! seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>
 //! seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>
+//! seismira-data ground-inputs <gmted md30_grd> <vs30.sras> <chelsa bio12.tif> <ne_10m_rivers.shp> <çıktı.sras>
 //! ```
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use seismira_core::mapfile::{Layer, LayerKind, MapFile, RESTART};
 use seismira_core::mercator;
 use shapefile::{Point, Polygon, PolygonRing, Polyline, Shape, ShapeReader};
 use std::path::Path;
 
+mod aig;
 mod city_sites;
 mod exposure;
 mod geotiff;
+mod ground_inputs;
 mod regions;
 mod validate_damage;
 mod vs30;
@@ -51,6 +54,42 @@ fn main() -> Result<()> {
         [cmd, esrm20, regions, output] if cmd == "exposure" => {
             exposure::run(Path::new(esrm20), Path::new(regions), Path::new(output))
         }
+        [cmd, dir, tifs @ ..] if cmd == "aig-check" => aig_check(Path::new(dir), tifs),
+        [cmd, gmted, vs30, chelsa, rivers, output] if cmd == "ground-inputs" => ground_inputs::run(
+            Path::new(gmted),
+            Path::new(vs30),
+            Path::new(chelsa),
+            Path::new(rivers),
+            Path::new(output),
+        ),
+        [cmd, file, pts @ ..] if cmd == "sras-sample" => {
+            let r = seismira_core::raster::Raster::open(std::fs::read(file)?)?;
+            for p in pts {
+                let (lon, lat) = p.split_once(',').context("nokta: boylam,enlem")?;
+                let (lon, lat): (f64, f64) = (lon.parse()?, lat.parse()?);
+                let mut line = format!("{p}:");
+                for (li, l) in r.layers.iter().enumerate() {
+                    let c = r.code_at(li, lon, lat)?;
+                    let v = c.and_then(|c| l.value(c));
+                    match (c, v) {
+                        (_, Some(v)) => line += &format!(" {}={v:.2}", l.name),
+                        (Some(c), None) => line += &format!(" {}=#{c}", l.name),
+                        _ => line += &format!(" {}=dışarı", l.name),
+                    }
+                }
+                println!("{line}");
+            }
+            Ok(())
+        }
+        [cmd, tif, pts @ ..] if cmd == "tif-sample" => {
+            let mut t = geotiff::GeoTiff::open(Path::new(tif))?;
+            for p in pts {
+                let (lon, lat) = p.split_once(',').context("nokta: boylam,enlem")?;
+                let v = t.value_at(lon.parse()?, lat.parse()?)?;
+                println!("{p}: {v}");
+            }
+            Ok(())
+        }
         [cmd, shp, vs30, ghsl, raster, info] if cmd == "regions" => regions::run(
             Path::new(shp),
             Path::new(vs30),
@@ -64,9 +103,78 @@ fn main() -> Result<()> {
              seismira-data vs30 <median.tif> <sd.tif> <çıktı.sras>\n  \
              seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>\n  \
              seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>\n  \
-             seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>"
+             seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>\n  \
+             seismira-data ground-inputs <gmted md30_grd> <vs30.sras> <chelsa bio12.tif> <ne_10m_rivers.shp> <çıktı.sras>\n  \
+             seismira-data aig-check <aig klasörü> <geotiff>...\n  \
+             seismira-data tif-sample <geotiff> <boylam,enlem>..."
         ),
     }
+}
+
+/// GMTED dosya adı: döşeme (sütun, satır) → kök ad. Döşemeler yalnızca
+/// satır satır (tek sütun): 0 → `w001001`, 1 → `w001000`, k ≥ 2 →
+/// `z001{k−1:03}`. md30'da 2, md75'te 33 dosya; dosya sayısı ve son
+/// dosyanın blok sayısı tutuyor, ayrıca GeoTIFF döşemeleriyle
+/// karşılaştırarak doğrulandı (`aig-check`, docs/veri.md).
+pub fn gmted_tile_name(tx: u32, ty: u32) -> String {
+    assert_eq!(tx, 0, "GMTED döşemeleri tek sütun");
+    match ty {
+        0 => "w001001".into(),
+        1 => "w001000".into(),
+        k => format!("z001{:03}", k - 1),
+    }
+}
+
+/// AIG okuyucusunu aynı ızgaradaki GeoTIFF döşemeleriyle karşılaştırır.
+fn aig_check(dir: &Path, tifs: &[String]) -> Result<()> {
+    let mut aig = aig::Aig::open(dir, gmted_tile_name)?;
+    for t in tifs {
+        let mut tif = geotiff::GeoTiff::open(Path::new(t))?;
+        let (tw, th) = tif.size();
+        let dx = (tif.west - aig.west) / aig.cell;
+        let dy = (aig.north - tif.north) / aig.cell;
+        ensure!(
+            (dx - dx.round()).abs() < 1e-3 && (dy - dy.round()).abs() < 1e-3,
+            "ızgaralar hizalı değil ({dx}, {dy})"
+        );
+        let (x0, y0) = (dx.round() as usize, dy.round() as i64);
+        let bh = aig.block_h() as i64;
+        let ya = y0.div_euclid(bh) * bh;
+        let n = ((y0 + i64::from(th)) - ya) as u32;
+        let w = aig.width as usize;
+        let mut band = vec![0i16; w * n as usize];
+        aig.rows(ya as u32, n, &mut band)?;
+        let mut trow = vec![0f32; tw as usize * th as usize];
+        tif.rows(0, th, &mut trow)?;
+        let (mut same, mut diff, mut nd) = (0u64, 0u64, 0u64);
+        let mut first = None;
+        let mut max_diff = 0f32;
+        for y in 0..th as usize {
+            let ay = (y0 - ya) as usize + y;
+            for x in 0..tw as usize {
+                let a = band[ay * w + (x0 + x) % w];
+                let g = trow[y * tw as usize + x];
+                if g.is_nan() || a == aig::NODATA {
+                    nd += 1;
+                    if g.is_nan() != (a == aig::NODATA) {
+                        diff += 1;
+                    }
+                } else if f32::from(a) == g {
+                    same += 1;
+                } else {
+                    diff += 1;
+                    max_diff = max_diff.max((f32::from(a) - g).abs());
+                    first.get_or_insert((x, y, a, g));
+                }
+            }
+        }
+        println!(
+            "{t}: aynı {same}, farklı {diff} (en büyük {max_diff} m), nodata {nd}; ilk fark \
+             {first:?}; CCITT bloğu {}",
+            aig.ccitt_blocks
+        );
+    }
+    Ok(())
 }
 
 /// Bir istasyonun karşılaştırma satırı. ln PGV'ler: gözlenen, A, B, C.

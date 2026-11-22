@@ -20,7 +20,7 @@
 | Deniz derinliği | GEBCO | Kontrol et |
 | Yağış | CHELSA V2.1 klimatolojileri (bio12) | CC0 1.0 (EnviDat, DOĞRULANDI 2026-11-22) |
 | Yeraltı su seviyesi | Fan vd. (2017) WTD, USC thredds | "Yalnızca araştırma amaçlı serbest": dağıtım için yazardan İZİN İSTENİYOR (2026-11-22) |
-| Nehirler | GMTED2010'dan kendi ürettiğimiz ağ (HydroSHEDS KULLANILMAZ) | Kamu malı türevi (karar 2026-11-22) |
+| Nehirler | GMTED2010'dan kendi ürettiğimiz ağ + Natural Earth 10m nehir orta hatları (HydroSHEDS KULLANILMAZ) | Kamu malı türevi (karar 2026-11-22) |
 | Litoloji | GLiM (Hartmann & Moosdorf 2012) | 0,5° raster PANGAEA'da CC BY 3.0; vektör sürüm (CCGM) KONTROL ET |
 | Arazi örtüsü | GlobCover 2009 veya ESA WorldCover | Kontrol et |
 | Avrupa + Türkiye bina stoku, kırılganlık, site modeli | ESRM20 (risk.EFEHR) | CC BY 4.0 |
@@ -209,8 +209,61 @@ Lisans kuralları:
   Gonzalo Miguez-Macho'dan (USC) e-postayla izin istenir; yanıt gelene kadar
   veri yalnızca yerelde geliştirme/doğrulama için kullanılır, pakete girmez.
   İzin gelmezse: Zhu 2017 kıyı modeli (wtd istemez) ya da başka WTD verisi.
-- Kıyıya uzaklık: Natural Earth (kamu malı) kıyı çizgisinden kendimiz
-  hesaplarız (USGS NASA Ocean Color ürününü kullanmış; taşınmış).
+- Kıyıya uzaklık: kendimiz hesaplarız (USGS NASA Ocean Color ürününü
+  kullanmış; taşınmış). Uygulamada okyanus maskesi olarak Vs30 mozaiğinin
+  okyanus kodu kullanıldı (Natural Earth yerine; uygulamadaki tüm 30″
+  katmanlarla aynı kıyı, 2026-11-22).
+
+## Faz 7 adım 2: girdi katmanları (2026-11-22)
+
+- GMTED2010 indirme: `Grid_ZipFiles/md30_grd.zip` (239 MB) ve
+  `md75_grd.zip` (2,9 GB), ESRI ArcInfo ikili ızgara. GeoTIFF döşemeleri
+  (`Global_tiles_GMTED/...`) de var ama 7,5″'te ~5 kat büyük; dizin
+  listeleri 403, tek tek dosya adresleri çalışıyor. GDAL kullanmamak için
+  saf Rust AIG okuyucu yazıldı (crates/seismira-data/src/aig.rs).
+  Doğrulama (`seismira-data aig-check`): md30, USGS GeoTIFF döşemeleri
+  30N030E (Türkiye–İran) ve 30S060W (G. Amerika) ile hücre hücre aynı
+  (8 640 000 / 8 640 000; kuzeyde tek fark aşağıdaki CCITT bloğu).
+  CCITT 1 bit bloklar (yalnızca RMin / RMin + 1 değerleri) için çözücü
+  yazılmadı, RMin ile doldurulur (hata ≤ 1 m): md30'da 177 450 bloğun 56'sı.
+  Dosya adları (döşeme satırı k, kuzeyden): 0 `w001001`, 1 `w001000`,
+  k ≥ 2 `z001{k−1}` (md30'da 2, md75'te 33 dosya).
+  md75 doğrulaması: 7,5″ GeoTIFF 30N030E ile 138 186 913 hücre aynı, 53 087
+  farklı (%0,04), en büyük fark 1 m, hepsi CCITT bloklarında.
+  GMTED köşesi 1/7200° (0,5″, ~15 m) kaymış (−180,000139°); Vs30 ızgarasıyla
+  aynı sayılır.
+  GMTED'de okyanus 0 m (nodata değil); su maskesi Vs30'dan.
+- CHELSA bio12 ölçeği: ham değer × 0,1 = mm/yıl. Örnek noktalarla
+  doğrulandı: İstanbul 773, Rize 2287, Paris 659, Londra 654 mm. Ham değer
+  u16'da 65535'te doyuyor (Cherrapunji 6553,5 mm; gerçek ~11 000); Zhu
+  2017 2500 mm'de kırptığı için etkisiz.
+- CTI tanımı DOĞRULANDI: USGS "HYDRO1k Documentation ReadMe" (PDF,
+  usgs.gov/media/files/hydro-1k-readme), Bölüm 3.2.5: CTI = ln(FA /
+  tan(slope)), düz alanda slope = 0,001; Bölüm 3.2.3: FA yukarı havza
+  alanı, 1 km hücrede km², tepelerde 0 (hücrenin kendisi hariç). Hafızadaki
+  "(FA + 1) × piksel alanı (m²)" tanımı YANLIŞTI, kullanılmadı.
+- Lisans kontrolü, litoloji ve arazi örtüsü (2026-11-22, sayfalar okundu):
+  - GLiM 0,5° raster (PANGAEA 788537): CC BY 3.0 (açıkça yazıyor). Vektör
+    sürüm: Hamburg sayfası ve PANGAEA'da lisans YAZMIYOR; CCGM üzerinden
+    sipariş/Dropbox. Jessee 2018 vektörü 250 m'ye rasterlamış; 0,5° (~55 km)
+    raster heyelan için çok kaba. Vektör için yazarlardan (Hartmann /
+    Moosdorf) yazılı izin gerekebilir: KULLANICIYA SORULACAK.
+  - ESA CCI Land Cover (1992–2015 v2.0.7) / C3S (2016+ v2.1.1): sayfalarda
+    sürüme bağlı tek bir lisans yok. CDS üç etiket listeliyor ("ESA CCI
+    licence", "CC-BY licence", "VITO licence") eşleme vermeden; ESA CCI
+    koşulları "any user for any purpose" + atıf diyor, ama aynı sayfadaki
+    "Copyrights" paragrafı yeniden dağıtımı ve türev ürünü yasaklıyor (portal
+    içeriği için mi, veri için mi belirsiz). Belirsiz: KULLANICIYA SORULACAK.
+  - ESA WorldCover 2021 v200 (10 m): CC BY 4.0 (esa-worldcover.org/en/data-access,
+    "free of charge, without restriction of use"). Atıf: "© ESA WorldCover
+    project 2021 / Contains modified Copernicus Sentinel data (2021)
+    processed by ESA WorldCover consortium"; Zanaga vd. 2022,
+    doi:10.5281/zenodo.7254221. Sınıfları (11) GlobCover LCCS sınıflarından
+    farklı: Jessee katsayıları için sınıf eşlemesi gerekir (yaklaşım
+    belgelenmeli, doğrulamada sapma ölçülmeli).
+- Üretim: `seismira-data ground-inputs` → data/ground/inputs30.sras
+  (depoda değil). Yöntem ve varsayımlar: ground_inputs.rs modül belgesi
+  ve docs/bilim.md 7.9.
 - GLiM: PANGAEA 788537 (CC BY 3.0) yalnızca 0,5° raster ve dosya tanıtıcısı
   bozuk ("handle not found"). Jessee 2018 vektör GLiM'i 250 m'ye
   rasterlamış. Vektör sürüm Hamburg Üniversitesi sayfasında CCGM üzerinden

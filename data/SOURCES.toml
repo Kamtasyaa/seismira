@@ -44,7 +44,7 @@ attribution = "Made with Natural Earth. Free vector and raster map data @ natura
 modified = true            # Web Mercator'a izdüşüm, üçgenleme, ikili biçim
 license_checked = "2026-11-14"
 note = "Sınırlar Natural Earth'ün varsayılan gösterimidir; siyasi görüş bildirmez."
-files = "data/map/ne_*.smap (scripts/prepare_data.py ile üretilir); data/regions/admin1.sras + admin1.sreg (Admin-1 çokgenleri → bölge kimliği rasterı, seismira-data regions)"
+files = "data/map/ne_*.smap (scripts/prepare_data.py ile üretilir); data/regions/admin1.sras + admin1.sreg (Admin-1 çokgenleri → bölge kimliği rasterı, seismira-data regions); data/ground/inputs30.sras dr_km (ne_10m_rivers_lake_centerlines, seismira-data ground-inputs)"
 
 [[dataset]]
 id = "ak135-traveltimes"
@@ -185,3 +185,26 @@ modified = true            # dağıtılmaz; yalnızca şehir başına Vs30 ağı
 license_checked = "2026-11-14"
 snapshot = "GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.zip sha256 3dda6099f02b45e31548a4f2e75b82249b32c815238065db703b477bdcba8aa2"
 files = "data/cities/cities15000.ssit (seismira-data city-sites), data/regions/admin1.sras yerleşim biti (seismira-data regions); scripts/fetch_ghsl.py"
+
+[[dataset]]
+id = "gmted2010"
+name = "GMTED2010 (Global Multi-resolution Terrain Elevation Data 2010), medyan yükseklik 30″ (md30) ve 7,5″ (md75)"
+url = "https://www.usgs.gov/coastal-changes-and-impacts/gmted2010"
+license = "Public Domain (USGS)"
+attribution = "Danielson, J.J., Gesch, D.B. (2011). Global multi-resolution terrain elevation data 2010 (GMTED2010). U.S. Geological Survey Open-File Report 2011-1073."
+modified = true            # eğim, akış yönü/birikimi (öncelikli taşma, D8), CTI, nehir ağı ve nehre uzaklık türetildi; u8 kuantalama
+license_checked = "2026-11-22"
+snapshot = "md30_grd.zip sha256 146529b3542e420ba5c87db096c089f98bb713bf6d1dc0b4051671fa18634cdb; md75_grd.zip sha256 edb880fddb7d4b17c084cd46248ee3cc8ade49f3675045aa0bc3646c0abb4875"
+note = "Nehir ağı HydroSHEDS yerine bu veriden üretilir (HydroSHEDS lisansı GPL dağıtımla uyumsuz, docs/veri.md)."
+files = "data/ground/inputs30.sras (seismira-data ground-inputs; depoda değil); scripts/fetch_ground.py"
+
+[[dataset]]
+id = "chelsa-v2.1-bio12"
+name = "CHELSA V2.1 biyoklimatik değişken bio12 (yıllık yağış, 1981–2010, 30″)"
+url = "https://doi.org/10.16904/envidat.228"
+license = "CC0-1.0"
+attribution = "Karger, D.N. vd. (2021). Climatologies at high resolution for the earth's land surface areas (V2.1). EnviDat, doi:10.16904/envidat.228. Yöntem: Karger, D.N., Conrad, O., Böhner, J., Kawohl, T., Kreft, H., Soria-Auza, R.W., Zimmermann, N.E., Linder, H.P., Kessler, M. (2017). Climatologies at high resolution for the earth's land surface areas. Scientific Data 4, 170122."
+modified = true            # 0,1 ölçek çarpanı uygulandı, 0–2500 mm'ye kırpıldı (Zhu 2017 sınırı), u8 kuantalama
+license_checked = "2026-11-22"
+snapshot = "CHELSA_bio12_1981-2010_V.2.1.tif sha256 070c2309ead1ae703652e87f1ca51ba390c9ddfd9a236944528ae8b1c53a4e9a"
+files = "data/ground/inputs30.sras katmanı precip_mm (depoda değil); scripts/fetch_ground.py"

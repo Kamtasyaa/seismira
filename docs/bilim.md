@@ -287,6 +287,30 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     (işaretler PDF metninde kayboluyor; USGS kodu ve Şekil 10 eğrisiyle
     teyit: P = 1'de ~%25,6; Şekil 10 ekseni %0–25).
 
+- FAZ 7 ADIM 2: GİRDİ KATMANLARI (2026-11-22). `seismira-data ground-inputs`
+  → data/ground/inputs30.sras (Vs30 ızgarası 30″, ~355 MB, depoda değil;
+  4 dk, tepe bellek 8,5 GB). Katmanlar: slope30, cti, dr_km, dc_km,
+  precip_mm. Ayrıntı: crates/seismira-data/src/ground_inputs.rs.
+  - Akış: öncelikli taşma (Barnes vd. 2014) + D8; çıkışlar okyanus ve
+    Vs30 göl kodu (iç havzalarda sahte taşma nehri olmasın diye göller
+    havuz; Vs30 göl kodu geniş nehir yataklarını da kapsıyor, bu yüzden
+    Amazon gibi havzalar parçalanıyor: en büyük havza 3,08 milyon km²).
+  - Nehir: yukarı havza ≥ 10 km² (VARSAYIM, HydroRIVERS ölçütü), iç su
+    hücresi ya da Natural Earth 10m nehir orta hattı (büyük nehirlerin
+    konumunu sabitler; D8 hattı New Orleans'ta Mississippi'den ~2 km
+    kaymıştı). Kara hücrelerinin %17,3'ü; ~38 milyon km, HydroRIVERS'ın
+    toplam uzunluğuyla (~35,9 milyon km, aynı eşik) uyumlu. Akarsu yatakları
+    düz deltalarda kayabilir (HydroSHEDS gibi akarsu yakma yok; ör. Kahire'de
+    Nil'e ~3 km). Adım 5'te USGS ile karşılaştırılacak.
+  - CTI: HYDRO1k tanımı (belge doğrulandı, docs/veri.md); FA = 0 için
+    FA + 1 hücre VARSAYIMI.
+  - Uzaklıklar: 5 × 5 pahlı dönüşüm, 50 km'de kırpılır (0,2 km adım).
+  - Eğim: 30″ Horn. Jessee 2018 eğimi 7,5″'ten (md75) hesaplanacak (adım 3;
+    30″ eğim dikliği düşürür). Zhu 2017'nin eğim maskesi (0–5°) için hangi
+    çözünürlük kullanılacağı adım 3'te.
+  - Eksik girdiler: yeraltı su seviyesi (Fan WTD, izin bekleniyor), litoloji
+    (GLiM vektör lisansı), arazi örtüsü (GlobCover / ESA CCI lisansı).
+
 ### 7.10 Tsunami
 
 - Renkler: SARI az tehlikeli, KIRMIZI tehlikeli, MOR çok tehlikeli.
