@@ -252,7 +252,58 @@ pub enum JobMsg {
     Liquefaction(
         Arc<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid>,
         Arc<seismira_core::grid::ShakeGrid>,
+        Vec<RegionLiquefaction>,
     ),
+}
+
+/// Bir bölgenin sıvılaşma özeti: toplam tehlike (Σ kaplama × alan, km²;
+/// USGS Ground Failure'ın "aggregate hazard" ölçüsü) ve bölgede ilk karenin
+/// belirdiği an (s). Kimliğe göre sıralı.
+#[derive(Clone, Copy, Debug)]
+pub struct RegionLiquefaction {
+    pub id: seismira_core::region::RegionId,
+    pub km2: f64,
+    pub t_first: f64,
+}
+
+/// Bölge toplamları (ince ızgaranın temsilci taban hücresinin bölgesine).
+fn liquefaction_by_region(
+    liq: &seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid,
+    shake: &seismira_core::grid::ShakeGrid,
+    domain: &seismira_core::grid::Domain,
+    step: u32,
+    ids: &[seismira_core::region::RegionId],
+) -> Vec<RegionLiquefaction> {
+    use std::collections::BTreeMap;
+    const R_KM: f64 = 6371.0088;
+    let spec = liq.spec;
+    let mut by: BTreeMap<seismira_core::region::RegionId, (f64, f64)> = BTreeMap::new();
+    for row in 0..spec.height {
+        let (_, lat) = spec.center(0, row);
+        let area = (R_KM * spec.cell.to_radians()).powi(2) * lat.to_radians().cos();
+        for col in 0..spec.width {
+            let i = (row * spec.width + col) as usize;
+            let c = f64::from(liq.coverage[i]);
+            if c <= 0.0 {
+                continue;
+            }
+            let bx = (col * step + step / 2).min(domain.w - 1) as usize;
+            let by_ = (row * step + step / 2).min(domain.h - 1) as usize;
+            let id = ids[by_ * domain.w as usize + bx];
+            if id == 0 {
+                continue;
+            }
+            let e = by.entry(id).or_insert((0.0, f64::INFINITY));
+            e.0 += c * area;
+            if c >= f64::from(crate::ground_style::MIN_COVERAGE) {
+                e.1 = e.1.min(f64::from(shake.t_end[i]));
+            }
+        }
+    }
+    by.into_iter()
+        .filter(|(_, (_, t))| t.is_finite())
+        .map(|(id, (km2, t_first))| RegionLiquefaction { id, km2, t_first })
+        .collect()
 }
 
 pub struct Job {
@@ -448,8 +499,17 @@ fn shake_grid(
                 liq.coastal,
                 t0.elapsed().as_millis()
             );
+            let by_region = regions
+                .and_then(|r| {
+                    r.map
+                        .window(domain.col0, domain.row0, domain.w, domain.h)
+                        .inspect_err(|e| log::error!("bölge penceresi okunamadı: {e}"))
+                        .ok()
+                })
+                .map(|ids| liquefaction_by_region(&liq, &g, &domain, s, &ids))
+                .unwrap_or_default();
             if tx
-                .send(JobMsg::Liquefaction(Arc::new(liq), g.clone()))
+                .send(JobMsg::Liquefaction(Arc::new(liq), g.clone(), by_region))
                 .is_err()
             {
                 return;

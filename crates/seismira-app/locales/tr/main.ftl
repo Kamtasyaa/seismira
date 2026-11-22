@@ -121,6 +121,7 @@ region-max-city = En yüksek: Shindo { $s } ({ $city })
 region-typical = Yaygın: Shindo { $s } (yerleşim alanının en az %10'u)
 region-arrivals = İlk P: T+{ $p }, ilk S: T+{ $s }
 region-lead = Erken uyarı: bölgedeki ilk S'ten { $s } s önce
+region-liquefaction = Sıvılaşma: ~{ $km2 } km² etkilenen alan (tahmini)
 region-blind = Erken uyarı: kör bölge (uyarı ilk S'ten sonra geliyor)
 region-not-covered = Erken uyarı kapsamı dışında (Shindo 4'ün altı)
 

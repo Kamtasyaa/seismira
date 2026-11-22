@@ -420,3 +420,7 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   kaydedilir.
 - Heyelan katmanı henüz YOK: litoloji ve arazi örtüsü verisinin lisans
   kararı bekleniyor (docs/veri.md).
+- Bölge kartı: "Sıvılaşma: ~X km² etkilenen alan (tahmini)" satırı (USGS'in
+  "aggregate hazard" ölçüsü: bölgedeki Σ kaplama × hücre alanı), bölgede ilk
+  kare belirdikten sonra ve katman açıkken. İzmit Mw 7,6 denemesinde Sakarya
+  ~110 km².

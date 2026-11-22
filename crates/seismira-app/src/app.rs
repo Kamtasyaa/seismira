@@ -384,6 +384,8 @@ pub struct SeismiraApp {
         Arc<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid>,
         f64,
     )>,
+    /// Bölge başına sıvılaşma özeti (kimliğe göre sıralı; bölge kartı).
+    liquefaction_regions: Vec<compute::RegionLiquefaction>,
     /// Bölge kimliği rasterı (il / eyalet); yoksa bölge bildirimleri
     /// GeoNames admin1 adlarıyla şehirlerden üretilir.
     regions: Option<Arc<compute::Regions>>,
@@ -492,6 +494,7 @@ impl SeismiraApp {
             damage: None,
             ground,
             liquefaction: None,
+            liquefaction_regions: Vec::new(),
             regions,
             region_events: Vec::new(),
             region_results: Vec::new(),
@@ -1121,6 +1124,21 @@ impl SeismiraApp {
                 }
             });
         }
+        // Sıvılaşma: bölgede ilk kare belirdiyse (katman açıksa).
+        if self.show_ground
+            && let Ok(k) = self
+                .liquefaction_regions
+                .binary_search_by_key(&id, |r| r.id)
+            && self.clock.t >= self.liquefaction_regions[k].t_first
+        {
+            let km2 = self.liquefaction_regions[k].km2;
+            let n = if km2 < 10.0 {
+                lang.num(km2, 1)
+            } else {
+                lang.num(km2, 0)
+            };
+            lines.push((lang.t_args("region-liquefaction", &[("km2", n)]), text));
+        }
         match self.damage.as_ref().and_then(|d| d.region(id)) {
             Some(d) if d.buildings > 0.0 => {
                 let heavy = |x: &[f64; 4]| x[2] + x[3];
@@ -1170,6 +1188,7 @@ impl SeismiraApp {
         self.map.set_grid(None);
         self.map.set_ground(None);
         self.liquefaction = None;
+        self.liquefaction_regions.clear();
         self.map.set_region_lines(None);
         self.map.set_region_styles(Vec::new());
         self.region_shown.clear();
@@ -1575,7 +1594,8 @@ impl eframe::App for SeismiraApp {
                         self.region_results = r;
                     }
                     compute::JobMsg::Damage(d) => self.damage = Some(d),
-                    compute::JobMsg::Liquefaction(liq, shake) => {
+                    compute::JobMsg::Liquefaction(liq, shake, by_region) => {
+                        self.liquefaction_regions = by_region;
                         let first = liq
                             .coverage
                             .iter()
