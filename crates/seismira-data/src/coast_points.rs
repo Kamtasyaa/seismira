@@ -17,6 +17,9 @@ use std::path::Path;
 
 const R_KM: f64 = 6371.0088;
 
+/// Seyreltme adayı: (kutu, (kutu merkezine uzaklık², boylam, enlem, derinlik)).
+type Candidate = ((i64, i64), (f64, f64, f64, f32));
+
 fn haversine_km(a: (f64, f64), b: (f64, f64)) -> f64 {
     let (la1, la2) = (a.1.to_radians(), b.1.to_radians());
     let dl = (b.0 - a.0).to_radians();
@@ -43,7 +46,7 @@ pub fn run(bathy_path: &Path, cities_path: &Path, output: &Path) -> Result<()> {
     };
     let dlat = (coast::SPACING_KM / R_KM).to_degrees();
     // (kutu) → (merkeze uzaklık², lon, lat, derinlik)
-    let rows: Vec<Vec<((i64, i64), (f64, f64, f64, f32))>> = (0..h)
+    let rows: Vec<Vec<Candidate>> = (0..h)
         .into_par_iter()
         .map(|y| {
             let mut out = Vec::new();
