@@ -54,31 +54,45 @@ pub mod zhu2017 {
 
     /// Büyüklük ölçek çarpanı SF = 1 / (1 + e^(−2(M − 6))). USGS büyüklüğü
     /// tek ondalığa yuvarlar ve e yerine 2.71828 yazar (fark ~1e−6,
-    /// ihmal edilir).
-    fn ln_pgv_sf(pgv_cms: f64, mw: f64) -> f64 {
+    /// ihmal edilir). Döndürülen: ln(PGV·SF), PGV 0–150 cm/s'ye kırpılır.
+    pub fn ln_pgv_sf(pgv_cms: f64, mw: f64) -> f64 {
         let m = (mw * 10.0).round() / 10.0;
         let sf = 1.0 / (1.0 + (-2.0 * (m - 6.0)).exp());
         (pgv_cms.clamp(0.0, 150.0) * sf).ln()
     }
 
-    /// Lojistik değişken X. Kırpma (USGS CLIPS): yağış 0–2500 mm, PGV
-    /// 0–150 cm/s.
-    pub fn logit(v: Variant, i: &Inputs) -> f64 {
-        let l = ln_pgv_sf(i.pgv_cms, i.mw);
+    /// ln(PGV·SF) teriminin katsayısı.
+    pub fn pgv_coef(v: Variant) -> f64 {
+        match v {
+            Variant::General => 0.334,
+            Variant::Coastal => 0.301,
+        }
+    }
+
+    /// Lojistik değişkenin sarsıntıdan BAĞIMSIZ kısmı (sabit + zemin
+    /// terimleri; `pgv_cms`, `pga_g`, `mw` kullanılmaz). Hücre başına bir kez
+    /// önceden hesaplanabilir (paket boyutu, docs/bilim.md 7.9).
+    pub fn static_logit(v: Variant, i: &Inputs) -> f64 {
         let pr = i.precip_mm.clamp(0.0, 2500.0);
         let vs = i.vs30.ln();
         match v {
             Variant::General => {
-                8.801 + 0.334 * l - 1.918 * vs + 0.0005408 * pr
+                8.801 - 1.918 * vs + 0.0005408 * pr
                     - 0.2054 * i.dc_km.min(i.dr_km)
                     - 0.0333 * i.wtd_m
             }
             Variant::Coastal => {
                 let sdc = i.dc_km.sqrt();
-                12.435 + 0.301 * l - 2.615 * vs + 0.0005556 * pr - 0.0287 * sdc + 0.0666 * i.dr_km
+                12.435 - 2.615 * vs + 0.0005556 * pr - 0.0287 * sdc + 0.0666 * i.dr_km
                     - 0.0369 * sdc * i.dr_km
             }
         }
+    }
+
+    /// Lojistik değişken X = statik kısım + katsayı·ln(PGV·SF). Kırpma
+    /// (USGS CLIPS): yağış 0–2500 mm, PGV 0–150 cm/s.
+    pub fn logit(v: Variant, i: &Inputs) -> f64 {
+        static_logit(v, i) + pgv_coef(v) * ln_pgv_sf(i.pgv_cms, i.mw)
     }
 
     /// Olasılık P; maskelenen hücrede (sarsıntı eşiği altında ya da
@@ -103,6 +117,23 @@ pub mod zhu2017 {
     /// olan alan oranı (0–1).
     pub fn cell_coverage(v: Variant, i: &Inputs, flat_fraction: f64) -> f64 {
         probability(v, i).map_or(0.0, |p| coverage(v, p) * flat_fraction)
+    }
+
+    /// [`cell_coverage`] ile aynı, ama zemin kısmı önceden hesaplanmış
+    /// ([`static_logit`]; Vs30 maskesi o aşamada uygulanmış olmalı).
+    pub fn cell_coverage_static(
+        v: Variant,
+        x_static: f64,
+        pgv_cms: f64,
+        pga_g: f64,
+        mw: f64,
+        flat_fraction: f64,
+    ) -> f64 {
+        if pgv_cms < MIN_PGV_CMS || pga_g < MIN_PGA_G {
+            return 0.0;
+        }
+        let x = x_static + pgv_coef(v) * ln_pgv_sf(pgv_cms, mw);
+        coverage(v, 1.0 / (1.0 + (-x).exp())) * flat_fraction
     }
 }
 
@@ -236,6 +267,90 @@ pub mod jessee2018 {
     }
 }
 
+/// Sıvılaşmanın zemin kısmının önceden hesaplanmış katmanları
+/// (`data/ground/liq_static.sras`, Vs30 ızgarası; docs/bilim.md 7.9 "paket
+/// boyutu"). Uygulamanın yedi ham girdi katmanı (~930 MB) yerine iki ya da
+/// üç `u8` katmanı taşımasını sağlar.
+///
+/// - `liq_x`: [`zhu2017::static_logit`], doğrusal [`X_LO`]–[`X_HI`], 251
+///   kod (adım 0,06). [`MASKED`] = model uygulanmaz (su, veri yok,
+///   Vs30 > 620 m/s, hiç düz çeyrek yok).
+/// - `liq_xf` (isteğe bağlı): ince düzeltme; `liq_x` en yakın kod olduğu
+///   için ondan farkı ±0,5 kod, (kod − 128) / 254 olarak saklanır (16 bit).
+/// - `liq_cls`: (düz çeyrek sayısı − 1) + 4·(kıyı modeli ise 1).
+///
+/// X_LO kırpması: statik X < −9 ise en güçlü sarsıntıda bile (PGV 150 cm/s,
+/// +1,67) P < 6,3·10⁻⁴; kaplama tabandaki değerinden (2,6·10⁻⁴) en çok
+/// %1,1 farklıdır. X_HI: kıyı modelinin analitik üst sınırı (~5,2) + pay.
+pub mod static_layer {
+    use super::zhu2017::Variant;
+    use crate::raster::{LayerInfo, Scale};
+
+    pub const FILE: &str = "liq_static.sras";
+    pub const X_LO: f64 = -9.0;
+    pub const X_HI: f64 = 6.0;
+    const N_VALID: u8 = 251;
+    pub const MASKED: u8 = 255;
+
+    pub fn layers(fine: bool) -> Vec<LayerInfo> {
+        let mut v = vec![LayerInfo {
+            name: "liq_x".into(),
+            scale: Scale::Linear,
+            n_valid: N_VALID,
+            lo: X_LO as f32,
+            hi: X_HI as f32,
+        }];
+        if fine {
+            v.push(LayerInfo {
+                name: "liq_xf".into(),
+                scale: Scale::Linear,
+                n_valid: 255,
+                lo: -0.5,
+                hi: 0.5,
+            });
+        }
+        v.push(LayerInfo {
+            name: "liq_cls".into(),
+            scale: Scale::Linear,
+            n_valid: 8,
+            lo: 0.0,
+            hi: 7.0,
+        });
+        v
+    }
+
+    /// Kodlar (liq_x, liq_xf, liq_cls); `flat` 1–4. Maskeli hücre için
+    /// [`MASKED`] üçlüsü kullanılır.
+    pub fn encode(x: f64, flat: u8, v: Variant) -> [u8; 3] {
+        debug_assert!((1..=4).contains(&flat));
+        let n = f64::from(N_VALID - 1);
+        let t = ((x - X_LO) / (X_HI - X_LO)).clamp(0.0, 1.0) * n;
+        let c = t.round();
+        let f = ((t - c) * 254.0).round() + 128.0;
+        let cls = (flat - 1) + if v == Variant::Coastal { 4 } else { 0 };
+        [c as u8, f.clamp(1.0, 255.0) as u8, cls]
+    }
+
+    /// (statik X, düz çeyrek sayısı, model); maskeli ya da bozuk kodda
+    /// `None`. `fine` yoksa yalnızca kaba kod kullanılır.
+    pub fn decode(x: u8, fine: Option<u8>, cls: u8) -> Option<(f64, u8, Variant)> {
+        if x >= N_VALID || cls >= 8 {
+            return None;
+        }
+        let mut t = f64::from(x);
+        if let Some(f) = fine {
+            t += (f64::from(f) - 128.0) / 254.0;
+        }
+        let xs = X_LO + t / f64::from(N_VALID - 1) * (X_HI - X_LO);
+        let v = if cls >= 4 {
+            Variant::Coastal
+        } else {
+            Variant::General
+        };
+        Some((xs, cls % 4 + 1, v))
+    }
+}
+
 /// Sıvılaşmanın sarsıntı ızgarası üzerinde hesabı (CLAUDE.md Bölüm 2.6).
 pub mod liquefaction_grid {
     use super::zhu2017::{self, Variant};
@@ -258,8 +373,10 @@ pub mod liquefaction_grid {
         }
     }
 
-    /// Girdi pencereleri. Hepsi Vs30 ızgarasına hizalı (taban ızgara).
-    pub struct Inputs<'a> {
+    /// Ham girdi pencereleri. Hepsi Vs30 ızgarasına hizalı (taban ızgara).
+    /// Veri hazırlama ve duyarlılık denemeleri için; uygulama
+    /// [`StaticInputs`] kullanır.
+    pub struct RawInputs<'a> {
         /// Vs30 (m/s; su / buz NaN).
         pub vs30: &'a [f32],
         pub precip_mm: Layer<'a>,
@@ -270,6 +387,76 @@ pub mod liquefaction_grid {
         /// Yeraltı su seviyesi (m); yoksa (ya da hücrede değer yoksa) kıyı
         /// modeli.
         pub wtd_m: Option<Layer<'a>>,
+    }
+
+    /// Önceden hesaplanmış zemin kısmı ([`super::static_layer`] kodları,
+    /// taban ızgarada pencere).
+    pub struct StaticInputs<'a> {
+        pub x: &'a [u8],
+        pub fine: Option<&'a [u8]>,
+        pub cls: &'a [u8],
+    }
+
+    pub enum Inputs<'a> {
+        Raw(RawInputs<'a>),
+        Static(StaticInputs<'a>),
+    }
+
+    impl Inputs<'_> {
+        fn len(&self) -> usize {
+            match self {
+                Inputs::Raw(r) => r.vs30.len(),
+                Inputs::Static(s) => s.x.len(),
+            }
+        }
+
+        /// Taban hücrenin (statik X, düz çeyrek, model); maskeli ya da girdi
+        /// eksikse `None` (kaplama 0).
+        fn base(&self, i: usize) -> Option<(f64, u8, Variant)> {
+            match self {
+                Inputs::Static(s) => super::static_layer::decode(
+                    *s.x.get(i)?,
+                    s.fine.and_then(|f| f.get(i).copied()),
+                    *s.cls.get(i)?,
+                ),
+                Inputs::Raw(r) => raw_base(r, i),
+            }
+        }
+    }
+
+    /// Ham girdilerden statik kısım (veri aracı aynı işlevi kullanır, böylece
+    /// önceden hesaplanan katman ile ham yol birebir aynı kalır).
+    pub fn raw_base(r: &RawInputs, i: usize) -> Option<(f64, u8, Variant)> {
+        let vs30 = f64::from(*r.vs30.get(i)?);
+        if !vs30.is_finite() || vs30 > zhu2017::MAX_VS30 {
+            return None;
+        }
+        let mut flat = 0u8;
+        for q in &r.slope_q {
+            if q.at(i)? <= zhu2017::SLOPE_MAX_DEG {
+                flat += 1;
+            }
+        }
+        if flat == 0 {
+            return None;
+        }
+        let wtd = r.wtd_m.and_then(|l| l.at(i));
+        let variant = if wtd.is_some() {
+            Variant::General
+        } else {
+            Variant::Coastal
+        };
+        let x = zhu2017::Inputs {
+            pgv_cms: 0.0,
+            pga_g: 0.0,
+            mw: 0.0,
+            vs30,
+            precip_mm: r.precip_mm.at(i)?,
+            dc_km: r.dc_km.at(i)?,
+            dr_km: r.dr_km.at(i)?,
+            wtd_m: wtd.unwrap_or(0.0),
+        };
+        Some((zhu2017::static_logit(variant, &x), flat, variant))
     }
 
     /// Hücre başına alansal kaplama (0–1; maskeli ya da veri yok: 0).
@@ -299,7 +486,7 @@ pub mod liquefaction_grid {
     ) -> Option<LiquefactionGrid> {
         let spec = shake.spec;
         let n = domain.w as usize * domain.h as usize;
-        assert_eq!(inputs.vs30.len(), n, "Vs30 penceresi alanla uyuşmuyor");
+        assert_eq!(inputs.len(), n, "zemin penceresi alanla uyuşmuyor");
         let rows: Vec<Option<Vec<CellOut>>> = (0..spec.height)
             .into_par_iter()
             .map(|row| {
@@ -315,7 +502,7 @@ pub mod liquefaction_grid {
                         let bx = (col * step + step / 2).min(domain.w - 1) as usize;
                         let by = (row * step + step / 2).min(domain.h - 1) as usize;
                         let i = by * domain.w as usize + bx;
-                        cell(shake, g, i, mw, inputs).unwrap_or(([0.0; 3], 0))
+                        cell(shake, g, mw, inputs.base(i)).unwrap_or(([0.0; 3], 0))
                     })
                     .collect();
                 Some(out)
@@ -349,38 +536,18 @@ pub mod liquefaction_grid {
     /// Bir hücrenin sonucu: ([medyan, −1τ, +1τ] kaplama, 1 genel / 2 kıyı).
     type CellOut = ([f32; 3], u8);
 
-    /// Bir hücre ([`CellOut`]). Girdi eksikse `None`.
-    fn cell(shake: &ShakeGrid, g: usize, i: usize, mw: f64, inp: &Inputs) -> Option<CellOut> {
-        let vs30 = f64::from(*inp.vs30.get(i)?);
+    /// Bir hücre ([`CellOut`]); maskeli ya da girdi eksikse `None`.
+    fn cell(
+        shake: &ShakeGrid,
+        g: usize,
+        mw: f64,
+        base: Option<(f64, u8, Variant)>,
+    ) -> Option<CellOut> {
+        let (xs, flat, variant) = base?;
         let (pgv, pga) = (f64::from(shake.pgv[g]), f64::from(shake.pga[g]));
-        if !(vs30.is_finite() && pgv.is_finite() && pga.is_finite()) {
+        if !(pgv.is_finite() && pga.is_finite()) {
             return None;
         }
-        let mut flat = 0u32;
-        for q in &inp.slope_q {
-            if q.at(i)? <= zhu2017::SLOPE_MAX_DEG {
-                flat += 1;
-            }
-        }
-        if flat == 0 {
-            return Some(([0.0; 3], 0));
-        }
-        let wtd = inp.wtd_m.and_then(|l| l.at(i));
-        let variant = if wtd.is_some() {
-            Variant::General
-        } else {
-            Variant::Coastal
-        };
-        let x = zhu2017::Inputs {
-            pgv_cms: pgv,
-            pga_g: pga,
-            mw,
-            vs30,
-            precip_mm: inp.precip_mm.at(i)?,
-            dc_km: inp.dc_km.at(i)?,
-            dr_km: inp.dr_km.at(i)?,
-            wtd_m: wtd.unwrap_or(0.0),
-        };
         let (tv, ta) = (f64::from(shake.pgv_tau[g]), f64::from(shake.pga_tau[g]));
         let c = [0.0, -1.0, 1.0].map(|k: f64| {
             let (kv, ka) = if tv.is_finite() && ta.is_finite() {
@@ -388,12 +555,14 @@ pub mod liquefaction_grid {
             } else {
                 (1.0, 1.0)
             };
-            let xi = zhu2017::Inputs {
-                pgv_cms: pgv * kv,
-                pga_g: pga * ka,
-                ..x
-            };
-            zhu2017::cell_coverage(variant, &xi, f64::from(flat) / 4.0) as f32
+            zhu2017::cell_coverage_static(
+                variant,
+                xs,
+                pgv * kv,
+                pga * ka,
+                mw,
+                f64::from(flat) / 4.0,
+            ) as f32
         });
         Some((c, if variant == Variant::General { 1 } else { 2 }))
     }
@@ -553,7 +722,7 @@ mod tests {
         let flat = [code(&slope, 0.3); 2];
         let steep = [code(&slope, 0.3), code(&slope, 12.0)];
         let vs30 = [250.0f32; 2];
-        let inputs = Inputs {
+        let inputs = Inputs::Raw(RawInputs {
             vs30: &vs30,
             precip_mm: Layer {
                 codes: &prc,
@@ -586,7 +755,7 @@ mod tests {
                 },
             ],
             wtd_m: None,
-        };
+        });
         let g = compute(
             &shake,
             &domain,
@@ -623,5 +792,81 @@ mod tests {
             1.0,
         );
         close(f64::from(g.coverage_hi[0]), hi, 1e-5);
+
+        // Önceden hesaplanmış katman (16 bit) ham yolla aynı sonucu verir;
+        // yalnızca kaba kodla (X adımı 0,06) hücre başına %5 içinde.
+        use crate::groundfailure::static_layer;
+        let Inputs::Raw(raw) = &inputs else {
+            unreachable!()
+        };
+        let enc: Vec<[u8; 3]> = (0..2)
+            .map(|i| {
+                let (x, flat, v) = raw_base(raw, i).unwrap();
+                static_layer::encode(x, flat, v)
+            })
+            .collect();
+        let (xs, fs, cs) = (
+            enc.iter().map(|e| e[0]).collect::<Vec<_>>(),
+            enc.iter().map(|e| e[1]).collect::<Vec<_>>(),
+            enc.iter().map(|e| e[2]).collect::<Vec<_>>(),
+        );
+        for (fine, tol) in [(Some(&fs[..]), 1e-4), (None, 5e-2)] {
+            let st = Inputs::Static(StaticInputs {
+                x: &xs,
+                fine,
+                cls: &cs,
+            });
+            let h = compute(
+                &shake,
+                &domain,
+                1,
+                7.4,
+                &st,
+                &std::sync::atomic::AtomicBool::new(false),
+            )
+            .unwrap();
+            for k in 0..2 {
+                let rel = (h.coverage[k] / g.coverage[k] - 1.0).abs();
+                assert!(rel < tol, "hücre {k}: göreli fark {rel}");
+                let rel = (h.coverage_hi[k] / g.coverage_hi[k] - 1.0).abs();
+                assert!(rel < tol, "hücre {k} (+1τ): göreli fark {rel}");
+            }
+            assert_eq!((h.general, h.coastal), (0, 2));
+        }
+    }
+
+    #[test]
+    fn statik_katman_kodlari() {
+        use static_layer::*;
+        use zhu2017::Variant;
+        for x in [-9.0, -3.217, 0.0, 0.031, 4.99, 6.0] {
+            for (flat, v) in [(1, Variant::General), (4, Variant::Coastal)] {
+                let [c, f, cls] = encode(x, flat, v);
+                let (y, fl, w) = decode(c, Some(f), cls).unwrap();
+                close(y, x, 3e-4);
+                assert_eq!((fl, w), (flat, v));
+                let (y, ..) = decode(c, None, cls).unwrap();
+                close(y, x, 0.031);
+            }
+        }
+        // Kırpma ve maske.
+        let [c, ..] = encode(-20.0, 2, Variant::General);
+        close(decode(c, None, 1).unwrap().0, X_LO, 1e-12);
+        assert!(decode(MASKED, Some(128), 0).is_none());
+        assert!(decode(10, None, MASKED).is_none());
+        // Statik + PGV terimi = tam logit.
+        let i = zhu_in();
+        for v in [Variant::General, Variant::Coastal] {
+            let full = zhu2017::cell_coverage(v, &i, 0.5);
+            let st = zhu2017::cell_coverage_static(
+                v,
+                zhu2017::static_logit(v, &i),
+                i.pgv_cms,
+                i.pga_g,
+                i.mw,
+                0.5,
+            );
+            close(st, full, 1e-12);
+        }
     }
 }

@@ -29,10 +29,13 @@ data/exposure/esrm20.sexp`.
 
 7. (`--ground`) Zemin yenilmesi girdileri (Faz 7): GMTED2010 + CHELSA
    indirilir (~3,6 GB, scripts/fetch_ground.py), data/ground/inputs30.sras
-   (~4 dk, ~8,5 GB RAM) ve data/ground/slope75.sras (~5 dk) üretilir.
-   Yeraltı su seviyesi (data/ground/wtd.sras) ayrı lisanslıdır ve burada
-   ÜRETİLMEZ (scripts/gen_fan_wtd.py; docs/veri.md). Yoksa uygulama Zhu 2017
-   kıyı modelini kullanır.
+   (~4 dk, ~8,5 GB RAM) ve data/ground/slope75.sras (~5 dk) üretilir; bunlardan
+   uygulamanın okuduğu tek dosya data/ground/liq_static.sras (sıvılaşmanın
+   zemin kısmı, `seismira-data liq-static`). Yeraltı su seviyesi
+   (data/ground/wtd.sras) ayrı lisanslıdır ve burada ÜRETİLMEZ
+   (scripts/gen_fan_wtd.py; docs/veri.md). Varsa liq_static genel modelle
+   (yalnızca yerel kullanım), yoksa Zhu 2017 kıyı modeliyle (dağıtılabilir)
+   üretilir.
 
 Her adım tekrar çalıştırılabilir; var olan doğru dosyalar yeniden indirilmez.
 """
@@ -116,6 +119,14 @@ def main() -> int:
                 "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
                 "slope75", "data/raw/gmted/md75/md75_grd", str(vs30.relative_to(ROOT)),
                 str(slope.relative_to(ROOT)),
+            )
+        liq = ground / "liq_static.sras"
+        if not liq.exists():
+            extra = [] if (ground / "wtd.sras").exists() else ["--coastal"]
+            run(
+                "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+                "liq-static", str(ground.relative_to(ROOT)), str(vs30.relative_to(ROOT)),
+                str(liq.relative_to(ROOT)), *extra,
             )
     print("Veri hazır.")
     return 0

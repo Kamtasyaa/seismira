@@ -276,6 +276,10 @@ Lisans kuralları:
 - Üretim: `seismira-data ground-inputs` → data/ground/inputs30.sras
   (depoda değil). Yöntem ve varsayımlar: ground_inputs.rs modül belgesi
   ve docs/bilim.md 7.9.
+- Uygulamanın okuduğu tek zemin dosyası: data/ground/liq_static.sras
+  (`seismira-data liq-static`, 8 bit, ~136 MB; depoda değil). Dağıtılacak
+  sürüm `--coastal` ile (wtd'siz) üretilir; ayrıntı docs/bilim.md 7.9
+  "paket boyutu".
 - GLiM: PANGAEA 788537 (CC BY 3.0) yalnızca 0,5° raster ve dosya tanıtıcısı
   bozuk ("handle not found"). Jessee 2018 vektör GLiM'i 250 m'ye
   rasterlamış. Vektör sürüm Hamburg Üniversitesi sayfasında CCGM üzerinden

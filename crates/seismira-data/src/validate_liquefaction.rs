@@ -362,7 +362,10 @@ pub fn run(
 /// Mw 7,8 senaryosu; USGS haritasıyla aynı özet.
 pub fn run_scenario(usgs_tif: &Path, ground: &Path) -> Result<()> {
     use seismira_core::grid::{self, Base, Domain};
-    use seismira_core::groundfailure::liquefaction_grid::{Inputs, Layer, compute};
+    use seismira_core::groundfailure::liquefaction_grid::{
+        Inputs, Layer, RawInputs, StaticInputs, compute,
+    };
+    use seismira_core::groundfailure::static_layer;
     use seismira_core::quake::{FaultType, Quake};
     use seismira_core::shaking::Scenario;
     use seismira_core::site::Vs30Map;
@@ -434,17 +437,74 @@ pub fn run_scenario(usgs_tif: &Path, ground: &Path) -> Result<()> {
         &domain,
         step,
         q.mw,
-        &Inputs {
+        &Inputs::Raw(RawInputs {
             vs30: &win,
             precip_mm: layer(&inputs, &pr),
             dc_km: layer(&inputs, &dc),
             dr_km: layer(&inputs, &dr),
             slope_q: qs.each_ref().map(|x| layer(&slope, x)),
             wtd_m: wt.as_ref().map(|(r, w)| layer(r, w)),
-        },
+        }),
         &cancel,
     )
     .context("iptal")?;
+
+    // Önceden hesaplanmış katman (uygulamanın kullandığı) ham yolla aynı
+    // sonucu vermeli (16 bit ve yalnızca kaba kodla).
+    if let Ok(st) = open(&ground.join(static_layer::FILE)) {
+        let x = read(&st, "liq_x")?;
+        let cls = read(&st, "liq_cls")?;
+        let fine = st
+            .layer("liq_xf")
+            .map(|_| read(&st, "liq_xf"))
+            .transpose()?;
+        let total = |c: &[f32]| -> f64 {
+            let spec = shake.spec;
+            let mut s = 0.0;
+            for row in 0..spec.height {
+                for col in 0..spec.width {
+                    let i = (row * spec.width + col) as usize;
+                    let lat = spec.center(col, row).1;
+                    let area = (R_KM * spec.cell.to_radians()).powi(2) * lat.to_radians().cos();
+                    s += f64::from(c[i]) * area;
+                }
+            }
+            s
+        };
+        let raw_total = total(&liq.coverage);
+        for (label, f) in [("16 bit", fine.as_ref()), ("8 bit", None)] {
+            if label == "16 bit" && f.is_none() {
+                continue;
+            }
+            let s = compute(
+                &shake,
+                &domain,
+                step,
+                q.mw,
+                &Inputs::Static(StaticInputs {
+                    x: &x.0,
+                    fine: f.map(|f| &f.0[..]),
+                    cls: &cls.0,
+                }),
+                &cancel,
+            )
+            .context("iptal")?;
+            let max_abs = s
+                .coverage
+                .iter()
+                .zip(&liq.coverage)
+                .map(|(a, b)| (a - b).abs())
+                .fold(0.0f32, f32::max);
+            println!(
+                "{}: statik katman ({label}) toplam {:.2} km² / ham {:.2} km² (oran {:.4}), \
+                 hücre en büyük fark {max_abs:.2e}",
+                static_layer::FILE,
+                total(&s.coverage),
+                raw_total,
+                total(&s.coverage) / raw_total
+            );
+        }
+    }
 
     let mut tif = GeoTiff::open(usgs_tif)?;
     let (tw, th) = tif.size();

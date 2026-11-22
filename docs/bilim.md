@@ -347,6 +347,31 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   - Medyan sarsıntıyla hesaplanır (belirsizlik aralığı henüz yok; USGS
     default_stddev ve PGV σ ile analitik σ adım 5'ten sonra).
 
+- FAZ 7: PAKET BOYUTU, STATİK KATMAN (2026-11-22). Zhu 2017 logiti
+  X = statik(Vs30, yağış, dc, dr, wtd) + b·ln(PGV·SF) biçiminde ayrılır
+  (`zhu2017::static_logit`, `pgv_coef`); statik kısım, düz çeyrek sayısı ve
+  model (genel/kıyı) hücre başına önceden hesaplanır: `seismira-data
+  liq-static` → data/ground/liq_static.sras (`groundfailure::static_layer`).
+  Uygulama yalnızca bu dosyayı okur; ham girdiler (inputs30 + slope75 + wtd
+  = 927 MB) yalnızca veri hazırlama ve duyarlılık denemeleri içindir.
+  - Niceleme: X doğrusal −9…+6, 251 kod (adım 0,06). X < −9 kırpılır (en
+    güçlü sarsıntıda bile P < 6,3·10⁻⁴; kaplama tabandan en çok %1,1 farklı;
+    140,7 milyon hücreden 180 718'i). 16 bit ince düzeltme (liq_xf) biçimde
+    tanımlı ama YAZILMIYOR: dosyayı 136 → 292 MB büyütüyor.
+  - Hata (8 bit): başvuru sarsıntısında (M 7,5, PGV 50 cm/s) dünya toplamı
+    oranı 1,00026, tek hücrede en büyük göreli fark %10,6 (düşük X'li
+    hücreler; sınıf sınırları ve model belirsizliği yanında küçük).
+    Kahramanmaraş uçtan uca: 1177,93 / 1177,81 km² (oran 1,0001).
+  - Lisans: wtd'li (genel model) dosya Fan WTD'den türetilmiştir, yalnızca
+    yereldir. Dağıtılacak paket `--coastal` ile (her hücre kıyı modeli)
+    üretilir; prepare_data.py wtd.sras yoksa bunu kendiliğinden seçer.
+    Dağıtılabilir sürüm 129,6 MB (8 bit). Başvuru sarsıntısında kıyı
+    modelinin dünya toplamı genel modelinkinin 0,74 katı (model farkı;
+    izin gelirse genel modele geçilir).
+  - Heyelan (Jessee) eğimi ln(PGV) ile çarpım teriminde taşıdığı için aynı
+    yolla tek sayıya indirgenemez; çeyrek başına statik kısım gerekecek
+    (heyelan katmanı geldiğinde, ayrı paket olarak düşünülecek).
+
 ### 7.10 Tsunami
 
 - Renkler: SARI az tehlikeli, KIRMIZI tehlikeli, MOR çok tehlikeli.

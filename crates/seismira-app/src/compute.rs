@@ -90,54 +90,39 @@ fn map_raster(path: &std::path::Path) -> Result<MappedRaster, String> {
     MappedRaster::open(map).map_err(err)
 }
 
-/// Zemin yenilmesi girdileri (Faz 7; docs/bilim.md 7.9): `data/ground/`
-/// altındaki rasterlar belleğe eşlenir, yalnızca deprem alanının döşemeleri
-/// okunur.
+/// Zemin yenilmesi girdileri (Faz 7; docs/bilim.md 7.9): sıvılaşmanın
+/// önceden hesaplanmış zemin kısmı (`data/ground/liq_static.sras`,
+/// `seismira-data liq-static`) belleğe eşlenir, yalnızca deprem alanının
+/// döşemeleri okunur.
 pub struct Ground {
-    /// slope30, cti, dr_km, dc_km, precip_mm.
-    inputs: MappedRaster,
-    /// slope_q0 … slope_q3 (7,5″ eğim çeyrekleri).
-    slope: MappedRaster,
-    /// Yeraltı su seviyesi (yalnızca yerel; yoksa Zhu kıyı modeli).
-    wtd: Option<MappedRaster>,
+    liq: MappedRaster,
+    /// liq_x, liq_xf (yoksa `None`: yalnızca kaba kod), liq_cls.
+    layers: (usize, Option<usize>, usize),
 }
 
 impl Ground {
     /// `vs30`: ızgaraların aynı olduğu denetlenir (pencereler hizalı olmalı).
     pub fn load(dir: &std::path::Path, vs30: &Vs30) -> Result<Arc<Self>, String> {
-        let inputs = map_raster(&dir.join("inputs30.sras"))?;
-        let slope = map_raster(&dir.join("slope75.sras"))?;
-        let wtd = map_raster(&dir.join("wtd.sras"))
-            .inspect_err(|e| log::info!("{e}: sıvılaşmada Zhu 2017 kıyı modeli kullanılacak"))
-            .ok();
-        let g = vs30.grid();
-        for (name, r) in [
-            ("inputs30", Some(&inputs)),
-            ("slope75", Some(&slope)),
-            ("wtd", wtd.as_ref()),
-        ] {
-            if let Some(r) = r
-                && (r.grid.west != g.west
-                    || r.grid.north != g.north
-                    || r.grid.cell != g.cell
-                    || r.grid.width != g.width
-                    || r.grid.height != g.height)
-            {
-                return Err(format!("{name}.sras Vs30 ızgarasıyla aynı değil"));
-            }
+        use seismira_core::groundfailure::static_layer;
+        let liq = map_raster(&dir.join(static_layer::FILE))?;
+        let (r, g) = (liq.grid, vs30.grid());
+        if r.west != g.west
+            || r.north != g.north
+            || r.cell != g.cell
+            || r.width != g.width
+            || r.height != g.height
+        {
+            return Err(format!(
+                "{} Vs30 ızgarasıyla aynı değil",
+                static_layer::FILE
+            ));
         }
-        for (r, names) in [
-            (&inputs, &["dr_km", "dc_km", "precip_mm"][..]),
-            (
-                &slope,
-                &["slope_q0", "slope_q1", "slope_q2", "slope_q3"][..],
-            ),
-        ] {
-            if let Some(n) = names.iter().find(|n| r.layer(n).is_none()) {
-                return Err(format!("zemin girdisinde '{n}' katmanı yok"));
-            }
-        }
-        Ok(Arc::new(Self { inputs, slope, wtd }))
+        let need = |n: &str| {
+            liq.layer(n)
+                .ok_or_else(|| format!("{}: '{n}' katmanı yok", static_layer::FILE))
+        };
+        let layers = (need("liq_x")?, liq.layer("liq_xf"), need("liq_cls")?);
+        Ok(Arc::new(Self { liq, layers }))
     }
 
     /// Alan penceresinde sıvılaşma kaplaması; okuma hatasında `None`
@@ -148,42 +133,28 @@ impl Ground {
         domain: &seismira_core::grid::Domain,
         step: u32,
         mw: f64,
-        vs30: &[f32],
         cancel: &AtomicBool,
     ) -> Option<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid> {
-        use seismira_core::groundfailure::liquefaction_grid::{Inputs, Layer, compute};
-        let (c0, r0, w, h) = (domain.col0, domain.row0, domain.w, domain.h);
-        let read = |r: &MappedRaster, name: &str| -> Option<(Vec<u8>, usize)> {
-            let li = r.layer(name)?;
-            r.window(li, c0, r0, w, h, u8::MAX)
-                .inspect_err(|e| log::error!("zemin girdisi '{name}' okunamadı: {e}"))
+        use seismira_core::groundfailure::liquefaction_grid::{Inputs, StaticInputs, compute};
+        use seismira_core::groundfailure::static_layer::MASKED;
+        let read = |li: usize| -> Option<Vec<u8>> {
+            self.liq
+                .window(li, domain.col0, domain.row0, domain.w, domain.h, MASKED)
+                .inspect_err(|e| log::error!("sıvılaşma katmanı okunamadı: {e}"))
                 .ok()
-                .map(|v| (v, li))
         };
-        let pr = read(&self.inputs, "precip_mm")?;
-        let dc = read(&self.inputs, "dc_km")?;
-        let dr = read(&self.inputs, "dr_km")?;
-        let q = [
-            read(&self.slope, "slope_q0")?,
-            read(&self.slope, "slope_q1")?,
-            read(&self.slope, "slope_q2")?,
-            read(&self.slope, "slope_q3")?,
-        ];
-        let wtd = self.wtd.as_ref().and_then(|r| Some((r, read(r, "wtd_m")?)));
-        fn layer<'a>(r: &'a MappedRaster, (codes, li): &'a (Vec<u8>, usize)) -> Layer<'a> {
-            Layer {
-                codes,
-                info: &r.layers[*li],
-            }
-        }
-        let inputs = Inputs {
-            vs30,
-            precip_mm: layer(&self.inputs, &pr),
-            dc_km: layer(&self.inputs, &dc),
-            dr_km: layer(&self.inputs, &dr),
-            slope_q: q.each_ref().map(|x| layer(&self.slope, x)),
-            wtd_m: wtd.as_ref().map(|(r, w)| layer(r, w)),
+        let (ix, ifine, icls) = self.layers;
+        let x = read(ix)?;
+        let fine = match ifine {
+            Some(li) => Some(read(li)?),
+            None => None,
         };
+        let cls = read(icls)?;
+        let inputs = Inputs::Static(StaticInputs {
+            x: &x,
+            fine: fine.as_deref(),
+            cls: &cls,
+        });
         compute(shake, domain, step, mw, &inputs, cancel)
     }
 }
@@ -491,9 +462,9 @@ fn shake_grid(
             }
         }
         ctx.request_repaint();
-        if fine && let (Some(gr), Some(win)) = (ground, window.as_deref()) {
+        if fine && let Some(gr) = ground {
             let t0 = std::time::Instant::now();
-            let Some(liq) = gr.liquefaction(&g, &domain, s, scenario.quake.mw, win, cancel) else {
+            let Some(liq) = gr.liquefaction(&g, &domain, s, scenario.quake.mw, cancel) else {
                 return; // iptal ya da okuma hatası (günlükte)
             };
             log::info!(
