@@ -3,6 +3,7 @@
 //! - [`bathy`]: uygulamanın okuduğu derinlik ızgarası (`data/tsunami/bathy.sras`).
 //! - [`coast`]: kıyı tahmin noktaları (`data/tsunami/coast.bin`).
 //! - [`okada85`]: sonlu dikdörtgen faydan yüzey yer değiştirmesi.
+//! - [`trigger`]: ilk değerlendirme (PTWC ölçütleri).
 
 /// Deniz derinliği ızgarası: NOAA NCEI ETOPO 2022 (60″, CC0) + Natural Earth
 /// deniz maskesi (scripts/gen_bathy.py, `seismira-data bathy`; docs/veri.md).
@@ -327,6 +328,109 @@ pub mod okada85 {
                     [0.0, 0.0, 0.0],
                     [3.507e-3, 0.0, -7.740e-3],
                 ],
+            );
+        }
+    }
+}
+
+/// İlk değerlendirme: PTWC'nin ilk metin ürünü ölçütleri. Kaynak: IOC
+/// Technical Series 135 (2017), "User's Guide for the Pacific Tsunami
+/// Warning Center Enhanced Products for the CARIBE-EWS", Tablo 2
+/// (www.weather.gov/media/ctwp/PDF/Users guide 2017.pdf; data/raw/papers/).
+/// Karayipler dışı ("Atlantic") satırları kullanılır; Karayipler'de bilgi
+/// eşiği 6,0'dır (aynı tablo).
+pub mod trigger {
+    /// Değerlendirme sonucu.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub enum Assessment {
+        /// Ürün yok (Mw < 6,5).
+        None,
+        /// Bilgi bildirimi: tsunami tehdidi beklenmez.
+        Information(Reason),
+        /// Tehdit mesajı: olası tehdit; `radius_km` içindeki kıyılar
+        /// (`None`: Mw ≥ 7,9, varış süresi ≤ 3 saat olan kıyılar).
+        Threat { radius_km: Option<f64> },
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Reason {
+        TooSmall,
+        TooDeep,
+        Inland,
+    }
+
+    /// Mw ≥ 7,9'da tehdit altındaki kıyıların en geç varış süresi (s).
+    pub const BASIN_ETA_S: f64 = 3.0 * 3600.0;
+
+    /// `at_sea`: merkez üssü deniz altında ya da kıyıya çok yakın (tablonun
+    /// "under the sea or very near the coast"; nasıl belirleneceği
+    /// uygulamanın işi).
+    pub fn assess(mw: f64, depth_km: f64, at_sea: bool) -> Assessment {
+        if mw < 6.5 {
+            return Assessment::None;
+        }
+        if !at_sea {
+            return Assessment::Information(Reason::Inland);
+        }
+        if mw <= 7.0 {
+            return Assessment::Information(Reason::TooSmall);
+        }
+        if depth_km >= 100.0 {
+            return Assessment::Information(Reason::TooDeep);
+        }
+        // Tablo Mw'yi bir ondalıkla verir (7,1–7,5, 7,6–7,8, ≥ 7,9);
+        // aradaki değerler bir üst aralığa yuvarlanır.
+        let radius_km = if mw < 7.55 {
+            Some(300.0)
+        } else if mw < 7.85 {
+            Some(1000.0)
+        } else {
+            None
+        };
+        Assessment::Threat { radius_km }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn ptwc_tablo2() {
+            use Assessment::*;
+            assert_eq!(assess(6.4, 10.0, true), None);
+            assert_eq!(assess(6.8, 10.0, true), Information(Reason::TooSmall));
+            assert_eq!(assess(7.0, 10.0, true), Information(Reason::TooSmall));
+            assert_eq!(assess(7.3, 10.0, false), Information(Reason::Inland));
+            assert_eq!(assess(7.3, 120.0, true), Information(Reason::TooDeep));
+            assert_eq!(
+                assess(7.3, 99.0, true),
+                Threat {
+                    radius_km: Some(300.0)
+                }
+            );
+            assert_eq!(
+                assess(7.5, 30.0, true),
+                Threat {
+                    radius_km: Some(300.0)
+                }
+            );
+            assert_eq!(
+                assess(7.7, 30.0, true),
+                Threat {
+                    radius_km: Some(1000.0)
+                }
+            );
+            assert_eq!(
+                assess(7.8, 30.0, true),
+                Threat {
+                    radius_km: Some(1000.0)
+                }
+            );
+            assert_eq!(
+                assess(9.0, 30.0, true),
+                Threat {
+                    radius_km: Option::None
+                }
             );
         }
     }

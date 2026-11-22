@@ -438,6 +438,25 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   ayarlanabilir). Bildirim ve kıyı vurgusu o anda başlar.
 - Yalnızca okyanusa bağlı kıyılar; göller ve iç sular maskelenir.
 - Aşama 3 (isteğe bağlı): sığ su denklemleri, wgpu compute shader.
+- KAYNAK (Faz 8 adım 2, 2026-11-23): IOC Technical Series 135 (2017),
+  PTWC Enhanced Products User's Guide for CARIBE-EWS (weather.gov PDF;
+  data/raw/papers/PTWC_CARIBE_Users_guide_2017.pdf).
+  - Tablo 2 (ilk metin ürünleri; Karayip dışı satırlar): Mw < 6,5 ürün
+    yok; deniz altında / kıyıya çok yakın ve Mw 6,5–7,0 → bilgi bildirimi
+    ("too small"); karada → bilgi ("too far inland"); derinlik ≥ 100 km ve
+    Mw ≥ 7,1 → bilgi ("too deep"); derinlik < 100 km: 7,1–7,5 tehdit (300 km
+    içi kıyılar), 7,6–7,8 (1000 km), ≥ 7,9 (varış ≤ 3 saat olan kıyılar).
+    Uygulama: seismira-core `tsunami::trigger::assess` (birim testli).
+    "Kıyıya çok yakın" tanımı tabloda yok: uygulamada VARSAYIM (adım 6'da
+    yazılacak).
+  - Zaman çizelgesi (Tablo 1): ilk ürün depremden 3–10 dk sonra. İlk uyarı
+    anı için JMA hedefi (~3 dk) hâlâ DOĞRULANACAK.
+  - Kıyı yüksekliği (Bölüm II, RIFT): Green yasası A_kıyı = A_açık ·
+    (D_açık / D_kıyı)^¼, D_kıyı = 1 m; açık nokta, kıyı noktasından daha
+    derin olan EN YAKIN model noktası; 100 km'den uzaksa kıyı tahmini
+    YAPILMAZ. PTWC tehdit eşiği: tahmini kıyı genliği > 0,3 m. Sınırlar:
+    ilk sonuçlar kolayca 2 kat değişebilir; küçük adalarda (< 30 km) ve
+    resifli kıyılarda Green yasası fazla verir.
 - UYGULAMA (Faz 8 adım 3, 2026-11-23): Okada (1985) PDF'i NIED'den
   (bosai.go.jp/e/pdf/Okada_1985_BSSA.pdf; data/raw/papers/). seismira-core
   `tsunami::okada85::displacement`: sonlu dikdörtgen kaynak, yüzey (ux, uy,
