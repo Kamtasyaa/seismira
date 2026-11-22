@@ -49,8 +49,10 @@ Kullanıcı bir deprem tanımlar ve "Başlat"a basar:
 5. S dalgası ulaşınca şehrin üstünde JMA Shindo kutusu belirir
    (0, 1, 2, 3, 4, 5-, 5+, 6-, 6+, 7). Bölge sınırı Shindo rengine
    döner ve sarsıntı sürerken yanıp söner.
-6. Sarsıntıdan sonra sıvılaşma ve heyelan riskli alanlar kırmızı
-   tonlu kareler olarak belirir.
+6. Sarsıntı bitince sıvılaşma ve heyelan riskli alanlar içi boş, kalın
+   kırmızı kareler (~25 km) olarak belirir, yumuşak yanıp söner; köşede
+   tür harfi (S / H), bölgede ilk karede bildirim (2026-11-23 kullanıcı
+   kararı, ayrıntı docs/arayuz.md).
 7. Tsunami tehlikesi varsa kıyılar sarı / kırmızı / mor renklenir,
    uyarı yürürlükteyken yanıp söner, varış süreleri gösterilir.
 8. Simülasyon bitince, kullanıcı isterse fay kırılma izi gösterilir.
