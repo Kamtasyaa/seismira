@@ -2,7 +2,6 @@
 
 mod gpu;
 mod grid_gpu;
-mod ground_gpu;
 mod region_lines;
 pub mod view;
 
@@ -11,30 +10,6 @@ pub use region_lines::RegionLines;
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
 use seismira_core::grid::{GridSpec, ShakeGrid};
 
-pub use ground_gpu::GroundKind;
-
-/// Hücre başına alan oranı veren bir zemin yenilmesi sonucu.
-pub trait Coverage: Send + Sync {
-    fn coverage(&self) -> &[f32];
-}
-
-impl Coverage for seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid {
-    fn coverage(&self) -> &[f32] {
-        &self.coverage
-    }
-}
-
-impl Coverage for seismira_core::groundfailure::landslide_grid::LandslideGrid {
-    fn coverage(&self) -> &[f32] {
-        &self.coverage
-    }
-}
-
-/// Zemin yenilmesi katmanı: kaplama ve aynı ızgaranın sarsıntı sonucu.
-pub type GroundData = (Arc<dyn Coverage>, Arc<ShakeGrid>);
-
-/// Zemin yenilmesi karesinin belirme süresi (s; "Hareketi azalt"ta anında).
-const GROUND_FADE_S: f32 = 1.5;
 use seismira_core::mapfile::MapFile;
 use seismira_core::mercator;
 use std::path::PathBuf;
@@ -91,12 +66,6 @@ pub struct MapWidget {
     grid_spec: Option<GridSpec>,
     /// Bu karede ızgara gösterilecekse simülasyon zamanı.
     grid_time: Option<f64>,
-    /// GPU'ya yüklenmeyi bekleyen zemin yenilmesi katmanları
-    /// ([`GroundKind`] sırası; `Some(None)`: kaldır).
-    ground_pending: [Option<Option<GroundData>>; 2],
-    ground_spec: [Option<GridSpec>; 2],
-    /// Bu karede gösterilecekse simülasyon zamanı ve "Hareketi azalt".
-    ground_time: [Option<(f64, bool)>; 2],
     /// GPU'ya yüklenmeyi bekleyen bölge sınırları (`Some(None)`: kaldır).
     lines_pending: Option<Option<Arc<RegionLines>>>,
     /// Yüklü sınırların bölge → köşe aralığı.
@@ -157,9 +126,6 @@ impl MapWidget {
             grid_pending: None,
             grid_spec: None,
             grid_time: None,
-            ground_pending: [None, None],
-            ground_spec: [None, None],
-            ground_time: [None, None],
             lines_pending: None,
             line_ranges: Default::default(),
             fill_ranges: Default::default(),
@@ -186,16 +152,6 @@ impl MapWidget {
     /// Bu karede ızgara gösterilecekse simülasyon zamanı.
     pub fn set_grid_time(&mut self, t: Option<f64>) {
         self.grid_time = t;
-    }
-
-    /// Yeni zemin yenilmesi katmanı (ya da `None`: kaldır).
-    pub fn set_ground(&mut self, kind: GroundKind, ground: Option<GroundData>) {
-        self.ground_pending[kind as usize] = Some(ground);
-    }
-
-    /// Bu karede katman gösterilecekse simülasyon zamanı.
-    pub fn set_ground_time(&mut self, kind: GroundKind, t: Option<f64>, reduce_motion: bool) {
-        self.ground_time[kind as usize] = t.map(|t| (t, reduce_motion));
     }
 
     /// Kaba harita yüklendi mi (ekranda bir şey var mı)?
@@ -255,29 +211,6 @@ impl MapWidget {
                 None => g.loaded = None,
             }
             self.grid_spec = g.loaded.as_ref().map(|(_, s)| *s);
-        }
-        for kind in GroundKind::ALL {
-            let Some(ground) = self.ground_pending[kind as usize].take() else {
-                continue;
-            };
-            if resources.get::<ground_gpu::GroundGpus>().is_none() {
-                resources.insert(ground_gpu::GroundGpus::new(
-                    &rs.device,
-                    rs.target_format,
-                    msaa,
-                ));
-            }
-            let g = &mut resources
-                .get_mut::<ground_gpu::GroundGpus>()
-                .expect("az önce eklendi")
-                .layers[kind as usize];
-            match ground {
-                Some((cov, shake)) => {
-                    g.upload(&rs.device, &rs.queue, kind, cov.coverage(), &shake);
-                }
-                None => g.loaded = None,
-            }
-            self.ground_spec[kind as usize] = g.loaded.as_ref().map(|(_, s)| *s);
         }
         if let Some(lines) = self.lines_pending.take() {
             if resources.get::<region_lines::RegionLinesGpu>().is_none() {
@@ -383,14 +316,8 @@ impl MapWidget {
             .grid_spec
             .zip(self.grid_time)
             .map(|(spec, t)| (self.grid_uniforms(rect, &spec, t), 2));
-        let ground = GroundKind::ALL.map(|k| {
-            self.ground_spec[k as usize]
-                .zip(self.ground_time[k as usize])
-                .map(|(spec, (t, reduce))| self.ground_uniforms(rect, k, &spec, t, reduce))
-        });
         let (regions, fills) = self.region_draws(rect);
         MapPaint {
-            ground,
             lod,
             regions,
             fills,
@@ -479,36 +406,6 @@ impl MapWidget {
         (lines, fills)
     }
 
-    fn ground_uniforms(
-        &self,
-        rect: Rect,
-        kind: GroundKind,
-        spec: &GridSpec,
-        t: f64,
-        reduce_motion: bool,
-    ) -> ground_gpu::GroundUniforms {
-        let g = self.grid_uniforms(rect, spec, t);
-        // Ekranda bir hücrenin kenarı (piksel); shader blok düzeyini seçer.
-        let cell_px = (spec.cell / 360.0 * self.view.scale) as f32;
-        let mut colors = [[0.0; 4]; 6];
-        for (k, (_, c)) in kind.palette().classes.iter().enumerate() {
-            colors[k] = c.to_normalized_gamma_f32();
-        }
-        ground_gpu::GroundUniforms {
-            scale: g.scale,
-            center: g.center,
-            bbox: g.bbox,
-            north: g.north,
-            cell: g.cell,
-            first_copy: g.first_copy,
-            t: g.t,
-            fade: if reduce_motion { 0.0 } else { GROUND_FADE_S },
-            cell_px,
-            _pad: [0.0; 2],
-            colors,
-        }
-    }
-
     fn grid_uniforms(&self, rect: Rect, spec: &GridSpec, t: f64) -> grid_gpu::GridUniforms {
         use seismira_core::intensity::Shindo;
         let v = &self.view;
@@ -558,6 +455,34 @@ impl MapWidget {
                     Stroke::new(5.0, Color32::from_black_alpha(160)),
                 );
                 painter.line_segment([c + a, c + b], Stroke::new(2.5, colors::EPICENTER));
+            }
+        }
+    }
+
+    /// Zemin yenilmesi kareleri (Bölüm 2.6): içi boş kırmızı çerçeve ve
+    /// köşesinde tür harfi. `boxes`: (batı, kuzey, doğu, güney) derece,
+    /// opaklık 0–1, harf, harf sağ köşede mi.
+    pub fn draw_ground_boxes(
+        &self,
+        ui: &egui::Ui,
+        rect: Rect,
+        boxes: &[([f64; 4], f32, &str, bool)],
+    ) {
+        let (first, n) = self.view.copies(rect);
+        let painter = ui.painter_at(rect);
+        for &([w, nlat, e, slat], alpha, letter, right) in boxes {
+            let (x0, y0) = mercator::to_unit(w, nlat);
+            let (x1, y1) = mercator::to_unit(e, slat);
+            for k in first..first + n as i32 {
+                let dx = f64::from(k);
+                let r = Rect::from_two_pos(
+                    self.view.world_to_screen(rect, [x0 + dx, y0]),
+                    self.view.world_to_screen(rect, [x1 + dx, y1]),
+                );
+                if !r.intersects(rect) {
+                    continue;
+                }
+                crate::ground_style::draw_box(&painter, r, alpha, letter, right);
             }
         }
     }

@@ -292,19 +292,66 @@ pub enum JobMsg {
     Regions(Vec<RegionResult>, Option<Arc<crate::map::RegionLines>>),
     /// Bölge özetlerinden sonra gelir (hesap daha uzun).
     Damage(DamageResults),
-    /// Sıvılaşma alansal kaplaması (ince ızgarayla aynı hücreler) ve o
-    /// ince ızgara (hücrede sarsıntının bittiği an için).
-    Liquefaction(
-        Arc<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid>,
-        Arc<seismira_core::grid::ShakeGrid>,
-        Vec<RegionGroundFailure>,
-    ),
-    /// Heyelan alansal kaplaması (sıvılaşmayla aynı hücreler).
-    Landslide(
-        Arc<seismira_core::groundfailure::landslide_grid::LandslideGrid>,
-        Arc<seismira_core::grid::ShakeGrid>,
-        Vec<RegionGroundFailure>,
-    ),
+    /// Zemin yenilmesi (önce sıvılaşma, sonra heyelan): bölge özetleri ve
+    /// haritadaki kırmızı kareler.
+    GroundFailure {
+        kind: GroundKind,
+        regions: Vec<RegionGroundFailure>,
+        boxes: Vec<GroundBox>,
+    },
+}
+
+/// Zemin yenilmesi türü.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GroundKind {
+    Liquefaction = 0,
+    Landslide = 1,
+}
+
+impl GroundKind {
+    pub const ALL: [GroundKind; 2] = [GroundKind::Liquefaction, GroundKind::Landslide];
+
+    /// Çizimde hücrenin sayıldığı en küçük kaplama (USGS görüntüleme
+    /// ayarının ilk sınıf sınırı: `zhu_2017_general.ini` 0,005,
+    /// `jessee_2018.ini` 0,002). Bölge kartında ilk karenin anı için.
+    pub fn min_coverage(self) -> f32 {
+        match self {
+            GroundKind::Liquefaction => 0.005,
+            GroundKind::Landslide => 0.002,
+        }
+    }
+
+    /// Bir kutunun kare olarak gösterileceği toplam etkilenen alan (km²):
+    /// USGS Ground Failure'ın olay düzeyi SARI uyarı eşiği
+    /// (groundfailure `utilities.py::get_alert`, main dalı, 2026-11-23
+    /// okundu: hazbinLQ = 10, 100, 1000; hazbinLS = 1, 10, 100 km²). Yani
+    /// kutu tek başına USGS'te sarı uyarı düzeyine ulaşıyorsa kare çıkar.
+    pub fn box_threshold_km2(self) -> f64 {
+        match self {
+            GroundKind::Liquefaction => 10.0,
+            GroundKind::Landslide => 1.0,
+        }
+    }
+}
+
+/// Kutunun kenarı (km; Bölüm 2.6, docs/arayuz.md "kırmızı kareler").
+pub const BOX_KM: f64 = 25.0;
+
+/// Tür başına en çok bu kadar kare (eşiği geçenlerin en riskli olanları).
+/// Sabit eşik depreme göre ya halı gibi onlarca kare ya da hiç kare
+/// veriyordu (2026-11-23 ölçümü, docs/arayuz.md).
+pub const MAX_BOXES: usize = 6;
+
+/// Haritadaki bir kırmızı kare: sabit kutu ızgarasının bir kutusu.
+#[derive(Clone, Copy, Debug)]
+pub struct GroundBox {
+    /// Batı, kuzey, doğu, güney (derece).
+    pub bounds: [f64; 4],
+    /// Kutuda kaplaması çizim eşiğini geçen hücrelerde sarsıntının ilk
+    /// bittiği an (s): kare bu anda belirir.
+    pub t: f64,
+    /// Kutudaki en yüksek kaplamalı hücrenin bölgesi (0: bilinmiyor).
+    pub region: seismira_core::region::RegionId,
 }
 
 /// Bir bölgenin zemin yenilmesi (sıvılaşma ya da heyelan) özeti: toplam
@@ -363,6 +410,85 @@ fn ground_by_region(
         .filter(|(_, (_, t))| t.is_finite())
         .map(|(id, (km2, t_first))| RegionGroundFailure { id, km2, t_first })
         .collect()
+}
+
+/// Kaplamayı ~[`BOX_KM`]'lik kutulara toplar; eşiği geçen kutuların en
+/// çok etkilenen alanlı [`MAX_BOXES`] tanesi döner (belirme anına göre
+/// sıralı). Kutular boylamda Δλ, enlemde Δφ = Δλ·cos φ₀
+/// (φ₀: alanın orta enlemi): Web Mercator'da o enlemde kare görünür.
+fn ground_boxes(
+    kind: GroundKind,
+    cov: &[f32],
+    shake: &seismira_core::grid::ShakeGrid,
+    domain: &seismira_core::grid::Domain,
+    step: u32,
+    ids: Option<&[seismira_core::region::RegionId]>,
+) -> Vec<GroundBox> {
+    use std::collections::HashMap;
+    const R_KM: f64 = 6371.0088;
+    let spec = shake.spec;
+    let lat0 = spec.north - f64::from(spec.height) * spec.cell / 2.0;
+    let dlat = (BOX_KM / R_KM).to_degrees();
+    let dlon = dlat / lat0.to_radians().cos().max(0.05);
+    // Kutu dizinleri dünya ızgarasına bağlı (alan kaysa da kutular aynı yerde).
+    struct Acc {
+        km2: f64,
+        t: f64,
+        best: (f32, seismira_core::region::RegionId),
+    }
+    let mut boxes: HashMap<(i64, i64), Acc> = HashMap::new();
+    let min = kind.min_coverage();
+    for row in 0..spec.height {
+        let (_, lat) = spec.center(0, row);
+        let area = (R_KM * spec.cell.to_radians()).powi(2) * lat.to_radians().cos();
+        for col in 0..spec.width {
+            let i = (row * spec.width + col) as usize;
+            let c = cov[i];
+            if c <= 0.0 {
+                continue;
+            }
+            let (lon, lat) = spec.center(col, row);
+            let key = ((lon / dlon).floor() as i64, (lat / dlat).floor() as i64);
+            let region = ids.map_or(0, |ids| {
+                let bx = (col * step + step / 2).min(domain.w - 1) as usize;
+                let by = (row * step + step / 2).min(domain.h - 1) as usize;
+                ids[by * domain.w as usize + bx]
+            });
+            let e = boxes.entry(key).or_insert(Acc {
+                km2: 0.0,
+                t: f64::INFINITY,
+                best: (0.0, 0),
+            });
+            e.km2 += f64::from(c) * area;
+            if c >= min {
+                e.t = e.t.min(f64::from(shake.t_end[i]));
+            }
+            if c > e.best.0 && region != 0 {
+                e.best = (c, region);
+            }
+        }
+    }
+    let mut top: Vec<((i64, i64), Acc)> = boxes
+        .into_iter()
+        .filter(|(_, a)| a.km2 >= kind.box_threshold_km2() && a.t.is_finite())
+        .collect();
+    top.sort_by(|a, b| b.1.km2.total_cmp(&a.1.km2));
+    top.truncate(MAX_BOXES);
+    let mut out: Vec<GroundBox> = top
+        .into_iter()
+        .map(|((kx, ky), a)| GroundBox {
+            bounds: [
+                kx as f64 * dlon,
+                (ky + 1) as f64 * dlat,
+                (kx + 1) as f64 * dlon,
+                ky as f64 * dlat,
+            ],
+            t: a.t,
+            region: a.best.1,
+        })
+        .collect();
+    out.sort_by(|a, b| a.t.total_cmp(&b.t));
+    out
 }
 
 pub struct Job {
@@ -564,17 +690,28 @@ fn shake_grid(
                     .inspect_err(|e| log::error!("bölge penceresi okunamadı: {e}"))
                     .ok()
             });
-            let by_region = |cov: [&[f32]; 3], min: f32| {
-                ids.as_ref()
-                    .map(|ids| ground_by_region(cov, min, &g, &domain, s, ids))
-                    .unwrap_or_default()
+            let msg = |kind: GroundKind, cov: [&[f32]; 3]| {
+                let regions = ids
+                    .as_ref()
+                    .map(|ids| ground_by_region(cov, kind.min_coverage(), &g, &domain, s, ids))
+                    .unwrap_or_default();
+                let boxes = ground_boxes(kind, cov[0], &g, &domain, s, ids.as_deref());
+                log::info!(
+                    "{kind:?}: {} kare (kutu {BOX_KM} km, eşik {} km²)",
+                    boxes.len(),
+                    kind.box_threshold_km2()
+                );
+                JobMsg::GroundFailure {
+                    kind,
+                    regions,
+                    boxes,
+                }
             };
-            let liq_regions = by_region(
-                [&liq.coverage, &liq.coverage_lo, &liq.coverage_hi],
-                crate::ground_style::LIQUEFACTION.min(),
-            );
             if tx
-                .send(JobMsg::Liquefaction(Arc::new(liq), g.clone(), liq_regions))
+                .send(msg(
+                    GroundKind::Liquefaction,
+                    [&liq.coverage, &liq.coverage_lo, &liq.coverage_hi],
+                ))
                 .is_err()
             {
                 return;
@@ -590,12 +727,11 @@ fn shake_grid(
                     ls.coverage.iter().filter(|&&c| c > 0.0).count(),
                     t0.elapsed().as_millis()
                 );
-                let ls_regions = by_region(
-                    [&ls.coverage, &ls.coverage_lo, &ls.coverage_hi],
-                    crate::ground_style::LANDSLIDE.min(),
-                );
                 if tx
-                    .send(JobMsg::Landslide(Arc::new(ls), g.clone(), ls_regions))
+                    .send(msg(
+                        GroundKind::Landslide,
+                        [&ls.coverage, &ls.coverage_lo, &ls.coverage_hi],
+                    ))
                     .is_err()
                 {
                     return;

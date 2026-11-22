@@ -82,8 +82,6 @@ traveltime-missing = Travel-time table not found (data/traveltime/ak135.ttt).
 
 # Intensity and cities (Phase 3)
 shindo-legend = Shindo (JMA)
-liquefaction-legend = Liquefaction: share of area affected (Zhu et al. 2017)
-landslide-legend = Landslides: share of area affected (Nowicki Jessee et al. 2018)
 percent = { $v }%
 city-p-arrived = P wave arrived: { $city }
 city-shindo = { $city }: Shindo { $shindo }
@@ -125,6 +123,13 @@ region-arrivals = First P: T+{ $p }, first S: T+{ $s }
 region-lead = Early warning: { $s } s before the first S in the region
 region-liquefaction = Liquefaction: ~{ $km2 } km² of area affected (likely { $lo }–{ $hi })
 region-landslide = Landslides: ~{ $km2 } km² of area affected (likely { $lo }–{ $hi })
+ground-letter-liquefaction = LQ
+ground-letter-landslide = LS
+ground-name-liquefaction = Liquefaction hazard
+ground-name-landslide = Landslide hazard
+ground-legend-note = Square: ~{ $km } km area; USGS yellow alert threshold
+ground-notice = [{ $letter }] { $name }: { $region }
+ground-notice-unnamed = [{ $letter }] { $name }
 region-blind = Early warning: blind zone (the alert comes after the first S)
 region-not-covered = Outside early-warning coverage (below Shindo 4)
 

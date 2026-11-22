@@ -228,7 +228,8 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   arazi örtüsü, CTI (doğrula).
 - Modellerin kalibre edildiği çözünürlük ve veri setleri kaynaktan
   doğrulanır; farklı veri seti kullanılırsa belgelenir.
-- Çıktı: hücre başına olasılık; haritada kırmızı tonlu kareler
+- Çıktı: hücre başına olasılık; haritada ~25 km'lik kutulara toplanıp içi boş
+  kırmızı kareler (gösterim kuralı docs/arayuz.md "kırmızı kareler")
   (yoğunluk = olasılık).
 - FAZ 7 ADIM 1 BULGULARI (2026-11-20, uygulanmadı):
   - Künye düzeltmesi: Zhu, Baise & Thompson (2017), "An Updated Geospatial

@@ -401,30 +401,41 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
 - Şehir kartına eklenenler: MMI satırı (Worden vd. 2012) ve zemin
   belirsizliği satırı ("Vs30 ×/÷ f → şiddet ±d"; docs/bilim.md 7.7).
 
-## Sıvılaşma katmanı (Faz 7 adım 4, 2026-11-22)
+## Zemin yenilmesi: kırmızı kareler (2026-11-23 kullanıcı kararı)
 
-- Vizyon madde 6: "kırmızı tonlu kareler". Değer USGS Ground Failure ile
-  aynı: hücrenin etkilenen alan oranı (alansal kaplama). Renk sınıfları
-  USGS görüntüleme sınırları: %0,5 / 1 / 2 / 5 / 10 / 20 (açık pembeden
-  koyu kırmızıya); %0,5 altı çizilmez.
-- Kare, o hücrede sarsıntının bittiği an (ızgaranın `t_end`'i: tepe anı +
-  D5-95) 1,5 s'de belirir; "Hareketi azalt" açıkken anında. Yanıp sönme yok.
-- Okunurluk: kareler ekranda en az 8 piksel olacak şekilde 2^k × 2^k hücrelik
-  bloklara toplanır (GPU mip düzeyleri; blok değeri hücrelerin ORTALAMASI,
-  yani bloğun etkilenen alan oranı). Her karenin 1 piksellik koyu kenarı var:
-  Shindo 6-/6+ kırmızılarından ve il dolgusundan ayrılsın diye (ilk denemede
-  karışıyordu).
-- Renk tek bilgi taşıyıcı değil: açıklama kutusunda (Shindo açıklamasının
-  üstünde, ilk kare belirince) her tonun yüzdesi yazar.
-- Görünüm menüsü → "Sıvılaşma riski (sarsıntı bitince)": varsayılan açık,
-  kaydedilir.
-- Heyelan katmanı (2026-11-23): `data/ground/ls_static.sras` varsa
-  gösterilir (yoksa Görünüm menüsünde seçeneği de çıkmaz). Sıvılaşmayla aynı
-  çizim (blok piramidi, sarsıntı bitince belirir), ayrı ton ailesi
-  (turuncu-kahve; sıvılaşma pembe-kırmızı), ayrı açıklama kutusu (ikisi
-  birlikteyse üst üste), bölge kartında "Heyelan: ~X km² (olası a–b)".
-  Sınıf sınırları USGS jessee_2018.ini (0,002 … 0,5). Aynı hücrede iki
-  katman varsa heyelan üstte. Görünüm menüsü seçimi kaydedilir.
+- Kullanıcı bir referans video gösterdi (Kahramanmaraş 2023 temalı bir
+  erken uyarı canlandırması): riskli alanlar İÇİ BOŞ, kalın kırmızı
+  çerçeveli sabit boyutlu karelerle gösteriliyor, sıvılaşma ve heyelan aynı
+  kareyle, fark bildirimde ("Landslide in Hatay"). İlk sürümdeki ısı
+  haritası (hücre başına 6 tonlu dolu kareler, GPU blok piramidi) KALDIRILDI;
+  kullanıcı "önerdiğin gibi yap" dedi.
+- Kutular: ~25 km (compute::BOX_KM); boylamda Δλ, enlemde Δφ = Δλ·cos φ₀
+  (alanın orta enlemi; Web Mercator'da kare). Kutunun değeri USGS'in
+  "aggregate hazard" ölçüsü: Σ kaplama × hücre alanı (km²).
+- Kare kuralı: kutu USGS Ground Failure'ın olay düzeyi SARI uyarı eşiğini
+  tek başına geçmeli (groundfailure `utilities.py::get_alert`: sıvılaşma
+  10 km², heyelan 1 km²; 2026-11-23 okundu) VE tür başına en çok etkilenen
+  alanlı 6 kutu (compute::MAX_BOXES) gösterilir. Gerekçe (ölçüm,
+  2026-11-23): yalnızca sarı eşik Kahramanmaraş Mw 7,8'de 30 + 33 kare
+  (halı görünümü); turuncu eşik (100 / 10 km²) Kahramanmaraş'ta 2 + 5 ama
+  Kumamoto'da 0 + 0, Noto'da 1 + 0 kare veriyordu. Bu bir GÖSTERİM kararıdır;
+  bölge kartındaki km² değerleri kesilmez.
+- Kare, kutuda kaplaması çizim eşiğini (sıvılaşma %0,5, heyelan %0,2; USGS
+  görüntüleme ayarı) geçen hücrelerde sarsıntının İLK bittiği anda (t_end)
+  belirir; sonra simülasyon boyunca kalır.
+- Çizim: kalın kırmızı çerçeve (altında koyu kontrast çizgisi), köşede tür
+  harfi (TR S / H, EN LQ / LS; sıvılaşma sol üst, heyelan sağ üst köşede,
+  aynı kutuda ikisi olunca çakışmasın). Renk tek bilgi taşıyıcı değil.
+  1 Hz yumuşak yanıp sönme (opaklık %35–100, kosinüs); "Hareketi azalt"ta
+  sabit. Referans videodaki sert, düzensiz yanıp sönme bilinçli olarak
+  YAPILMADI (Bölüm 3 kuralı).
+- Bildirim: bir bölgede (tür başına) ilk kare belirince "[S] Sıvılaşma
+  riski: Hatay". Bölge rasterında olmayan kutuda (kıyı) kutuya en yakın
+  şehrin ili.
+- Açıklama: Shindo açıklamasının üstünde, kare varken: "□ S Sıvılaşma
+  riski / □ H Heyelan riski / Kare: ~25 km'lik alan; USGS sarı uyarı eşiği".
+- Görünüm menüsü: "Sıvılaşma riski", "Heyelan riski" (yalnızca
+  `data/ground/ls_static.sras` varsa), ikisi de varsayılan açık, kaydedilir.
 - Bölge kartı: "Sıvılaşma: ~X km² etkilenen alan (tahmini)" satırı (USGS'in
   "aggregate hazard" ölçüsü: bölgedeki Σ kaplama × hücre alanı), bölgede ilk
   kare belirdikten sonra ve katman açıkken. İzmit Mw 7,6 denemesinde Sakarya

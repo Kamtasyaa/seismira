@@ -82,8 +82,6 @@ traveltime-missing = Seyahat süresi tablosu bulunamadı (data/traveltime/ak135.
 
 # Şiddet ve şehirler (Faz 3)
 shindo-legend = Shindo (JMA)
-liquefaction-legend = Sıvılaşma: etkilenen alan oranı (Zhu vd. 2017)
-landslide-legend = Heyelan: etkilenen alan oranı (Nowicki Jessee vd. 2018)
 percent = %{ $v }
 city-p-arrived = P dalgası ulaştı: { $city }
 city-shindo = { $city }: Shindo { $shindo }
@@ -125,6 +123,13 @@ region-arrivals = İlk P: T+{ $p }, ilk S: T+{ $s }
 region-lead = Erken uyarı: bölgedeki ilk S'ten { $s } s önce
 region-liquefaction = Sıvılaşma: ~{ $km2 } km² etkilenen alan (olası { $lo }–{ $hi })
 region-landslide = Heyelan: ~{ $km2 } km² etkilenen alan (olası { $lo }–{ $hi })
+ground-letter-liquefaction = S
+ground-letter-landslide = H
+ground-name-liquefaction = Sıvılaşma riski
+ground-name-landslide = Heyelan riski
+ground-legend-note = Kare: ~{ $km } km'lik alan; USGS sarı uyarı eşiği
+ground-notice = [{ $letter }] { $name }: { $region }
+ground-notice-unnamed = [{ $letter }] { $name }
 region-blind = Erken uyarı: kör bölge (uyarı ilk S'ten sonra geliyor)
 region-not-covered = Erken uyarı kapsamı dışında (Shindo 4'ün altı)
 

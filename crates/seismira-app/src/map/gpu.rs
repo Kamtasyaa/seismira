@@ -224,10 +224,6 @@ pub struct MapPaint {
     /// Sarsıntı ızgarası: uniform verisi ve kaçıncı katmandan önce çizileceği
     /// (kara ve göllerin üstünde, sınırların altında).
     pub grid: Option<(super::grid_gpu::GridUniforms, usize)>,
-    /// Zemin yenilmesi katmanları, [`super::ground_gpu::GroundKind`] sırası
-    /// (bölge dolgularının üstünde, sınırların altında; kopya aralığı
-    /// `region_copies`).
-    pub ground: [Option<super::ground_gpu::GroundUniforms>; 2],
     pub copies: Range<u32>,
     /// Vurgulanan bölge sınırları (tüm katmanların üstünde).
     pub regions: Vec<super::region_lines::RegionDraw>,
@@ -261,13 +257,6 @@ impl CallbackTrait for MapPaint {
         {
             queue.write_buffer(&grid.uniforms, 0, bytemuck::bytes_of(u));
         }
-        if let Some(g) = resources.get::<super::ground_gpu::GroundGpus>() {
-            for (u, layer) in self.ground.iter().zip(&g.layers) {
-                if let Some(u) = u {
-                    queue.write_buffer(&layer.uniforms, 0, bytemuck::bytes_of(u));
-                }
-            }
-        }
         if let Some(lines) = resources.get::<super::region_lines::RegionLinesGpu>() {
             lines.write_uniforms(queue, &self.regions);
             lines.write_fill_uniforms(queue, &self.fills);
@@ -297,15 +286,6 @@ impl CallbackTrait for MapPaint {
                 && let Some(lines) = resources.get::<super::region_lines::RegionLinesGpu>()
             {
                 lines.draw_fills(pass, &self.fills, self.region_copies.clone());
-            }
-            if i == self.fills_before
-                && let Some(g) = resources.get::<super::ground_gpu::GroundGpus>()
-            {
-                for (u, layer) in self.ground.iter().zip(&g.layers) {
-                    if u.is_some() {
-                        layer.draw(pass, self.region_copies.clone());
-                    }
-                }
             }
             let Some((_, layer)) = layers.iter().find(|(id, _)| *id == draw.layer) else {
                 continue;

@@ -382,17 +382,10 @@ pub struct SeismiraApp {
     damage: Option<compute::DamageResults>,
     /// Zemin yenilmesi girdileri (`data/ground/`); yoksa katman gösterilmez.
     ground: Option<Arc<compute::Ground>>,
-    /// Son hesabın sıvılaşma kaplaması ve açıklama kutusunun belireceği an
-    /// (eşiği geçen ilk hücrede sarsıntının bittiği an).
-    liquefaction: Option<(
-        Arc<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid>,
-        f64,
-    )>,
-    /// Bölge başına sıvılaşma özeti (kimliğe göre sıralı; bölge kartı).
-    liquefaction_regions: Vec<compute::RegionGroundFailure>,
-    /// Heyelan: açıklama kutusunun belireceği an ve bölge özetleri.
-    landslide_first: Option<f64>,
-    landslide_regions: Vec<compute::RegionGroundFailure>,
+    /// Son hesabın zemin yenilmesi sonuçları ([`compute::GroundKind`]
+    /// sırası): bölge özetleri (kimliğe göre sıralı; bölge kartı) ve
+    /// haritadaki kırmızı kareler (belirme anına göre sıralı).
+    ground_failure: [(Vec<compute::RegionGroundFailure>, Vec<compute::GroundBox>); 2],
     /// Bölge kimliği rasterı (il / eyalet); yoksa bölge bildirimleri
     /// GeoNames admin1 adlarıyla şehirlerden üretilir.
     regions: Option<Arc<compute::Regions>>,
@@ -504,10 +497,7 @@ impl SeismiraApp {
             exposure,
             damage: None,
             ground,
-            liquefaction: None,
-            liquefaction_regions: Vec::new(),
-            landslide_first: None,
-            landslide_regions: Vec::new(),
+            ground_failure: Default::default(),
             regions,
             region_events: Vec::new(),
             region_results: Vec::new(),
@@ -643,16 +633,6 @@ impl SeismiraApp {
                 .filter(|_| self.show_grid)
                 .map(|_| self.clock.t),
         );
-        for (kind, show) in [
-            (crate::map::GroundKind::Liquefaction, self.show_ground),
-            (crate::map::GroundKind::Landslide, self.show_landslide),
-        ] {
-            self.map.set_ground_time(
-                kind,
-                self.sim.as_ref().filter(|_| show).map(|_| self.clock.t),
-                self.reduce_motion,
-            );
-        }
         let out = self.map.ui(ui, frame, crate::MSAA);
         if let Some(c) = out.clicked {
             if self.sim.is_some() {
@@ -733,34 +713,7 @@ impl SeismiraApp {
                 let limit = lang.t_args("model-limit", &[("km", lang.num(gmm.max_rrup_km(), 0))]);
                 city_layer::draw_legend(ui, rect, &lang.t("shindo-legend"), Some(&limit));
             }
-            let mut slot = 0;
-            if self.show_ground
-                && let Some((_, first)) = &self.liquefaction
-                && self.clock.t >= *first
-            {
-                crate::ground_style::draw_legend(
-                    ui,
-                    rect,
-                    lang,
-                    &lang.t("liquefaction-legend"),
-                    &crate::ground_style::LIQUEFACTION,
-                    slot,
-                );
-                slot += 1;
-            }
-            if self.show_landslide
-                && let Some(first) = self.landslide_first
-                && self.clock.t >= first
-            {
-                crate::ground_style::draw_legend(
-                    ui,
-                    rect,
-                    lang,
-                    &lang.t("landslide-legend"),
-                    &crate::ground_style::LANDSLIDE,
-                    slot,
-                );
-            }
+            self.draw_ground_failure(ui, rect);
         } else if self.draft.has_epicenter {
             self.map
                 .draw_epicenter(ui, rect, self.draft.quake.epicenter);
@@ -1166,18 +1119,12 @@ impl SeismiraApp {
             });
         }
         // Sıvılaşma ve heyelan: bölgede ilk kare belirdiyse (katman açıksa).
-        for (show, regions, key) in [
-            (
-                self.show_ground,
-                &self.liquefaction_regions,
-                "region-liquefaction",
-            ),
-            (
-                self.show_landslide,
-                &self.landslide_regions,
-                "region-landslide",
-            ),
-        ] {
+        for kind in compute::GroundKind::ALL {
+            let (show, key) = match kind {
+                compute::GroundKind::Liquefaction => (self.show_ground, "region-liquefaction"),
+                compute::GroundKind::Landslide => (self.show_landslide, "region-landslide"),
+            };
+            let regions = &self.ground_failure[kind as usize].0;
             if show
                 && let Ok(k) = regions.binary_search_by_key(&id, |r| r.id)
                 && self.clock.t >= regions[k].t_first
@@ -1239,17 +1186,78 @@ impl SeismiraApp {
         paint_card(ui, rect, at, lines, Some(s.max));
     }
 
+    /// Bu türün katmanı Görünüm menüsünde açık mı?
+    fn ground_shown(&self, kind: compute::GroundKind) -> bool {
+        match kind {
+            compute::GroundKind::Liquefaction => self.show_ground,
+            compute::GroundKind::Landslide => self.show_landslide,
+        }
+    }
+
+    /// Türün harfi ve adı (kare köşesi, açıklama, bildirim).
+    fn ground_label(&self, kind: compute::GroundKind) -> (String, String) {
+        let lang = self.lang;
+        match kind {
+            compute::GroundKind::Liquefaction => (
+                lang.t("ground-letter-liquefaction"),
+                lang.t("ground-name-liquefaction"),
+            ),
+            compute::GroundKind::Landslide => (
+                lang.t("ground-letter-landslide"),
+                lang.t("ground-name-landslide"),
+            ),
+        }
+    }
+
+    /// Belirmiş kırmızı kareler ve açıklaması (Bölüm 2.6).
+    fn draw_ground_failure(&self, ui: &egui::Ui, rect: egui::Rect) {
+        let now = self.clock.t;
+        let alpha = crate::ground_style::pulse(ui.input(|i| i.time), self.reduce_motion);
+        let mut legend = Vec::new();
+        let labels: Vec<(String, String)> = compute::GroundKind::ALL
+            .iter()
+            .map(|&k| self.ground_label(k))
+            .collect();
+        let mut boxes = Vec::new();
+        for kind in compute::GroundKind::ALL {
+            if !self.ground_shown(kind) {
+                continue;
+            }
+            let letter = labels[kind as usize].0.as_str();
+            let n0 = boxes.len();
+            boxes.extend(
+                self.ground_failure[kind as usize]
+                    .1
+                    .iter()
+                    .take_while(|b| b.t <= now)
+                    .map(|b| {
+                        (
+                            b.bounds,
+                            alpha,
+                            letter,
+                            kind == compute::GroundKind::Landslide,
+                        )
+                    }),
+            );
+            if boxes.len() > n0 {
+                legend.push(labels[kind as usize].clone());
+            }
+        }
+        if boxes.is_empty() {
+            return;
+        }
+        self.map.draw_ground_boxes(ui, rect, &boxes);
+        crate::ground_style::draw_legend(ui, rect, self.lang, &legend);
+        if !self.reduce_motion {
+            ui.ctx().request_repaint();
+        }
+    }
+
     fn cancel_sim(&mut self) {
         self.region_card = None;
         self.job = None; // Drop → arka plan hesabı iptal
         self.map.set_grid(None);
-        for kind in crate::map::GroundKind::ALL {
-            self.map.set_ground(kind, None);
-        }
-        self.liquefaction = None;
-        self.liquefaction_regions.clear();
-        self.landslide_first = None;
-        self.landslide_regions.clear();
+        self.ground_failure = Default::default();
         self.map.set_region_lines(None);
         self.map.set_region_styles(Vec::new());
         self.region_shown.clear();
@@ -1513,6 +1521,73 @@ impl SeismiraApp {
                 at: sim.quake.epicenter,
             });
         }
+        // Kırmızı kareler: her bölgede (tür başına) ilk karenin belirdiği an.
+        for kind in compute::GroundKind::ALL {
+            if !self.ground_shown(kind) {
+                continue;
+            }
+            let (letter, name) = self.ground_label(kind);
+            let mut seen = std::collections::HashSet::new();
+            for b in self.ground_failure[kind as usize]
+                .1
+                .iter()
+                .take_while(|b| b.t <= now)
+            {
+                let center = (
+                    (b.bounds[0] + b.bounds[2]) / 2.0,
+                    (b.bounds[1] + b.bounds[3]) / 2.0,
+                );
+                // Bölge rasterında yoksa (ör. kıyı hücreleri): kutuya en
+                // yakın şehrin ili / eyaleti.
+                let region = self
+                    .regions
+                    .as_ref()
+                    .and_then(|r| r.info(b.region))
+                    .map(|i| match lang {
+                        Lang::Tr => i.name_tr.clone(),
+                        Lang::En => i.name_en.clone(),
+                    })
+                    .or_else(|| {
+                        let layer = self.cities.as_ref().ok()?;
+                        let d2 = |c: &seismira_core::cities::City| {
+                            let dx = (c.lon - center.0) * center.1.to_radians().cos();
+                            let dy = c.lat - center.1;
+                            dx * dx + dy * dy
+                        };
+                        let c = layer.cities.iter().min_by(|a, b| d2(a).total_cmp(&d2(b)))?;
+                        Some(if c.admin1.is_empty() {
+                            c.name.clone()
+                        } else {
+                            c.admin1.clone()
+                        })
+                    });
+                // Bölge başına (tür içinde) yalnızca ilk kare bildirilir.
+                if !seen.insert(region.clone()) {
+                    continue;
+                }
+                let text = match region {
+                    Some(region) => lang.t_args(
+                        "ground-notice",
+                        &[
+                            ("letter", letter.clone()),
+                            ("name", name.clone()),
+                            ("region", region),
+                        ],
+                    ),
+                    None => lang.t_args(
+                        "ground-notice-unnamed",
+                        &[("letter", letter.clone()), ("name", name.clone())],
+                    ),
+                };
+                notes.push(Note {
+                    t: b.t,
+                    text,
+                    color: crate::ground_style::RED,
+                    badge: None,
+                    at: center,
+                });
+            }
+        }
         notes.sort_by(|a, b| b.t.total_cmp(&a.t)); // en yenisi üstte
         let mut focus = None;
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -1655,35 +1730,11 @@ impl eframe::App for SeismiraApp {
                         self.region_results = r;
                     }
                     compute::JobMsg::Damage(d) => self.damage = Some(d),
-                    compute::JobMsg::Liquefaction(liq, shake, by_region) => {
-                        self.liquefaction_regions = by_region;
-                        let first = liq
-                            .coverage
-                            .iter()
-                            .zip(&shake.t_end)
-                            .filter(|(c, _)| **c >= crate::ground_style::MIN_COVERAGE)
-                            .map(|(_, &t)| f64::from(t))
-                            .fold(f64::INFINITY, f64::min);
-                        self.map.set_ground(
-                            crate::map::GroundKind::Liquefaction,
-                            Some((liq.clone(), shake)),
-                        );
-                        self.liquefaction = first.is_finite().then_some((liq, first));
-                    }
-                    compute::JobMsg::Landslide(ls, shake, by_region) => {
-                        self.landslide_regions = by_region;
-                        let min = crate::ground_style::LANDSLIDE.min();
-                        let first = ls
-                            .coverage
-                            .iter()
-                            .zip(&shake.t_end)
-                            .filter(|(c, _)| **c >= min)
-                            .map(|(_, &t)| f64::from(t))
-                            .fold(f64::INFINITY, f64::min);
-                        self.landslide_first = first.is_finite().then_some(first);
-                        self.map
-                            .set_ground(crate::map::GroundKind::Landslide, Some((ls, shake)));
-                    }
+                    compute::JobMsg::GroundFailure {
+                        kind,
+                        regions,
+                        boxes,
+                    } => self.ground_failure[kind as usize] = (regions, boxes),
                 }
             }
             if done {
