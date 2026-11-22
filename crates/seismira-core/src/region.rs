@@ -578,6 +578,8 @@ mod tests {
             t_s: vec![10.0, 12.0, 8.0, f32::NAN],
             t_end: vec![40.0, 30.0, 50.0, f32::NAN],
             rise: vec![crate::shaking::RISE_STEP_S as f32; 4],
+            pgv: vec![f32::NAN; 4],
+            pga: vec![f32::NAN; 4],
         };
         let ids = vec![1, 2, 1, 2];
         let s = summarize(&grid, &domain, 1, &ids);
@@ -693,6 +695,8 @@ mod tests {
             t_s: (0..n).map(|i| 10.0 + i as f32).collect(),
             t_end: vec![60.0; n as usize],
             rise: vec![crate::shaking::RISE_STEP_S as f32; n as usize],
+            pgv: vec![f32::NAN; n as usize],
+            pga: vec![f32::NAN; n as usize],
         };
         let ids = vec![1 | BUILT_BIT; n as usize];
         let r = summarize(&grid, &domain, 1, &ids)[0];

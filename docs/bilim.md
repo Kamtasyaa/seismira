@@ -328,6 +328,25 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   - Eksik girdiler: yeraltı su seviyesi (Fan WTD, izin bekleniyor), litoloji
     (GLiM vektör lisansı), arazi örtüsü (GlobCover / ESA CCI lisansı).
 
+- FAZ 7 ADIM 4: SIVILAŞMA UYGULAMADA (2026-11-22). seismira-core
+  `groundfailure` (Zhu genel + kıyı, Jessee; USGS koduyla birebir birim
+  testleri) ve `groundfailure::liquefaction_grid` (ince sarsıntı ızgarasıyla
+  aynı hücreler ve aynı temsilci taban hücre). Kararlar:
+  - PGV: GMPE'nin RotD50 medyanı Boore & Kishida (2017) ile "iki yatay
+    bileşenin büyüğü"ne çevrilir (ShakeMap uzlaşımı; USGS modelleri ShakeMap
+    PGV'siyle kalibre). PGA: RotD50 kalır (PGA için dönüşüm katsayısı
+    projede yok); yalnızca %10 g eşik maskesinde kullanılır, sonuç biraz
+    daha fazla hücre maskelenir (SAPMA, belgelendi).
+  - Vs30: haritanın ham değeri (GMPE sınırına çekilmemiş), USGS gibi.
+  - Eğim maskesi: 5°'yi aşmayan 7,5″ çeyrek oranı. USGS eğim > 0 koşulu da
+    koyuyor (tam düz hücreyi dışlar; muhtemelen su/veri yok için); burada
+    0° dahil (SAPMA, düz delta hücreleri dışlanmasın diye).
+  - wtd: data/ground/wtd.sras varsa ve hücrede değer varsa genel model,
+    yoksa kıyı modeli (hücre bazında). İzmit Mw 7,6 denemesi: 25 276 hücre,
+    25 141 genel / 135 kıyı; hesap 85 ms.
+  - Medyan sarsıntıyla hesaplanır (belirsizlik aralığı henüz yok; USGS
+    default_stddev ve PGV σ ile analitik σ adım 5'ten sonra).
+
 ### 7.10 Tsunami
 
 - Renkler: SARI az tehlikeli, KIRMIZI tehlikeli, MOR çok tehlikeli.

@@ -78,6 +78,116 @@ impl Regions {
     }
 }
 
+/// Belleğe eşlenmiş bir `.sras` rasterı.
+pub type MappedRaster = seismira_core::raster::Raster<memmap2::Mmap>;
+
+fn map_raster(path: &std::path::Path) -> Result<MappedRaster, String> {
+    let err = |e: std::io::Error| format!("{}: {e}", path.display());
+    let file = std::fs::File::open(path).map_err(err)?;
+    // SAFETY: load_vs30 ile aynı (salt okunur veri dosyası).
+    #[allow(unsafe_code)]
+    let map = unsafe { memmap2::Mmap::map(&file) }.map_err(err)?;
+    MappedRaster::open(map).map_err(err)
+}
+
+/// Zemin yenilmesi girdileri (Faz 7; docs/bilim.md 7.9): `data/ground/`
+/// altındaki rasterlar belleğe eşlenir, yalnızca deprem alanının döşemeleri
+/// okunur.
+pub struct Ground {
+    /// slope30, cti, dr_km, dc_km, precip_mm.
+    inputs: MappedRaster,
+    /// slope_q0 … slope_q3 (7,5″ eğim çeyrekleri).
+    slope: MappedRaster,
+    /// Yeraltı su seviyesi (yalnızca yerel; yoksa Zhu kıyı modeli).
+    wtd: Option<MappedRaster>,
+}
+
+impl Ground {
+    /// `vs30`: ızgaraların aynı olduğu denetlenir (pencereler hizalı olmalı).
+    pub fn load(dir: &std::path::Path, vs30: &Vs30) -> Result<Arc<Self>, String> {
+        let inputs = map_raster(&dir.join("inputs30.sras"))?;
+        let slope = map_raster(&dir.join("slope75.sras"))?;
+        let wtd = map_raster(&dir.join("wtd.sras"))
+            .inspect_err(|e| log::info!("{e}: sıvılaşmada Zhu 2017 kıyı modeli kullanılacak"))
+            .ok();
+        let g = vs30.grid();
+        for (name, r) in [
+            ("inputs30", Some(&inputs)),
+            ("slope75", Some(&slope)),
+            ("wtd", wtd.as_ref()),
+        ] {
+            if let Some(r) = r
+                && (r.grid.west != g.west
+                    || r.grid.north != g.north
+                    || r.grid.cell != g.cell
+                    || r.grid.width != g.width
+                    || r.grid.height != g.height)
+            {
+                return Err(format!("{name}.sras Vs30 ızgarasıyla aynı değil"));
+            }
+        }
+        for (r, names) in [
+            (&inputs, &["dr_km", "dc_km", "precip_mm"][..]),
+            (
+                &slope,
+                &["slope_q0", "slope_q1", "slope_q2", "slope_q3"][..],
+            ),
+        ] {
+            if let Some(n) = names.iter().find(|n| r.layer(n).is_none()) {
+                return Err(format!("zemin girdisinde '{n}' katmanı yok"));
+            }
+        }
+        Ok(Arc::new(Self { inputs, slope, wtd }))
+    }
+
+    /// Alan penceresinde sıvılaşma kaplaması; okuma hatasında `None`
+    /// (günlüğe yazılır).
+    fn liquefaction(
+        &self,
+        shake: &seismira_core::grid::ShakeGrid,
+        domain: &seismira_core::grid::Domain,
+        step: u32,
+        mw: f64,
+        vs30: &[f32],
+        cancel: &AtomicBool,
+    ) -> Option<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid> {
+        use seismira_core::groundfailure::liquefaction_grid::{Inputs, Layer, compute};
+        let (c0, r0, w, h) = (domain.col0, domain.row0, domain.w, domain.h);
+        let read = |r: &MappedRaster, name: &str| -> Option<(Vec<u8>, usize)> {
+            let li = r.layer(name)?;
+            r.window(li, c0, r0, w, h, u8::MAX)
+                .inspect_err(|e| log::error!("zemin girdisi '{name}' okunamadı: {e}"))
+                .ok()
+                .map(|v| (v, li))
+        };
+        let pr = read(&self.inputs, "precip_mm")?;
+        let dc = read(&self.inputs, "dc_km")?;
+        let dr = read(&self.inputs, "dr_km")?;
+        let q = [
+            read(&self.slope, "slope_q0")?,
+            read(&self.slope, "slope_q1")?,
+            read(&self.slope, "slope_q2")?,
+            read(&self.slope, "slope_q3")?,
+        ];
+        let wtd = self.wtd.as_ref().and_then(|r| Some((r, read(r, "wtd_m")?)));
+        fn layer<'a>(r: &'a MappedRaster, (codes, li): &'a (Vec<u8>, usize)) -> Layer<'a> {
+            Layer {
+                codes,
+                info: &r.layers[*li],
+            }
+        }
+        let inputs = Inputs {
+            vs30,
+            precip_mm: layer(&self.inputs, &pr),
+            dc_km: layer(&self.inputs, &dc),
+            dr_km: layer(&self.inputs, &dr),
+            slope_q: q.each_ref().map(|x| layer(&self.slope, x)),
+            wtd_m: wtd.as_ref().map(|(r, w)| layer(r, w)),
+        };
+        compute(shake, domain, step, mw, &inputs, cancel)
+    }
+}
+
 /// Bir bölgenin sonucu: ızgara özeti ve bölgedeki en güçlü sarsılan şehir.
 #[derive(Clone, Copy, Debug)]
 pub struct RegionResult {
@@ -137,6 +247,12 @@ pub enum JobMsg {
     Regions(Vec<RegionResult>, Option<Arc<crate::map::RegionLines>>),
     /// Bölge özetlerinden sonra gelir (hesap daha uzun).
     Damage(DamageResults),
+    /// Sıvılaşma alansal kaplaması (ince ızgarayla aynı hücreler) ve o
+    /// ince ızgara (hücrede sarsıntının bittiği an için).
+    Liquefaction(
+        Arc<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid>,
+        Arc<seismira_core::grid::ShakeGrid>,
+    ),
 }
 
 pub struct Job {
@@ -153,6 +269,7 @@ pub struct Datasets {
     pub regions: Option<Arc<Regions>>,
     pub slab: Option<Arc<Slab2>>,
     pub exposure: Option<Arc<Exposure>>,
+    pub ground: Option<Arc<Ground>>,
 }
 
 impl Job {
@@ -165,6 +282,7 @@ impl Job {
             regions,
             slab,
             exposure,
+            ground,
         } = data;
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = channel();
@@ -224,7 +342,7 @@ impl Job {
                     shake_grid(
                         &scenario,
                         vs30.as_deref(),
-                        (regions.as_deref(), exposure.as_deref()),
+                        (regions.as_deref(), exposure.as_deref(), ground.as_deref()),
                         (&cities, &sites_for_regions),
                         &flag,
                         &tx,
@@ -260,7 +378,7 @@ impl Drop for Job {
 fn shake_grid(
     scenario: &Scenario,
     vs30: Option<&Vs30>,
-    (regions, exposure): (Option<&Regions>, Option<&Exposure>),
+    (regions, exposure, ground): (Option<&Regions>, Option<&Exposure>, Option<&Ground>),
     (cities, sites): (&[City], &[SiteResult]),
     cancel: &AtomicBool,
     tx: &std::sync::mpsc::Sender<JobMsg>,
@@ -303,7 +421,7 @@ fn shake_grid(
             if fine { "ince" } else { "kaba" },
             started.elapsed().as_millis()
         );
-        if tx.send(JobMsg::Grid(g)).is_err() {
+        if tx.send(JobMsg::Grid(g.clone())).is_err() {
             return;
         }
         if let Some(r) = summaries {
@@ -318,6 +436,26 @@ fn shake_grid(
             }
         }
         ctx.request_repaint();
+        if fine && let (Some(gr), Some(win)) = (ground, window.as_deref()) {
+            let t0 = std::time::Instant::now();
+            let Some(liq) = gr.liquefaction(&g, &domain, s, scenario.quake.mw, win, cancel) else {
+                return; // iptal ya da okuma hatası (günlükte)
+            };
+            log::info!(
+                "sıvılaşma: {} hücre (genel {}, kıyı {}), {} ms",
+                liq.general + liq.coastal,
+                liq.general,
+                liq.coastal,
+                t0.elapsed().as_millis()
+            );
+            if tx
+                .send(JobMsg::Liquefaction(Arc::new(liq), g.clone()))
+                .is_err()
+            {
+                return;
+            }
+            ctx.request_repaint();
+        }
     }
     if let (Some(reg), Some(exp)) = (regions, exposure) {
         let started = std::time::Instant::now();

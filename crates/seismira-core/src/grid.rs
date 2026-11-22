@@ -22,10 +22,19 @@ use rayon::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Bir hücrenin sonucu: (sınıf, aletsel şiddet, P varışı, S varışı, bitiş,
-/// yükseliş adımı).
-type Cell = (u8, f32, f32, f32, f32, f32);
+/// yükseliş adımı, medyan PGV, medyan PGA).
+type Cell = (u8, f32, f32, f32, f32, f32, f32, f32);
 
-const EMPTY: Cell = (NO_DATA, f32::NAN, f32::NAN, f32::NAN, f32::NAN, f32::NAN);
+const EMPTY: Cell = (
+    NO_DATA,
+    f32::NAN,
+    f32::NAN,
+    f32::NAN,
+    f32::NAN,
+    f32::NAN,
+    f32::NAN,
+    f32::NAN,
+);
 
 /// Veri yok: su, buz, model dışı.
 pub const NO_DATA: u8 = u8::MAX;
@@ -150,6 +159,13 @@ pub struct ShakeGrid {
     /// Gösterilen Shindo'nun bir sınıf yükselme süresi (s;
     /// [`crate::shaking::SiteResult::rise`]); veri yoksa NaN.
     pub rise: Vec<f32>,
+    /// Medyan PGV (cm/s), iki yatay bileşenin büyüğü (Boore & Kishida 2017
+    /// dönüşümü; ShakeMap uzlaşımı) ve medyan PGA (g, RotD50: dönüşüm
+    /// katsayısı yok, yalnızca eşik maskesinde kullanılır; docs/bilim.md 7.9).
+    /// Zemin yenilmesi modelleri için ([`crate::groundfailure`]); veri yoksa
+    /// NaN.
+    pub pgv: Vec<f32>,
+    pub pga: Vec<f32>,
 }
 
 impl ShakeGrid {
@@ -228,6 +244,13 @@ pub fn compute(
                                 ts as f32,
                                 (peak + d) as f32,
                                 rise,
+                                // ShakeMap uzlaşımı (iki yatay bileşenin
+                                // büyüğü): USGS zemin yenilmesi modelleri
+                                // ShakeMap PGV'siyle kalibre edildi.
+                                (m.pgv.median()
+                                    * crate::component::ln_larger_per_rotd50_pgv(q.mw, r.dist.rrup)
+                                        .exp()) as f32,
+                                m.pga.median() as f32,
                             )
                         }
                         _ => EMPTY,
@@ -245,9 +268,13 @@ pub fn compute(
         t_s: Vec::with_capacity(w * h),
         t_end: Vec::with_capacity(w * h),
         rise: Vec::with_capacity(w * h),
+        pgv: Vec::with_capacity(w * h),
+        pga: Vec::with_capacity(w * h),
     };
     for row in rows {
-        for (c, j, tp, ts, e, r) in row? {
+        for (c, j, tp, ts, e, r, v, a) in row? {
+            grid.pgv.push(v);
+            grid.pga.push(a);
             grid.class.push(c);
             grid.jma.push(j);
             grid.t_p.push(tp);

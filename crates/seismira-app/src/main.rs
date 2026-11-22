@@ -6,6 +6,7 @@ mod compute;
 #[cfg(feature = "screenshot")]
 mod devshot;
 mod fonts;
+mod ground_style;
 mod i18n;
 mod map;
 mod panel;

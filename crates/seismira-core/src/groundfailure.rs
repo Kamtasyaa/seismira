@@ -236,6 +236,144 @@ pub mod jessee2018 {
     }
 }
 
+/// Sıvılaşmanın sarsıntı ızgarası üzerinde hesabı (CLAUDE.md Bölüm 2.6).
+pub mod liquefaction_grid {
+    use super::zhu2017::{self, Variant};
+    use crate::grid::{Domain, GridSpec, NO_DATA, ShakeGrid};
+    use crate::raster::LayerInfo;
+    use rayon::prelude::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    /// Taban ızgarada (`domain.w × domain.h`, satır satır) bir katman
+    /// penceresi: kodlar ve kod → değer eşlemesi.
+    #[derive(Clone, Copy)]
+    pub struct Layer<'a> {
+        pub codes: &'a [u8],
+        pub info: &'a LayerInfo,
+    }
+
+    impl Layer<'_> {
+        fn at(&self, i: usize) -> Option<f64> {
+            self.info.value(*self.codes.get(i)?).map(f64::from)
+        }
+    }
+
+    /// Girdi pencereleri. Hepsi Vs30 ızgarasına hizalı (taban ızgara).
+    pub struct Inputs<'a> {
+        /// Vs30 (m/s; su / buz NaN).
+        pub vs30: &'a [f32],
+        pub precip_mm: Layer<'a>,
+        pub dc_km: Layer<'a>,
+        pub dr_km: Layer<'a>,
+        /// 7,5″ eğim çeyrekleri (derece).
+        pub slope_q: [Layer<'a>; 4],
+        /// Yeraltı su seviyesi (m); yoksa (ya da hücrede değer yoksa) kıyı
+        /// modeli.
+        pub wtd_m: Option<Layer<'a>>,
+    }
+
+    /// Hücre başına alansal kaplama (0–1; maskeli ya da veri yok: 0).
+    #[derive(Clone, Debug)]
+    pub struct LiquefactionGrid {
+        pub spec: GridSpec,
+        pub coverage: Vec<f32>,
+        /// Genel / kıyı modeliyle hesaplanan (sıfırdan büyük) hücre sayısı.
+        pub general: u32,
+        pub coastal: u32,
+    }
+
+    /// `shake` ile aynı ızgarada hesaplar (aynı adım, aynı temsilci taban
+    /// hücre: [`crate::grid::compute`] ile aynı kural). İptal: `None`.
+    pub fn compute(
+        shake: &ShakeGrid,
+        domain: &Domain,
+        step: u32,
+        mw: f64,
+        inputs: &Inputs,
+        cancel: &AtomicBool,
+    ) -> Option<LiquefactionGrid> {
+        let spec = shake.spec;
+        let n = domain.w as usize * domain.h as usize;
+        assert_eq!(inputs.vs30.len(), n, "Vs30 penceresi alanla uyuşmuyor");
+        let rows: Vec<Option<Vec<(f32, u8)>>> = (0..spec.height)
+            .into_par_iter()
+            .map(|row| {
+                if cancel.load(Ordering::Relaxed) {
+                    return None;
+                }
+                let out = (0..spec.width)
+                    .map(|col| {
+                        let g = (row * spec.width + col) as usize;
+                        if shake.class[g] == NO_DATA {
+                            return (0.0, 0);
+                        }
+                        let bx = (col * step + step / 2).min(domain.w - 1) as usize;
+                        let by = (row * step + step / 2).min(domain.h - 1) as usize;
+                        let i = by * domain.w as usize + bx;
+                        cell(shake, g, i, mw, inputs).unwrap_or((0.0, 0))
+                    })
+                    .collect();
+                Some(out)
+            })
+            .collect();
+        let mut grid = LiquefactionGrid {
+            spec,
+            coverage: Vec::with_capacity((spec.width * spec.height) as usize),
+            general: 0,
+            coastal: 0,
+        };
+        for row in rows {
+            for (c, v) in row? {
+                grid.coverage.push(c);
+                if c > 0.0 {
+                    match v {
+                        1 => grid.general += 1,
+                        2 => grid.coastal += 1,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        Some(grid)
+    }
+
+    /// Bir hücre: (kaplama, 1 genel / 2 kıyı). Girdi eksikse `None`.
+    fn cell(shake: &ShakeGrid, g: usize, i: usize, mw: f64, inp: &Inputs) -> Option<(f32, u8)> {
+        let vs30 = f64::from(*inp.vs30.get(i)?);
+        let (pgv, pga) = (f64::from(shake.pgv[g]), f64::from(shake.pga[g]));
+        if !(vs30.is_finite() && pgv.is_finite() && pga.is_finite()) {
+            return None;
+        }
+        let mut flat = 0u32;
+        for q in &inp.slope_q {
+            if q.at(i)? <= zhu2017::SLOPE_MAX_DEG {
+                flat += 1;
+            }
+        }
+        if flat == 0 {
+            return Some((0.0, 0));
+        }
+        let wtd = inp.wtd_m.and_then(|l| l.at(i));
+        let variant = if wtd.is_some() {
+            Variant::General
+        } else {
+            Variant::Coastal
+        };
+        let x = zhu2017::Inputs {
+            pgv_cms: pgv,
+            pga_g: pga,
+            mw,
+            vs30,
+            precip_mm: inp.precip_mm.at(i)?,
+            dc_km: inp.dc_km.at(i)?,
+            dr_km: inp.dr_km.at(i)?,
+            wtd_m: wtd.unwrap_or(0.0),
+        };
+        let c = zhu2017::cell_coverage(variant, &x, f64::from(flat) / 4.0);
+        Some((c as f32, if variant == Variant::General { 1 } else { 2 }))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,5 +478,111 @@ mod tests {
         assert!(lithology_coef(0).is_none());
         assert!(land_cover_coef(210).is_none());
         assert_eq!(land_cover_coef(11), Some(0.0));
+    }
+
+    #[test]
+    fn sivilasma_izgarasi() {
+        use crate::grid::{Base, Domain, GridSpec, ShakeGrid};
+        use crate::raster::{LayerInfo, Scale};
+        use liquefaction_grid::*;
+        let lin = |hi: f32| LayerInfo {
+            name: String::new(),
+            scale: Scale::Linear,
+            n_valid: 251,
+            lo: 0.0,
+            hi,
+        };
+        let (pr, dist, slope) = (lin(2500.0), lin(50.0), lin(75.0));
+        // 2 × 1 alan, adım 1: hücre 0 düz, hücre 1'in 3 çeyreği dik.
+        let domain = Domain {
+            base: Base::GLOBAL_30S,
+            col0: 0,
+            row0: 0,
+            w: 2,
+            h: 1,
+        };
+        let spec = GridSpec {
+            west: -180.0,
+            north: 90.0,
+            cell: 1.0 / 120.0,
+            width: 2,
+            height: 1,
+        };
+        let shake = ShakeGrid {
+            spec,
+            class: vec![6, 6],
+            jma: vec![5.6; 2],
+            t_p: vec![1.0; 2],
+            t_s: vec![2.0; 2],
+            t_end: vec![30.0; 2],
+            rise: vec![0.4; 2],
+            pgv: vec![60.0; 2],
+            pga: vec![0.4; 2],
+        };
+        let code = |l: &LayerInfo, v: f32| l.quantize(v);
+        let prc = [code(&pr, 800.0); 2];
+        let dcc = [code(&dist, 3.0); 2];
+        let drc = [code(&dist, 1.4); 2];
+        let flat = [code(&slope, 0.3); 2];
+        let steep = [code(&slope, 0.3), code(&slope, 12.0)];
+        let vs30 = [250.0f32; 2];
+        let inputs = Inputs {
+            vs30: &vs30,
+            precip_mm: Layer {
+                codes: &prc,
+                info: &pr,
+            },
+            dc_km: Layer {
+                codes: &dcc,
+                info: &dist,
+            },
+            dr_km: Layer {
+                codes: &drc,
+                info: &dist,
+            },
+            slope_q: [
+                Layer {
+                    codes: &flat,
+                    info: &slope,
+                },
+                Layer {
+                    codes: &steep,
+                    info: &slope,
+                },
+                Layer {
+                    codes: &steep,
+                    info: &slope,
+                },
+                Layer {
+                    codes: &steep,
+                    info: &slope,
+                },
+            ],
+            wtd_m: None,
+        };
+        let g = compute(
+            &shake,
+            &domain,
+            1,
+            7.4,
+            &inputs,
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .unwrap();
+        // Kıyı modeli (wtd yok); hücre 1 dörtte bir.
+        let x = zhu2017::Inputs {
+            pgv_cms: 60.0,
+            pga_g: 0.4,
+            mw: 7.4,
+            vs30: 250.0,
+            precip_mm: f64::from(pr.value(prc[0]).unwrap()),
+            dc_km: f64::from(dist.value(dcc[0]).unwrap()),
+            dr_km: f64::from(dist.value(drc[0]).unwrap()),
+            wtd_m: 0.0,
+        };
+        let full = zhu2017::cell_coverage(zhu2017::Variant::Coastal, &x, 1.0);
+        close(f64::from(g.coverage[0]), full, 1e-6);
+        close(f64::from(g.coverage[1]), full / 4.0, 1e-6);
+        assert_eq!((g.general, g.coastal), (0, 2));
     }
 }

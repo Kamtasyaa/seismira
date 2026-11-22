@@ -224,6 +224,9 @@ pub struct MapPaint {
     /// Sarsıntı ızgarası: uniform verisi ve kaçıncı katmandan önce çizileceği
     /// (kara ve göllerin üstünde, sınırların altında).
     pub grid: Option<(super::grid_gpu::GridUniforms, usize)>,
+    /// Sıvılaşma katmanı (bölge dolgularının üstünde, sınırların altında;
+    /// kopya aralığı `region_copies`).
+    pub ground: Option<super::ground_gpu::GroundUniforms>,
     pub copies: Range<u32>,
     /// Vurgulanan bölge sınırları (tüm katmanların üstünde).
     pub regions: Vec<super::region_lines::RegionDraw>,
@@ -257,6 +260,12 @@ impl CallbackTrait for MapPaint {
         {
             queue.write_buffer(&grid.uniforms, 0, bytemuck::bytes_of(u));
         }
+        if let (Some(u), Some(g)) = (
+            &self.ground,
+            resources.get::<super::ground_gpu::GroundGpu>(),
+        ) {
+            queue.write_buffer(&g.uniforms, 0, bytemuck::bytes_of(u));
+        }
         if let Some(lines) = resources.get::<super::region_lines::RegionLinesGpu>() {
             lines.write_uniforms(queue, &self.regions);
             lines.write_fill_uniforms(queue, &self.fills);
@@ -286,6 +295,12 @@ impl CallbackTrait for MapPaint {
                 && let Some(lines) = resources.get::<super::region_lines::RegionLinesGpu>()
             {
                 lines.draw_fills(pass, &self.fills, self.region_copies.clone());
+            }
+            if i == self.fills_before
+                && self.ground.is_some()
+                && let Some(g) = resources.get::<super::ground_gpu::GroundGpu>()
+            {
+                g.draw(pass, self.region_copies.clone());
             }
             let Some((_, layer)) = layers.iter().find(|(id, _)| *id == draw.layer) else {
                 continue;

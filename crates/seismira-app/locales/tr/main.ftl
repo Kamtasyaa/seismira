@@ -7,6 +7,7 @@ menu-view = Görünüm
 menu-disclaimer = Eğitim uyarısı
 menu-shake-grid = Sarsıntı alanı
 menu-fault-trace = Simülasyon sonunda fay izi
+menu-liquefaction = Sıvılaşma riski (sarsıntı bitince)
 menu-reduce-motion = Hareketi azalt
 menu-text-test = Yazı testi
 menu-language = Dil
@@ -80,6 +81,8 @@ traveltime-missing = Seyahat süresi tablosu bulunamadı (data/traveltime/ak135.
 
 # Şiddet ve şehirler (Faz 3)
 shindo-legend = Shindo (JMA)
+liquefaction-legend = Sıvılaşma: etkilenen alan oranı (Zhu vd. 2017)
+percent = %{ $v }
 city-p-arrived = P dalgası ulaştı: { $city }
 city-shindo = { $city }: Shindo { $shindo }
 region-shindo = { $region }: Shindo { $shindo } (en yüksek: { $city })

@@ -400,3 +400,23 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
 - Geliştirme: `SEISMIRA_REGION=boylam,enlem` kartı tıklamasız açar.
 - Şehir kartına eklenenler: MMI satırı (Worden vd. 2012) ve zemin
   belirsizliği satırı ("Vs30 ×/÷ f → şiddet ±d"; docs/bilim.md 7.7).
+
+## Sıvılaşma katmanı (Faz 7 adım 4, 2026-11-22)
+
+- Vizyon madde 6: "kırmızı tonlu kareler". Değer USGS Ground Failure ile
+  aynı: hücrenin etkilenen alan oranı (alansal kaplama). Renk sınıfları
+  USGS görüntüleme sınırları: %0,5 / 1 / 2 / 5 / 10 / 20 (açık pembeden
+  koyu kırmızıya); %0,5 altı çizilmez.
+- Kare, o hücrede sarsıntının bittiği an (ızgaranın `t_end`'i: tepe anı +
+  D5-95) 1,5 s'de belirir; "Hareketi azalt" açıkken anında. Yanıp sönme yok.
+- Okunurluk: kareler ekranda en az 8 piksel olacak şekilde 2^k × 2^k hücrelik
+  bloklara toplanır (GPU mip düzeyleri; blok değeri hücrelerin ORTALAMASI,
+  yani bloğun etkilenen alan oranı). Her karenin 1 piksellik koyu kenarı var:
+  Shindo 6-/6+ kırmızılarından ve il dolgusundan ayrılsın diye (ilk denemede
+  karışıyordu).
+- Renk tek bilgi taşıyıcı değil: açıklama kutusunda (Shindo açıklamasının
+  üstünde, ilk kare belirince) her tonun yüzdesi yazar.
+- Görünüm menüsü → "Sıvılaşma riski (sarsıntı bitince)": varsayılan açık,
+  kaydedilir.
+- Heyelan katmanı henüz YOK: litoloji ve arazi örtüsü verisinin lisans
+  kararı bekleniyor (docs/veri.md).
