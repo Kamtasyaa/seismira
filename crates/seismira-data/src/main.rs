@@ -26,6 +26,7 @@ mod city_sites;
 mod exposure;
 mod geotiff;
 mod ground_inputs;
+mod land_cover;
 mod liq_static;
 mod lith;
 mod regions;
@@ -96,6 +97,9 @@ fn main() -> Result<()> {
         [cmd, raw, vs30, output] if cmd == "wtd" => {
             wtd::run(Path::new(raw), Path::new(vs30), Path::new(output))
         }
+        [cmd, tif, vs30, output] if cmd == "land-cover" => {
+            land_cover::run(Path::new(tif), Path::new(vs30), Path::new(output))
+        }
         [cmd, raw, vs30, output] if cmd == "lith" => {
             lith::run(Path::new(raw), Path::new(vs30), Path::new(output))
         }
@@ -148,6 +152,7 @@ fn main() -> Result<()> {
              seismira-data slope75 <gmted md75_grd> <vs30.sras> <çıktı.sras>\n  \
              seismira-data wtd <wtd_vs30grid.i16> <vs30.sras> <çıktı.sras>\n  \
              seismira-data lith <glim_vs30grid.u8> <vs30.sras> <çıktı.sras>\n  \
+             seismira-data land-cover <ESACCI-LC-...-2009-v2.0.7.tif> <vs30.sras> <çıktı.sras>\n  \
              seismira-data liq-static <data/ground> <vs30.sras> <çıktı.sras> [--coastal]\n  \
              seismira-data aig-check <aig klasörü> <geotiff>...\n  \
              seismira-data tif-sample <geotiff> <boylam,enlem>..."

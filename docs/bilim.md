@@ -327,6 +327,31 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   oranı (USGS'in 15″ alt bölmesine yakın bir alansal kesir).
   - Eksik girdiler: yeraltı su seviyesi (Fan WTD, izin bekleniyor), litoloji
     (GLiM vektör lisansı), arazi örtüsü (GlobCover / ESA CCI lisansı).
+    2026-11-22 gece: litoloji (GLiM vektörü, yerel) ve arazi örtüsü (ESA CCI
+    2009) hazır; aşağıda.
+- HEYELAN ARAZİ ÖRTÜSÜ: CCI → GLOBCOVER EŞLEMESİ (VARSAYIM, 2026-11-22).
+  Jessee 2018 katsayıları GlobCover 2009 sınıflarına göre; GlobCover'ın
+  kendisi edinilemedi (docs/veri.md), ESA CCI LC 2009 kullanılıyor. İki
+  lejant da UN-LCCS'den türetilmiş ama kodlar farklı. Eşleme CCI PUG v2
+  Tablo 3-1 ile Jessee Tablo 3'teki GlobCover sınıf adlarının
+  karşılaştırılmasından kuruldu (seismira-core
+  `jessee2018::cci_to_globcover`, birim testli):
+  - Birebir: 10–12 → 14, 20 → 11 (referans, 0), 30 → 20, 40 → 30,
+    50 → 40, 61 → 50, 62 → 60, 71 → 70, 72 → 90, 90 → 100, 100 → 110,
+    110 → 120, 120–122 → 130, 130 → 140, 150–153 → 150, 160 → 160,
+    170 → 170, 180 → 180, 190 → 190, 200–202 → 200, 220 → 220.
+  - CCI 80–82 (iğne yapraklı yaprak döken) → 90: GlobCover'da kapalı iğne
+    yapraklı yaprak döken sınıfı yok, 90 "açık, yaprak döken ya da her dem
+    yeşil".
+  - CCI 140 (liken, yosun) → 140 (otsu): GlobCover'da karşılığı yok.
+  - CCI 60 ve 70 ("kapalı-açık, >%15"; 2009'da sırasıyla 9,5 ve 13,6
+    milyon hücre) GlobCover'da yoğunluğa göre ikiye ayrılmış: 50/60
+    (0,30 / 1,77) ve 70/90 (1,71 / −1,26). Hangisi olduğu bilinmediği için
+    iki katsayının ORTALAMASI (1,035 ve 0,225) kullanılır. Fark büyük
+    (logitte ±0,7 ve ±1,5); doğrulamada duyarlılık ölçülmeli. İyileştirme
+    adayı: ağaç örtüsü yoğunluğu katmanıyla (ör. MODIS VCF) %40 eşiğinde
+    ayırmak.
+  - Su (210) ve veri yok (0) → model uygulanmaz.
 
 - FAZ 7 ADIM 4: SIVILAŞMA UYGULAMADA (2026-11-22). seismira-core
   `groundfailure` (Zhu genel + kıyı, Jessee; USGS koduyla birebir birim

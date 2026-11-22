@@ -231,3 +231,27 @@ modified = false
 license_checked = "2026-11-22"
 distributed = false
 files = "data/raw/validation/kahramanmaras2023/groundfailure/ (depoda değil; docs/dogrulama.md Faz 7)"
+
+[[dataset]]
+id = "glim-vector"
+name = "GLiM küresel litoloji haritası, vektör (Hartmann & Moosdorf 2012; LiMW_GIS 2015.gdb)"
+url = "https://www.geo.uni-hamburg.de/en/geologie/forschung/aquatische-geochemie/glim.html"
+license = "Vektör sürüm için lisans metni BULUNAMADI; yazarlardan izin istendi"
+attribution = "Hartmann, J., Moosdorf, N. (2012). The new global lithological map database GLiM: A representation of rock properties at the Earth surface. Geochemistry, Geophysics, Geosystems 13, Q12004, doi:10.1029/2012GC004370."
+modified = true            # Eckert IV → coğrafi, 30″ hücre merkezli rasterleme, üst sınıf (xx)
+license_checked = "2026-11-22"
+distributed = false        # izin gelene kadar pakete girmez
+snapshot = "LiMW_GIS_2015.gdb.zip sha256 895be0cde43f68d1fe6a24dafafbde715d9c9893adfea28916a9a69f88cc320c"
+files = "data/ground/lith.sras (yalnızca yerel; scripts/gen_glim.py + seismira-data lith)"
+
+[[dataset]]
+id = "esa-cci-lc-2009"
+name = "ESA CCI Land Cover, yıllık harita 2009, v2.0.7 (300 m)"
+url = "https://dap.ceda.ac.uk/neodc/esacci/land_cover/data/land_cover_maps/v2.0.7/"
+license = "CCI Open Data Portal koşulları: \"any user for any purpose\", ESA CCI ve Land Cover CCI projesine atıf şartı (esacci_landcover_terms_and_conditions.txt)"
+attribution = "ESA Land Cover CCI project, ESA Climate Change Initiative. Defourny, P. vd. (2017): ESA Land Cover Climate Change Initiative (Land_Cover_cci): Global Land Cover Maps, Version 2.0.7, via Centre for Environmental Data Analysis. © ESA 2017 - UCLouvain."
+modified = true            # 3 × 3 piksel çoğunluk sınıfı ile 30″ ızgaraya toplandı; GlobCover 2009 sınıflarına eşlendi
+license_checked = "2026-11-22"
+snapshot = "ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7.tif sha256 ca06f473204e39e93d33e06c6c6e7cc01ebf7d0ad068c898f15c1cb01b65ba4a"
+files = "data/ground/landcover.sras (depoda değil; seismira-data land-cover)"
+

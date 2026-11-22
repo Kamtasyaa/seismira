@@ -21,8 +21,8 @@
 | Yağış | CHELSA V2.1 klimatolojileri (bio12) | CC0 1.0 (EnviDat, DOĞRULANDI 2026-11-22) |
 | Yeraltı su seviyesi | Fan vd. (2017) WTD, USC thredds | "Yalnızca araştırma amaçlı serbest": dağıtım için yazardan İZİN İSTENİYOR (2026-11-22) |
 | Nehirler | GMTED2010'dan kendi ürettiğimiz ağ + Natural Earth 10m nehir orta hatları (HydroSHEDS KULLANILMAZ) | Kamu malı türevi (karar 2026-11-22) |
-| Litoloji | GLiM (Hartmann & Moosdorf 2012) | 0,5° raster PANGAEA'da CC BY 3.0; vektör sürüm (CCGM) KONTROL ET |
-| Arazi örtüsü | GlobCover 2009 veya ESA WorldCover | Kontrol et |
+| Litoloji | GLiM (Hartmann & Moosdorf 2012), vektör | Vektör lisansı bulunamadı, izin istendi: yalnızca yerel (2026-11-22) |
+| Arazi örtüsü | ESA CCI Land Cover 2009 v2.0.7 (CEDA) | "Any user for any purpose" + atıf (CEDA koşul dosyası, 2026-11-22) |
 | Avrupa + Türkiye bina stoku, kırılganlık, site modeli | ESRM20 (risk.EFEHR) | CC BY 4.0 |
 | Diğer ülkeler bina stoku ve kırılganlık | GEM | CC BY-NC-SA 4.0, ticari YOK |
 | İstanbul mahalle bazlı bina yaşı | İBB Açık Veri | İBB Açık Veri Lisansı |
@@ -293,5 +293,21 @@ Lisans kuralları:
   `jessee2018::GLIM_CLASSES` sırası). Vs30'da kara olup GLiM'i olmayan
   1,80 milyon hücre (kıyı şeridi farkı, karanın ~%0,8'i). Sağduyu:
   Adapazarı su, Kapadokya py, Fuji/Kilauea vb, İstanbul sm, Everest ig.
+- ESA CCI Land Cover 2009 v2.0.7 (2026-11-22): CEDA arşivinden
+  (dap.ceda.ac.uk/neodc/esacci/land_cover/), 311 791 297 B, SHA256
+  SOURCES.toml'da. Koşullar `esacci_landcover_terms_and_conditions.txt`
+  (aynı arşiv): "may be used by any user for any purpose", atıf şartı,
+  garanti yok. Daha önce belirsiz bulunan "Copyrights" paragrafı CDS
+  portalının sayfasındaydı; veri dosyasının kendi koşul metni bunu içermiyor.
+  Yıl 2009 seçildi: Jessee 2018 GlobCover 2009 ile kalibre edilmiş.
+  `seismira-data land-cover` → data/ground/landcover.sras (35 MB):
+  her 30″ hücreye tam 3 × 3 CCI pikseli düşer, çoğunluk sınıfı alınır.
+  `tiff` 0.11.3 bu dosyada da "no lzw end code" hatası veriyor;
+  toleranslı LZW yedeği u8'e genişletildi ve 300 rastgele noktada rasterio
+  ile karşılaştırıldı (298 aynı, 2'si Vs30'da su). Vs30'da kara olup CCI
+  kara sınıfı olmayan 1,63 milyon hücre (kıyı şeridi).
+  GlobCover 2009 asıl dosyası kullanılamadı: ESA DUE sunucusu kapalı,
+  yalnızca Google Earth Engine'de var; koşulları da daha dar ("eğitim
+  ve/veya bilimsel amaç"). Sınıf eşlemesi docs/bilim.md 7.9.
 - GlobCover 2009: ESA DUE sitesi yanıt vermiyor (2026-11-22 de). Alternatif:
   aynı LCCS sınıf sistemini kullanan ESA CCI Land Cover (lisansı kontrol et).

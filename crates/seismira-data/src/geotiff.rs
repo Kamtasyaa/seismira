@@ -211,21 +211,24 @@ impl GeoTiff {
     /// EOI koduyla bitiyor (weezl ile doğrudan çözüldüğünde `Done`,
     /// 2026-11-14 denendi). Bu parçaları aynı ayarlarla (MSB, 8 bit, TIFF
     /// kod boyu geçişi) kendimiz çözüyoruz; YALNIZCA akış `Done` ile bitip
-    /// çıktı tam parça boyutundaysa kabul ediliyor.
+    /// çıktı tam parça boyutundaysa kabul ediliyor. Aynı hata ESA CCI LC
+    /// 2009 GeoTIFF'inde (u8) de görüldü (2026-11-22).
     fn lenient_lzw(&mut self, idx: u32, dh: u32) -> Result<Vec<f32>> {
         use std::io::{Read, Seek, SeekFrom};
         let pred = self.dec.get_tag_u32(Tag::Predictor).unwrap_or(1);
         let bits = self.dec.get_tag_u32(Tag::BitsPerSample)?;
         let format = self.dec.get_tag_u32(Tag::SampleFormat).unwrap_or(1);
         ensure!(
-            pred == 1 && bits == 32 && (format == 1 || format == 3),
-            "toleranslı LZW yalnızca öngörücüsüz 32 bit (u32/f32) için"
+            pred == 1
+                && ((bits == 32 && (format == 1 || format == 3)) || (bits == 8 && format == 1)),
+            "toleranslı LZW yalnızca öngörücüsüz u8/u32/f32 için"
         );
+        let bps = (bits / 8) as usize;
         let i = idx as usize;
         let mut src = vec![0u8; usize::try_from(self.counts[i])?];
         self.raw.seek(SeekFrom::Start(self.offsets[i]))?;
         self.raw.read_exact(&mut src)?;
-        let full = (self.chunk_w * self.chunk_h * 4) as usize;
+        let full = self.chunk_w as usize * self.chunk_h as usize * bps;
         let mut out = vec![0u8; full];
         let mut dec = weezl::decode::Decoder::with_tiff_size_switch(weezl::BitOrder::Msb, 8);
         let (mut ci, mut co) = (0, 0);
@@ -244,6 +247,12 @@ impl GeoTiff {
             done && co == full,
             "parça {idx}: toleranslı LZW {co} / {full} bayt üretti (bitti: {done})"
         );
+        if bps == 1 {
+            return Ok(out[..(self.chunk_w * dh) as usize]
+                .iter()
+                .map(|&b| f32::from(b))
+                .collect());
+        }
         let le = matches!(self.dec.byte_order(), tiff::tags::ByteOrder::LittleEndian);
         let vals = out[..(self.chunk_w * dh * 4) as usize]
             .as_chunks::<4>()
