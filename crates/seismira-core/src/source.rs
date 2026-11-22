@@ -188,7 +188,7 @@ impl Fault {
     }
 
     /// Yatay birim vektörler: doğrultu yönü ve eğim (yatay) yönü (x doğu, y kuzey).
-    fn axes(strike: f64) -> ([f64; 2], [f64; 2]) {
+    pub(crate) fn axes(strike: f64) -> ([f64; 2], [f64; 2]) {
         let a = strike.to_radians();
         let s = [a.sin(), a.cos()];
         let d = [a.cos(), -a.sin()]; // doğrultunun 90° saat yönü
@@ -196,6 +196,11 @@ impl Fault {
     }
 
     /// Üst kenarın iki ucu (boylam, enlem): yüzey izi / önizleme çizgisi.
+    /// Üst kenarın doğrultu boyunca başlangıç noktası (yerel km).
+    pub(crate) fn top_start(&self) -> [f64; 2] {
+        self.top_start
+    }
+
     pub fn top_edge_lonlat(&self) -> [(f64, f64); 2] {
         let (s, _) = Self::axes(self.strike);
         let a = self.top_start;
@@ -214,13 +219,13 @@ impl Fault {
         [a, b, c, e].map(|p| self.local_to_lonlat(p))
     }
 
-    fn local_to_lonlat(&self, p: [f64; 2]) -> (f64, f64) {
+    pub(crate) fn local_to_lonlat(&self, p: [f64; 2]) -> (f64, f64) {
         let dist = (p[0] * p[0] + p[1] * p[1]).sqrt();
         let az = p[0].atan2(p[1]).to_degrees();
         geo::destination(self.epicenter, az, dist)
     }
 
-    fn lonlat_to_local(&self, site: (f64, f64)) -> ([f64; 2], f64) {
+    pub(crate) fn lonlat_to_local(&self, site: (f64, f64)) -> ([f64; 2], f64) {
         let (km, az) = geo::distance_azimuth(self.epicenter, site);
         let a = az.to_radians();
         ([km * a.sin(), km * a.cos()], km)

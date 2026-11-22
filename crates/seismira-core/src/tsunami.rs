@@ -5,6 +5,8 @@
 //! - [`okada85`]: sonlu dikdörtgen faydan yüzey yer değiştirmesi.
 //! - [`trigger`]: ilk değerlendirme (PTWC ölçütleri).
 //! - [`travel`]: varış süresi haritası (fast marching, √(g·h)).
+//! - [`runup`]: yakın alanda en yüksek tırmanma (Riquelme vd. 2015).
+//! - [`source`]: depremden deniz tabanı düşey yer değiştirmesi (Okada).
 
 /// Deniz derinliği ızgarası: NOAA NCEI ETOPO 2022 (60″, CC0) + Natural Earth
 /// deniz maskesi (scripts/gen_bathy.py, `seismira-data bathy`; docs/veri.md).
@@ -690,6 +692,243 @@ pub mod travel {
                 wrap: false,
             };
             assert!(compute(&gb, &[(0, 0.0)], f64::INFINITY, &stop).is_none());
+        }
+    }
+}
+
+/// Yakın alanda tsunami tırmanma yüksekliği (runup). Riquelme, S., Fuentes,
+/// M., Hayes, G. P., Campos, J. (2015), "A rapid estimation of near-field
+/// tsunami runup", JGR Solid Earth 120, 6487–6500, doi:10.1002/2015JB012218
+/// (CC BY-NC-ND; data/raw/papers/). Synolakis (1987) yalnız dalga tırmanma
+/// yasasının çok eğimli kıyı uzantısı (Kânoğlu & Synolakis 1998; Fuentes
+/// vd. 2015).
+///
+/// Geçerlilik (makale): belirgin geometrili dalma-batma zonları, yakın alan;
+/// doğrultu atımlı faylar, adalar, koylar, haliçler kapsam DIŞI; tek (ilk)
+/// dalga, kırılma / sürtünme / rezonans yok. Sınamada en yüksek tırmanma
+/// gözleme çoğunlukla yakın (Peru 2001: 8 / 8,2 m; Pisco 2007: 9,2 / 10,1 m;
+/// Tokachi 2003: 6 / 4,4 m). Uygulamada "kaba tahmin" olarak gösterilir.
+pub mod runup {
+    /// Eş. (3): en yüksek tırmanma R (m). `h`: ilk dalganın en büyük
+    /// yüksekliği (Okada düşey yer değiştirmesinin en büyüğü, m), `d`:
+    /// ortalama okyanus derinliği (m), `slope`: kıyıya en yakın şelf
+    /// segmentinin eğimi |b| (boyutsuz, ör. 0,0027).
+    /// R = 2,831 H (H/d)^¼ (1 + H/d)^¼ |b|^(−½).
+    pub fn max_runup(h: f64, d: f64, slope: f64) -> f64 {
+        if h <= 0.0 || d <= 0.0 || slope <= 0.0 {
+            return 0.0;
+        }
+        let r = h / d;
+        2.831 * h * r.powf(0.25) * (1.0 + r).powf(0.25) / slope.abs().sqrt()
+    }
+
+    /// Eş. (2)'deki kıyı boyunca azalma (Lorentz): f(p) = 1 / (1 + (2p/L)²),
+    /// `p` (km) en yüksek noktadan kıyı boyunca uzaklık, `l` (km) fay
+    /// uzunluğu. Gelen dalga açısı bilinmiyorsa θ = 90° (makalenin "en kötü
+    /// durum" önerisi): p₀ = α·y, α = √(1 + H/d).
+    pub fn along_coast(p_km: f64, l_km: f64) -> f64 {
+        1.0 / (1.0 + (2.0 * p_km / l_km).powi(2))
+    }
+
+    /// α = √(1 + H/d) (Eş. 2).
+    pub fn alpha(h: f64, d: f64) -> f64 {
+        (1.0 + h / d).sqrt()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn esitlik_3_ve_lorentz() {
+            // Elle: 2,831 · 2 · (5e-4)^¼ · (1,0005)^¼ / √0,0027 = 16,2961 m.
+            let r = max_runup(2.0, 4000.0, 0.0027);
+            assert!((r - 16.296_14).abs() < 1e-4, "{r}");
+            // H ile (H/d)^¼ üzerinden 5/4 kuvvetle büyür.
+            let r2 = max_runup(4.0, 4000.0, 0.0027);
+            assert!((r2 / r - 2f64.powf(1.25) * ((1.001f64 / 1.0005).powf(0.25))).abs() < 1e-9);
+            assert_eq!(max_runup(0.0, 4000.0, 0.003), 0.0);
+            // f(50 km; L = 200 km) = 1 / (1 + 0,25) = 0,8.
+            assert!((along_coast(50.0, 200.0) - 0.8).abs() < 1e-12);
+            assert_eq!(along_coast(0.0, 100.0), 1.0);
+        }
+    }
+}
+
+/// Depremden tsunami kaynağı: düzgün kaymalı sonlu fay (`source::Fault`,
+/// uygulamanın sarsıntı hesabıyla aynı düzlem) ve Okada (1985) ile yüzey
+/// düşey yer değiştirmesi (pasif üretim: deniz yüzeyi tabanı izler;
+/// Riquelme vd. 2015'in yaklaşımı).
+pub mod source {
+    use super::okada85;
+    use crate::quake::Quake;
+    use crate::source::Fault;
+
+    /// Kesme modülü (Pa): Riquelme vd. (2015) ile aynı (30 GPa; s. 6492).
+    pub const SHEAR_MODULUS_PA: f64 = 3.0e10;
+
+    /// Sismik moment (N·m): Hanks & Kanamori (1979), M0 = 10^(1,5 Mw +
+    /// 9,05) (docs/bilim.md "Moment bağıntısı").
+    pub fn moment(mw: f64) -> f64 {
+        10f64.powf(1.5 * mw + 9.05)
+    }
+
+    /// Ortalama kayma D = M0 / (μ A) (m); `area_km2` fay alanı.
+    pub fn mean_slip(mw: f64, area_km2: f64) -> f64 {
+        moment(mw) / (SHEAR_MODULUS_PA * area_km2 * 1e6)
+    }
+
+    /// Düşey yer değiştirme ızgarası (boylam-enlem, satır satır kuzeyden).
+    #[derive(Clone, Debug)]
+    pub struct Uplift {
+        pub west: f64,
+        pub north: f64,
+        pub cell: f64,
+        pub width: usize,
+        pub height: usize,
+        /// uz (m), yukarı pozitif.
+        pub uz: Vec<f32>,
+        /// En büyük |uz| (m) ve konumu (boylam, enlem).
+        pub h_max: f64,
+        pub at: (f64, f64),
+        /// Ortalama kayma (m).
+        pub slip: f64,
+    }
+
+    /// Fay yüzey izdüşümünün çevresinde (her yönde `margin_km`) `cell`
+    /// derecelik ızgarada uz. Okada koordinatları: x doğrultu, y doğrultunun
+    /// 90° saat yönü tersi (yukarı eğim yönü), orijin ALT kenarın başı,
+    /// d = üst kenar derinliği + W sin δ. U1 = D cos(rake), U2 = D sin(rake)
+    /// (Okada: U2 > 0 tavan bloğu yukarı = ters faylanma).
+    pub fn uplift(q: &Quake, fault: &Fault, cell: f64, margin_km: f64) -> Uplift {
+        let (s, dvec) = Fault::axes(fault.strike);
+        let (sd, cd) = fault.dip.to_radians().sin_cos();
+        let top = fault.top_start();
+        let horiz = fault.width * cd;
+        let origin = [top[0] + dvec[0] * horiz, top[1] + dvec[1] * horiz];
+        let depth_bottom = fault.ztor + fault.width * sd;
+        let slip = mean_slip(q.mw, fault.length * fault.width);
+        let rake = q.rake.to_radians();
+        let u = [slip * rake.cos(), slip * rake.sin(), 0.0];
+        // Kapsama kutusu: izdüşüm köşeleri ± pay.
+        let corners = fault.surface_outline_lonlat();
+        let km_deg = 111.195;
+        let lat_mid = corners.iter().map(|c| c.1).sum::<f64>() / 4.0;
+        let pad_lat = margin_km / km_deg;
+        let pad_lon = margin_km / (km_deg * lat_mid.to_radians().cos().max(0.05));
+        // Boylamlar merkez üssüne göre sürekli tutulur (180° yakınında).
+        let unwrap = |lon: f64| {
+            let mut d = lon - q.epicenter.0;
+            d -= 360.0 * (d / 360.0).round();
+            q.epicenter.0 + d
+        };
+        let west = corners
+            .iter()
+            .map(|c| unwrap(c.0))
+            .fold(f64::INFINITY, f64::min)
+            - pad_lon;
+        let east = corners
+            .iter()
+            .map(|c| unwrap(c.0))
+            .fold(f64::NEG_INFINITY, f64::max)
+            + pad_lon;
+        let south = corners.iter().map(|c| c.1).fold(f64::INFINITY, f64::min) - pad_lat;
+        let north = corners
+            .iter()
+            .map(|c| c.1)
+            .fold(f64::NEG_INFINITY, f64::max)
+            + pad_lat;
+        let west = (west / cell).floor() * cell;
+        let north = (north / cell).ceil() * cell;
+        let width = ((east - west) / cell).ceil() as usize;
+        let height = ((north - south) / cell).ceil() as usize;
+        let mut uz = vec![0f32; width * height];
+        let (mut h_max, mut at) = (0.0f64, q.epicenter);
+        for r in 0..height {
+            let lat = north - (r as f64 + 0.5) * cell;
+            for c in 0..width {
+                let lon = west + (c as f64 + 0.5) * cell;
+                let (p, _) = fault.lonlat_to_local((lon, lat));
+                let rel = [p[0] - origin[0], p[1] - origin[1]];
+                let x = rel[0] * s[0] + rel[1] * s[1];
+                let y = -(rel[0] * dvec[0] + rel[1] * dvec[1]);
+                let d = okada85::displacement(
+                    x,
+                    y,
+                    depth_bottom,
+                    fault.dip,
+                    fault.length,
+                    fault.width,
+                    u,
+                    okada85::POISSON_SOLID,
+                );
+                let v = d[2];
+                uz[r * width + c] = v as f32;
+                if v.abs() > h_max {
+                    h_max = v.abs();
+                    at = (lon, lat);
+                }
+            }
+        }
+        Uplift {
+            west,
+            north,
+            cell,
+            width,
+            height,
+            uz,
+            h_max,
+            at,
+            slip,
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::quake::{FaultType, Quake, Setting};
+
+        fn thrust() -> Quake {
+            let mut q = Quake::new((143.0, 38.0));
+            q.mw = 8.0;
+            q.depth_km = 20.0;
+            q.strike = 0.0; // kuzeye; eğim doğuya (doğrultunun saat yönü)
+            q.dip = 15.0;
+            q.rake = 90.0;
+            q.fault = FaultType::Reverse;
+            q.setting = Setting::Interface;
+            q
+        }
+
+        #[test]
+        fn ters_fay_tavan_blogu_yukselir() {
+            let q = thrust();
+            let f = Fault::from_quake(&q);
+            let up = uplift(&q, &f, 0.05, 100.0);
+            // Doğrultu kuzey, eğim doğuya: fay doğuya derinleşir, tavan bloğu
+            // (yükselen kısım) üst kenarın doğusunda, fayın üstünde.
+            let top = f.top_edge_lonlat();
+            let top_lon = (top[0].0 + top[1].0) / 2.0;
+            let max_pos = up.uz.iter().cloned().fold(f32::MIN, f32::max);
+            let max_neg = up.uz.iter().cloned().fold(f32::MAX, f32::min);
+            assert!(max_pos > 0.5, "yükselme yok: {max_pos}");
+            assert!(
+                f64::from(max_pos) >= f64::from(-max_neg),
+                "{max_pos} {max_neg}"
+            );
+            assert!(
+                up.at.0 > top_lon - 0.05,
+                "en büyük yükselme üst kenarın batısında: {:?} / {top_lon}",
+                up.at
+            );
+            // Ortalama kayma makul (Mw 8, A ~ WC94).
+            assert!(up.slip > 1.0 && up.slip < 20.0, "{}", up.slip);
+        }
+
+        #[test]
+        fn moment_hk79() {
+            // Mw 9,0 → 10^(13,5 + 9,05) = 3,548e22 N·m.
+            assert!((moment(9.0) / 3.548_133_9e22 - 1.0).abs() < 1e-6);
         }
     }
 }

@@ -16,7 +16,9 @@ karşılaştırılır). Katsayılar makalelerin elektronik eklerinden alınır.
 
 ### 7.1 Kaynak geometrisi
 
-- Moment: M0 = 10^(1.5·Mw + 9.1) N·m (Hanks & Kanamori 1979).
+- Moment: M0 = 10^(1.5·Mw + 9.05) N·m (Hanks & Kanamori 1979; aşağıda
+  "Moment bağıntısı"; 2026-11-23'te 9.1'den düzeltildi, kodda
+  `tsunami::source::moment`).
 - Kırılma boyutları: kabuk için Wells & Coppersmith (1994) veya
   Leonard (2010); dalma-batma için Strasser vd. (2010). Alternatif
   tek kaynak: Thingbaijam vd. (2017).
@@ -27,7 +29,8 @@ karşılaştırılır). Katsayılar makalelerin elektronik eklerinden alınır.
 - Varsayılanlar (doğrula): doğrultu atımlı dip 90°, rake 0° veya 180°;
   normal dip ~55°, rake −90°; ters dip ~40°, rake 90°; arayüzde dip
   ve strike Slab2'den.
-- Ortalama kayma D = M0 / (μ·A), μ ≈ 30 GPa (doğrula). Tsunami için.
+- Ortalama kayma D = M0 / (μ·A), μ = 30 GPa (Riquelme vd. 2015 ile aynı;
+  `tsunami::source::mean_slip`). Tsunami için.
 - Düzlem ~5–10 km'lik alt faylara bölünür. Alt fayın kırılma zamanı =
   odağa uzaklık / kırılma hızı (≈ 0.8·Vs ≈ 2.8 km/s, doğrula).
   Bu yalnızca zamanlama hesabı içindir, ekranda gösterilmez.
@@ -457,6 +460,18 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     YAPILMAZ. PTWC tehdit eşiği: tahmini kıyı genliği > 0,3 m. Sınırlar:
     ilk sonuçlar kolayca 2 kat değişebilir; küçük adalarda (< 30 km) ve
     resifli kıyılarda Green yasası fazla verir.
+- KIYI YÜKSEKLİĞİ (Faz 8 adım 5, 2026-11-23): Abe (1995) kitap bölümü
+  kapalı erişim → Riquelme vd. (2015) JGR 120, 6487–6500 (CC BY-NC-ND;
+  kullanıcı PDF'i getirdi, data/raw/papers/). seismira-core
+  `tsunami::runup`: Eş. (3) R = 2,831 H (H/d)^¼ (1 + H/d)^¼ |b|^(−½)
+  (çok eğimli kıyı, son eğim b) ve Eş. (2)'nin kıyı boyunca Lorentz
+  azalması f(p) = 1/(1 + (2p/L)²), p = α·y (θ = 90°, makalenin en kötü
+  durum önerisi). Kaynak: `tsunami::source::uplift`: düzgün kaymalı fay
+  (uygulamanın sarsıntı düzlemi), D = M0/(μA), μ = 30 GPa, Okada uz; H =
+  en büyük |uz|. Geçerlilik (makale): dalma-batma yakın alanı; doğrultu
+  atımlı, ada, koy, haliç kapsam dışı; ilk dalga. UZAK ALANDA YÜKSEKLİK
+  VERİLMEZ (yayımlanmış basit yöntem bulunamadı; PTWC RIFT sığ su modeli
+  kullanır = Aşama 3): yalnızca PTWC tehdit bölgesi ve varış süresi.
 - UYGULAMA (Faz 8 adım 4, 2026-11-23): varış süresi, seismira-core
   `tsunami::travel` (birinci dereceden fast marching, 4 komşu, iki yönlü
   güncelleme; boylam-enlem ızgarada dx = R cos φ Δλ). Kaynaklar: Sethian
