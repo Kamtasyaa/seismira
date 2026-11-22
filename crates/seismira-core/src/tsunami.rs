@@ -7,6 +7,7 @@
 //! - [`travel`]: varış süresi haritası (fast marching, √(g·h)).
 //! - [`runup`]: yakın alanda en yüksek tırmanma (Riquelme vd. 2015).
 //! - [`source`]: depremden deniz tabanı düşey yer değiştirmesi (Okada).
+//! - [`forecast`]: hepsini birleştiren senaryo tahmini.
 
 /// Deniz derinliği ızgarası: NOAA NCEI ETOPO 2022 (60″, CC0) + Natural Earth
 /// deniz maskesi (scripts/gen_bathy.py, `seismira-data bathy`; docs/veri.md).
@@ -764,6 +765,12 @@ pub mod source {
     use crate::quake::Quake;
     use crate::source::Fault;
 
+    /// Tepe noktası seçimi: düzgün kaymada hendek boyunca yükselme hemen
+    /// hemen eşit, ama üst kenar sığsa dar tepe ızgarada ±%10 dalgalanır
+    /// (Tōhoku Mw 9, 2′: 4,3–5,0 m); tepe rastgele bir uca düşmesin diye
+    /// en büyüğün %90'ını geçen hücrelerden merkez üssüne en yakını alınır.
+    pub const PEAK_FRACTION: f64 = 0.9;
+
     /// Kesme modülü (Pa): Riquelme vd. (2015) ile aynı (30 GPa; s. 6492).
     pub const SHEAR_MODULUS_PA: f64 = 3.0e10;
 
@@ -788,8 +795,11 @@ pub mod source {
         pub height: usize,
         /// uz (m), yukarı pozitif.
         pub uz: Vec<f32>,
-        /// En büyük |uz| (m) ve konumu (boylam, enlem).
+        /// En büyük |uz| (m), işareti (+1 yükselme / −1 çökme) ve konumu
+        /// (boylam, enlem): en büyüğün [`PEAK_FRACTION`]'ına ulaşan
+        /// hücrelerden merkez üssüne en yakını.
         pub h_max: f64,
+        pub sign: f64,
         pub at: (f64, f64),
         /// Ortalama kayma (m).
         pub slip: f64,
@@ -843,7 +853,7 @@ pub mod source {
         let width = ((east - west) / cell).ceil() as usize;
         let height = ((north - south) / cell).ceil() as usize;
         let mut uz = vec![0f32; width * height];
-        let (mut h_max, mut at) = (0.0f64, q.epicenter);
+        let mut h_max = 0.0f64;
         for r in 0..height {
             let lat = north - (r as f64 + 0.5) * cell;
             for c in 0..width {
@@ -864,9 +874,20 @@ pub mod source {
                 );
                 let v = d[2];
                 uz[r * width + c] = v as f32;
-                if v.abs() > h_max {
-                    h_max = v.abs();
-                    at = (lon, lat);
+                h_max = h_max.max(v.abs());
+            }
+        }
+        let (mut at, mut best, mut sign) = (q.epicenter, f64::INFINITY, 1.0);
+        for r in 0..height {
+            let lat = north - (r as f64 + 0.5) * cell;
+            for c in 0..width {
+                let v = f64::from(uz[r * width + c]);
+                if v.abs() >= PEAK_FRACTION * h_max {
+                    let lon = west + (c as f64 + 0.5) * cell;
+                    let km = crate::geo::distance_azimuth(q.epicenter, (lon, lat)).0;
+                    if km < best {
+                        (best, at, sign) = (km, (lon, lat), v.signum());
+                    }
                 }
             }
         }
@@ -878,6 +899,7 @@ pub mod source {
             height,
             uz,
             h_max,
+            sign,
             at,
             slip,
         }
@@ -930,5 +952,245 @@ pub mod source {
             // Mw 9,0 → 10^(13,5 + 9,05) = 3,548e22 N·m.
             assert!((moment(9.0) / 3.548_133_9e22 - 1.0).abs() < 1e-6);
         }
+    }
+}
+
+/// Senaryo tahmini: tetikleme, kaynak, yakın alan tırmanması, varış süreleri
+/// (docs/bilim.md 7.10). Derinlik bir pencere olarak verilir (uygulama ve
+/// veri aracı kendi okuyucusuyla doldurur).
+pub mod forecast {
+    use super::{coast::CoastPoint, runup, source, travel, trigger};
+    use crate::geo;
+    use crate::quake::Quake;
+    use crate::source::Fault;
+    use std::sync::atomic::AtomicBool;
+
+    /// Kaynak hücresi eşiği: en büyük yer değiştirmeyle AYNI işaretli ve
+    /// |uz| ≥ bu oran × H (FMM tohumları ve "deniz altında" denetimi).
+    /// VARSAYIM (%25): %10 ve işaretsiz, Tōhoku'da kıyıdaki ~1 m çökmeyi de
+    /// kaynak sayıp varışı kıyıda 0 dk veriyordu (2026-11-23).
+    pub const SOURCE_FRACTION: f64 = 0.25;
+    /// Şelf eğimi için eş derinlik (m) ve arama uzaklığı (km). VARSAYIM:
+    /// Riquelme'nin "kıyıya en yakın segment"i yerine kıyıdan 200 m eş
+    /// derinliğe ortalama eğim.
+    pub const SHELF_DEPTH_M: f64 = 200.0;
+    pub const SHELF_SEARCH_KM: f64 = 300.0;
+    /// Yakın alan: doğrultuya dik uzaklık sınırı (km). VARSAYIM.
+    pub const NEAR_ACROSS_KM: f64 = 300.0;
+    /// Eğimin makul aralığı (Riquelme: 1°–2° kama; şelf 0,0027 örneği).
+    pub const SLOPE_MIN: f64 = 5e-4;
+    pub const SLOPE_MAX: f64 = 0.1;
+
+    /// Derinlik penceresi (m; NaN kara), boylam-enlem, satır satır kuzeyden.
+    pub struct Depth<'a> {
+        pub west: f64,
+        pub north: f64,
+        pub cell: f64,
+        pub width: usize,
+        pub height: usize,
+        pub depth: &'a [f32],
+        pub wrap: bool,
+    }
+
+    impl Depth<'_> {
+        pub fn index(&self, lon: f64, lat: f64) -> Option<usize> {
+            let mut dl = lon - self.west;
+            if self.wrap {
+                dl = dl.rem_euclid(360.0);
+            } else if dl < 0.0 {
+                // Pencere 180°'yi aşıyorsa boylam +360 ile denenir.
+                dl += 360.0;
+            }
+            let c = (dl / self.cell).floor();
+            let r = ((self.north - lat) / self.cell).floor();
+            if c < 0.0 || r < 0.0 || c >= self.width as f64 || r >= self.height as f64 {
+                return None;
+            }
+            Some(r as usize * self.width + c as usize)
+        }
+
+        pub fn at(&self, lon: f64, lat: f64) -> Option<f64> {
+            let v = self.depth[self.index(lon, lat)?];
+            v.is_finite().then_some(f64::from(v))
+        }
+
+        pub fn center(&self, i: usize) -> (f64, f64) {
+            let (r, c) = (i / self.width, i % self.width);
+            (
+                self.west + (c as f64 + 0.5) * self.cell,
+                self.north - (r as f64 + 0.5) * self.cell,
+            )
+        }
+    }
+
+    /// Bir kıyı noktasının sonucu.
+    #[derive(Clone, Copy, Debug)]
+    pub struct CoastResult {
+        /// `coast` listesindeki sıra.
+        pub point: usize,
+        /// İlk varış (s); ulaşılamıyorsa INFINITY.
+        pub eta_s: f64,
+        /// Yakın alan tırmanması (m); uzak alanda `None`.
+        pub runup_m: Option<f64>,
+        /// PTWC tehdit bölgesinde mi.
+        pub threat: bool,
+    }
+
+    /// Tahmin.
+    #[derive(Clone, Debug)]
+    pub struct Forecast {
+        pub assessment: trigger::Assessment,
+        /// Kaynak (yalnızca "deniz altında" ve Mw ≥ 6,5 ise).
+        pub h_max: f64,
+        pub at: (f64, f64),
+        pub slip: f64,
+        pub d: f64,
+        pub slope: f64,
+        pub r0: f64,
+        pub coast: Vec<CoastResult>,
+    }
+
+    /// `depth`: kaynak çevresini ve tehdit bölgesini kapsayan pencere.
+    /// `coast`: tüm kıyı noktaları (pencere dışındakiler atlanır). İptal:
+    /// `None`.
+    pub fn compute(
+        q: &Quake,
+        depth: &Depth,
+        coast: &[CoastPoint],
+        t_max_s: f64,
+        cancel: &AtomicBool,
+    ) -> Option<Forecast> {
+        let fault = Fault::from_quake(q);
+        let up = source::uplift(q, &fault, depth.cell.max(1.0 / 60.0), 50.0);
+        // Kaynak hücreleri: |uz| ≥ %10 H ve denizde.
+        let mut seeds = Vec::new();
+        let thr = SOURCE_FRACTION * up.h_max;
+        let sign = up.sign;
+        for r in 0..up.height {
+            for c in 0..up.width {
+                let v = f64::from(up.uz[r * up.width + c]) * sign;
+                if v < thr || up.h_max <= 0.0 {
+                    continue;
+                }
+                let lon = up.west + (c as f64 + 0.5) * up.cell;
+                let lat = up.north - (r as f64 + 0.5) * up.cell;
+                if let Some(i) = depth.index(lon, lat)
+                    && depth.depth[i].is_finite()
+                {
+                    seeds.push((i, 0.0));
+                }
+            }
+        }
+        seeds.sort_unstable_by_key(|s| s.0);
+        seeds.dedup_by_key(|s| s.0);
+        let assessment = trigger::assess(q.mw, q.depth_km, !seeds.is_empty());
+        let empty = Forecast {
+            assessment,
+            h_max: up.h_max,
+            at: up.at,
+            slip: up.slip,
+            d: f64::NAN,
+            slope: f64::NAN,
+            r0: 0.0,
+            coast: Vec::new(),
+        };
+        if seeds.is_empty() || q.mw < 6.5 {
+            return Some(empty);
+        }
+        // d: en büyük yükselmenin derinliği; karadaysa tohumların medyanı.
+        let d = depth.at(up.at.0, up.at.1).unwrap_or_else(|| {
+            let mut v: Vec<f32> = seeds.iter().map(|s| depth.depth[s.0]).collect();
+            v.sort_by(f32::total_cmp);
+            f64::from(v[v.len() / 2])
+        });
+        let d = d.max(50.0);
+        // En yakın kıyı noktası ve şelf eğimi.
+        let near = coast
+            .iter()
+            .map(|p| geo::distance_azimuth(up.at, (f64::from(p.lon), f64::from(p.lat))))
+            .enumerate()
+            .min_by(|a, b| a.1.0.total_cmp(&b.1.0));
+        let slope = near.map_or(SLOPE_MIN, |(k, (km, _))| {
+            let p = &coast[k];
+            let start = (f64::from(p.lon), f64::from(p.lat));
+            let d0 = f64::from(p.depth_m);
+            // Kıyıdan kaynağa doğru 1 km adımla 200 m eş derinliği ara.
+            let toward = geo::distance_azimuth(start, up.at).1;
+            let mut found = None;
+            let lim = SHELF_SEARCH_KM.min(km.max(1.0));
+            let mut x = 1.0;
+            while x <= lim {
+                let pt = geo::destination(start, toward, x);
+                if let Some(dd) = depth.at(pt.0, pt.1)
+                    && dd >= SHELF_DEPTH_M
+                {
+                    found = Some((dd - d0) / (x * 1000.0));
+                    break;
+                }
+                x += 1.0;
+            }
+            found
+                .unwrap_or_else(|| (d - d0).max(1.0) / (km.max(1.0) * 1000.0))
+                .clamp(SLOPE_MIN, SLOPE_MAX)
+        });
+        let r0 = runup::max_runup(up.h_max, d, slope);
+        let alpha = runup::alpha(up.h_max, d);
+        // Varış süreleri.
+        let g = travel::Grid {
+            west: depth.west,
+            north: depth.north,
+            cell: depth.cell,
+            width: depth.width,
+            height: depth.height,
+            depth: depth.depth,
+            wrap: depth.wrap,
+        };
+        let eta = travel::compute(&g, &seeds, t_max_s, cancel)?;
+        let (sx, sy) = {
+            let a = fault.strike.to_radians();
+            (a.sin(), a.cos())
+        };
+        let threat_radius = match assessment {
+            trigger::Assessment::Threat { radius_km } => Some(radius_km),
+            _ => None,
+        };
+        let mut out = Vec::new();
+        for (k, p) in coast.iter().enumerate() {
+            let pt = (f64::from(p.lon), f64::from(p.lat));
+            let Some(i) = depth.index(pt.0, pt.1) else {
+                continue;
+            };
+            let t = f64::from(eta[i]);
+            if !t.is_finite() {
+                continue;
+            }
+            let (km, az) = geo::distance_azimuth(up.at, pt);
+            let a = az.to_radians();
+            let (ex, ny) = (km * a.sin(), km * a.cos());
+            let along = ex * sx + ny * sy;
+            let across = (ex * sy - ny * sx).abs();
+            let runup_m = (across <= NEAR_ACROSS_KM
+                && fault.fault != crate::quake::FaultType::StrikeSlip)
+                .then(|| r0 * runup::along_coast(alpha * along, fault.length));
+            let threat = match threat_radius {
+                Some(Some(r)) => geo::distance_azimuth(q.epicenter, pt).0 <= r,
+                Some(None) => t <= trigger::BASIN_ETA_S,
+                None => false,
+            };
+            out.push(CoastResult {
+                point: k,
+                eta_s: t,
+                runup_m,
+                threat,
+            });
+        }
+        Some(Forecast {
+            assessment,
+            d,
+            slope,
+            r0,
+            coast: out,
+            ..empty
+        })
     }
 }

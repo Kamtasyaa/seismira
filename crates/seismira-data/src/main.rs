@@ -35,6 +35,7 @@ mod ls_static;
 mod regions;
 mod slope75;
 mod tsunami_eta;
+mod tsunami_scenario;
 mod validate_damage;
 mod validate_landslide;
 mod validate_liquefaction;
@@ -117,6 +118,21 @@ fn main() -> Result<()> {
         [cmd, bathy, cities, output] if cmd == "coast-points" => {
             coast_points::run(Path::new(bathy), Path::new(cities), Path::new(output))
         }
+        [cmd, src, mw, dep, strike, dip, rake, setting, radius, k] if cmd == "tsunami-scenario" => {
+            let (a, b) = src.split_once(',').context("boylam,enlem")?;
+            tsunami_scenario::run(
+                Path::new("data"),
+                (a.parse()?, b.parse()?),
+                mw.parse()?,
+                dep.parse()?,
+                strike.parse()?,
+                dip.parse()?,
+                rake.parse()?,
+                setting,
+                radius.parse()?,
+                k.parse()?,
+            )
+        }
         [cmd, bathy, src, k, pts @ ..] if cmd == "tsunami-eta" => {
             let pair = |s: &str| -> Result<(f64, f64)> {
                 let (a, b) = s.split_once(',').context("boylam,enlem")?;
@@ -186,6 +202,7 @@ fn main() -> Result<()> {
              seismira-data bathy <bathy_1m.i16> <çıktı.sras>\n  \
              seismira-data coast-points <bathy.sras> <cities15000.scty> <çıktı.bin>\n  \
              seismira-data tsunami-eta <bathy.sras> <boylam,enlem> <k> <boylam,enlem>...\n  \
+             seismira-data tsunami-scenario <boylam,enlem> <Mw> <derinlik> <doğrultu> <eğim> <kayma açısı> <crust|interface|intraslab> <yarıçap°> <k>\n  \
              seismira-data ls-static <data/ground> <vs30.sras> <çıktı.sras>\n  \
              seismira-data land-cover <ESACCI-LC-...-2009-v2.0.7.tif> <vs30.sras> <çıktı.sras>\n  \
              seismira-data liq-static <data/ground> <vs30.sras> <çıktı.sras> [--coastal]\n  \

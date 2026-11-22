@@ -472,6 +472,22 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   atımlı, ada, koy, haliç kapsam dışı; ilk dalga. UZAK ALANDA YÜKSEKLİK
   VERİLMEZ (yayımlanmış basit yöntem bulunamadı; PTWC RIFT sığ su modeli
   kullanır = Aşama 3): yalnızca PTWC tehdit bölgesi ve varış süresi.
+- TAHMİN ZİNCİRİ (Faz 8 adım 5, 2026-11-23): seismira-core
+  `tsunami::forecast::compute`. VARSAYIMLAR (hepsi kodda sabit, adım 7'de
+  sınanacak): kaynak hücreleri = en büyük yer değiştirmeyle aynı işaretli
+  ve |uz| ≥ %25 H (%10 ve işaretsiz, Tōhoku'da kıyı çökmesini kaynak sayıp
+  varışı 0 dk veriyordu); tepe noktası = H'nin %90'ını geçen hücrelerden
+  merkez üssüne en yakını (dar tepe 2′ ızgarada ±%10 dalgalanıyor); d =
+  tepe noktasının derinliği (≥ 50 m); şelf eğimi b = en yakın kıyı
+  noktasından kaynağa doğru 200 m eş derinliğe ortalama eğim (300 km
+  içinde; bulunamazsa tepeye kadar ortalama), 5e-4–0,1'e kırpılır; yakın
+  alan = doğrultuya dik uzaklık ≤ 300 km ve doğrultu atımlı DEĞİL;
+  "deniz altında" (PTWC) = en az bir kaynak hücresi denizde.
+  Deneme (`seismira-data tsunami-scenario`, Tōhoku: USGS merkez üssü,
+  193°/14°/81°, arayüz, 1′ pencere ± 8°): fay 547 × 196 km, kayma 11,0 m,
+  H 4,98 m (143,52°D 38,06°K), d 4179 m, b 0,0057, R0 34,7 m (gözlenen
+  en yüksek ~40 m; Riquelme FFM ile 41 m), Ishinomaki kıyısı varış
+  16–56 dk; hesap 0,3 s.
 - UYGULAMA (Faz 8 adım 4, 2026-11-23): varış süresi, seismira-core
   `tsunami::travel` (birinci dereceden fast marching, 4 komşu, iki yönlü
   güncelleme; boylam-enlem ızgarada dx = R cos φ Δλ). Kaynaklar: Sethian
