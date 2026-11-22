@@ -27,6 +27,7 @@ mod exposure;
 mod geotiff;
 mod ground_inputs;
 mod liq_static;
+mod lith;
 mod regions;
 mod slope75;
 mod validate_damage;
@@ -95,6 +96,9 @@ fn main() -> Result<()> {
         [cmd, raw, vs30, output] if cmd == "wtd" => {
             wtd::run(Path::new(raw), Path::new(vs30), Path::new(output))
         }
+        [cmd, raw, vs30, output] if cmd == "lith" => {
+            lith::run(Path::new(raw), Path::new(vs30), Path::new(output))
+        }
         [cmd, md75, vs30, output] if cmd == "slope75" => {
             slope75::run(Path::new(md75), Path::new(vs30), Path::new(output))
         }
@@ -143,6 +147,7 @@ fn main() -> Result<()> {
              seismira-data ground-inputs <gmted md30_grd> <vs30.sras> <chelsa bio12.tif> <ne_10m_rivers.shp> <çıktı.sras>\n  \
              seismira-data slope75 <gmted md75_grd> <vs30.sras> <çıktı.sras>\n  \
              seismira-data wtd <wtd_vs30grid.i16> <vs30.sras> <çıktı.sras>\n  \
+             seismira-data lith <glim_vs30grid.u8> <vs30.sras> <çıktı.sras>\n  \
              seismira-data liq-static <data/ground> <vs30.sras> <çıktı.sras> [--coastal]\n  \
              seismira-data aig-check <aig klasörü> <geotiff>...\n  \
              seismira-data tif-sample <geotiff> <boylam,enlem>..."

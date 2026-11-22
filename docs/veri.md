@@ -285,5 +285,13 @@ Lisans kuralları:
   rasterlamış. Vektör sürüm Hamburg Üniversitesi sayfasında CCGM üzerinden
   dağıtılıyor (Dropbox, `LiMW_GIS 2015.gdb.zip`, 1,14 GB); lisansı henüz
   GÖRÜLMEDİ.
+- GLiM yerel dönüşüm (2026-11-22; LİSANS GÖRÜLMEDİ, izin istendi, yalnızca
+  yerel): `LiMW_GIS 2015.gdb.zip` (SHA256 scripts/gen_glim.py'de) açılır,
+  `.venv/bin/python -I scripts/gen_glim.py` (çokgen merkezli rasterleme,
+  30″, parça parça okur: tek seferde okumak 16 GB RAM'i aşıp OOM verdi) +
+  `seismira-data lith` → data/ground/lith.sras (10 MB, AYRI dosya, kod =
+  `jessee2018::GLIM_CLASSES` sırası). Vs30'da kara olup GLiM'i olmayan
+  1,80 milyon hücre (kıyı şeridi farkı, karanın ~%0,8'i). Sağduyu:
+  Adapazarı su, Kapadokya py, Fuji/Kilauea vb, İstanbul sm, Everest ig.
 - GlobCover 2009: ESA DUE sitesi yanıt vermiyor (2026-11-22 de). Alternatif:
   aynı LCCS sınıf sistemini kullanan ESA CCI Land Cover (lisansı kontrol et).
