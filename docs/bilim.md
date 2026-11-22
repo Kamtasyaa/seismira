@@ -352,6 +352,20 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     adayı: ağaç örtüsü yoğunluğu katmanıyla (ör. MODIS VCF) %40 eşiğinde
     ayırmak.
   - Su (210) ve veri yok (0) → model uygulanmaz.
+- HEYELAN STATİK ÖN HESAP (2026-11-22): `seismira-data ls-static` →
+  data/ground/ls_static.sras (365 MB, 2 dk; biçim seismira-core
+  `groundfailure::landslide_static`). A = −6,30 + litoloji + 0,03·CTI +
+  arazi örtüsü 8 bit (±0,013 logit) + dört 7,5″ eğim çeyreği (slope75
+  kodları, ≤ 2° olanlar 0). 106,5 milyon hücre; litolojisi yok 0,92 M,
+  arazi örtüsü yok 0,26 M (maskeli). Başvuru sarsıntısında (PGV 50, PGA
+  0,3 g) kodlu / tam kaplama toplamı 1,00007.
+  - GLiM'den türediği için izin gelene kadar YALNIZCA YEREL.
+  - Boyut denemeleri (Faz 10 paketleme için): çeyrek farkları (kayıpsız)
+    322 MB; + eğim adımı 0,6° 284 MB; + 0,9° ve A adımı 0,05 246 MB.
+    Çeyrekler yerine "aşan çeyrek sayısı + ortalama eğim" REDDEDİLDİ:
+    toplam kaplama PGV 10/30/50/100 cm/s'de %7 / %12 / %7 / %1 düşük.
+    Kullanıcı (2026-11-22): "çok sıkıştırmaya gerek yok"; kayıpsız biçim
+    kaldı.
 
 - FAZ 7 ADIM 4: SIVILAŞMA UYGULAMADA (2026-11-22). seismira-core
   `groundfailure` (Zhu genel + kıyı, Jessee; USGS koduyla birebir birim

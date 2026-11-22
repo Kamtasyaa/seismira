@@ -150,14 +150,27 @@ pub mod jessee2018 {
     /// ([`lithology_coef`], [`land_cover_coef`]). Kırpma (USGS): PGV
     /// 0–211 cm/s, CTI 0–19.
     pub fn logit(pgv_cms: f64, slope_deg: f64, rock: f64, cti: f64, land: f64) -> f64 {
+        logit_static(static_part(rock, cti, land), pgv_cms, slope_deg)
+    }
+
+    /// X'in hücreye özgü, sarsıntı ve eğimden bağımsız kısmı A:
+    /// −6.30 + litoloji + 0.03·CTI + arazi örtüsü.
+    pub fn static_part(rock: f64, cti: f64, land: f64) -> f64 {
+        -6.30 + rock + 0.03 * cti.clamp(0.0, 19.0) + land
+    }
+
+    /// A'dan X: A + 1.65·ln(PGV) + 0.06·eğim + 0.01·ln(PGV)·eğim.
+    pub fn logit_static(a: f64, pgv_cms: f64, slope_deg: f64) -> f64 {
         let l = pgv_cms.clamp(0.0, 211.0).ln();
-        -6.30
-            + 1.65 * l
-            + 0.06 * slope_deg
-            + rock
-            + 0.03 * cti.clamp(0.0, 19.0)
-            + land
-            + 0.01 * l * slope_deg
+        a + 1.65 * l + 0.06 * slope_deg + 0.01 * l * slope_deg
+    }
+
+    /// [`sub_coverage`], A'dan.
+    pub fn sub_coverage_static(a: f64, pgv_cms: f64, pga_g: f64, slope_deg: f64) -> f64 {
+        if pga_g < MIN_PGA_G || slope_deg <= SLOPE_MIN_DEG {
+            return 0.0;
+        }
+        coverage(1.0 / (1.0 + (-logit_static(a, pgv_cms, slope_deg)).exp()))
     }
 
     /// Alansal kaplama (Eş. 9): exp(−7.592 + 5.237P − 3.042P² + 4.035P³).
@@ -174,11 +187,7 @@ pub mod jessee2018 {
         cti: f64,
         land: f64,
     ) -> f64 {
-        if pga_g < MIN_PGA_G || slope_deg <= SLOPE_MIN_DEG {
-            return 0.0;
-        }
-        let x = logit(pgv_cms, slope_deg, rock, cti, land);
-        coverage(1.0 / (1.0 + (-x).exp()))
+        sub_coverage_static(static_part(rock, cti, land), pgv_cms, pga_g, slope_deg)
     }
 
     /// 30″ hücrenin kaplaması: 7,5″ eğim çeyreklerinin (her biri hücrenin
@@ -399,6 +408,174 @@ pub mod static_layer {
             Variant::General
         };
         Some((xs, cls % 4 + 1, v))
+    }
+}
+
+/// Heyelanın (Nowicki Jessee vd. 2018) sarsıntıdan bağımsız kısmının
+/// önceden hesaplanmış katmanları (`data/ground/ls_static.sras`, Vs30
+/// ızgarası; `seismira-data ls-static`; docs/bilim.md 7.9).
+///
+/// - `ls_a`: [`jessee2018::static_part`] (A), doğrusal [`A_LO`]–[`A_HI`],
+///   251 kod (adım 0,0256; en çok ±0,013 logit). [`MASKED`] = model
+///   uygulanmaz (su, litoloji ya da arazi örtüsü yok, CTI yok, hiç 2°'yi
+///   aşan çeyrek yok).
+/// - `ls_q0`–`ls_q3`: 7,5″ eğim çeyrekleri (slope75 ile aynı kodlar,
+///   0–75°, 0,3° adım); 2°'yi aşmayan çeyrek 0'a yazılır (zaten maskelenir;
+///   düz alanlar böylece iyi sıkışır).
+///
+/// A aralığı: litoloji −1,92…0, arazi örtüsü −1,26…2,34, 0,03·CTI 0…0,57
+/// → −9,48…−3,39; pay bırakıldı.
+pub mod landslide_static {
+    use super::jessee2018;
+    use crate::raster::{LayerInfo, Scale};
+
+    pub const FILE: &str = "ls_static.sras";
+    pub const A_LO: f64 = -9.6;
+    pub const A_HI: f64 = -3.2;
+    const N_VALID: u8 = 251;
+    pub const MASKED: u8 = 255;
+    /// Eğim çeyreği kodu → derece (slope75 ile aynı).
+    pub const SLOPE_HI: f64 = 75.0;
+
+    pub fn layers() -> Vec<LayerInfo> {
+        let mut v = vec![LayerInfo {
+            name: "ls_a".into(),
+            scale: Scale::Linear,
+            n_valid: N_VALID,
+            lo: A_LO as f32,
+            hi: A_HI as f32,
+        }];
+        v.extend((0..4).map(|q| LayerInfo {
+            name: format!("ls_q{q}"),
+            scale: Scale::Linear,
+            n_valid: N_VALID,
+            lo: 0.0,
+            hi: SLOPE_HI as f32,
+        }));
+        v
+    }
+
+    pub fn encode_a(a: f64) -> u8 {
+        let n = f64::from(N_VALID - 1);
+        (((a - A_LO) / (A_HI - A_LO)).clamp(0.0, 1.0) * n).round() as u8
+    }
+
+    pub fn decode_a(code: u8) -> Option<f64> {
+        (code < N_VALID).then(|| A_LO + f64::from(code) / f64::from(N_VALID - 1) * (A_HI - A_LO))
+    }
+
+    pub fn slope_deg(code: u8) -> f64 {
+        if code >= N_VALID {
+            return 0.0;
+        }
+        f64::from(code) / f64::from(N_VALID - 1) * SLOPE_HI
+    }
+
+    /// Çeyrek kodunu saklamaya hazırlar: 2°'yi aşmayan → 0.
+    pub fn keep_slope(code: u8) -> u8 {
+        if slope_deg(code) > jessee2018::SLOPE_MIN_DEG {
+            code
+        } else {
+            0
+        }
+    }
+}
+
+/// Heyelanın sarsıntı ızgarası üzerinde hesabı (CLAUDE.md Bölüm 2.6).
+/// Sıvılaşmayla aynı hücreler ve aynı temsilci taban hücre.
+pub mod landslide_grid {
+    use super::jessee2018;
+    use super::landslide_static::{decode_a, slope_deg};
+    use crate::grid::{Domain, GridSpec, NO_DATA, ShakeGrid};
+    use rayon::prelude::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    /// Önceden hesaplanmış katmanların taban ızgaradaki pencereleri.
+    pub struct StaticInputs<'a> {
+        pub a: &'a [u8],
+        pub q: [&'a [u8]; 4],
+    }
+
+    /// Hücre başına alansal kaplama (0–1; maskeli ya da veri yok: 0).
+    #[derive(Clone, Debug)]
+    pub struct LandslideGrid {
+        pub spec: GridSpec,
+        pub coverage: Vec<f32>,
+        /// Sarsıntı −1τ / +1τ (sıvılaşmayla aynı yaklaşım).
+        pub coverage_lo: Vec<f32>,
+        pub coverage_hi: Vec<f32>,
+    }
+
+    /// `shake` ile aynı ızgarada hesaplar. İptal: `None`.
+    pub fn compute(
+        shake: &ShakeGrid,
+        domain: &Domain,
+        step: u32,
+        inputs: &StaticInputs,
+        cancel: &AtomicBool,
+    ) -> Option<LandslideGrid> {
+        let spec = shake.spec;
+        let n = domain.w as usize * domain.h as usize;
+        assert_eq!(inputs.a.len(), n, "zemin penceresi alanla uyuşmuyor");
+        let rows: Vec<Option<Vec<[f32; 3]>>> = (0..spec.height)
+            .into_par_iter()
+            .map(|row| {
+                if cancel.load(Ordering::Relaxed) {
+                    return None;
+                }
+                let out = (0..spec.width)
+                    .map(|col| {
+                        let g = (row * spec.width + col) as usize;
+                        if shake.class[g] == NO_DATA {
+                            return [0.0; 3];
+                        }
+                        let bx = (col * step + step / 2).min(domain.w - 1) as usize;
+                        let by = (row * step + step / 2).min(domain.h - 1) as usize;
+                        cell(shake, g, inputs, by * domain.w as usize + bx).unwrap_or([0.0; 3])
+                    })
+                    .collect();
+                Some(out)
+            })
+            .collect();
+        let cap = (spec.width * spec.height) as usize;
+        let mut grid = LandslideGrid {
+            spec,
+            coverage: Vec::with_capacity(cap),
+            coverage_lo: Vec::with_capacity(cap),
+            coverage_hi: Vec::with_capacity(cap),
+        };
+        for row in rows {
+            for [c, lo, hi] in row? {
+                grid.coverage.push(c);
+                grid.coverage_lo.push(lo);
+                grid.coverage_hi.push(hi);
+            }
+        }
+        Some(grid)
+    }
+
+    /// [medyan, −1τ, +1τ] kaplama: dört çeyreğin ortalaması
+    /// ([`jessee2018::cell_coverage`] ile aynı).
+    fn cell(shake: &ShakeGrid, g: usize, inputs: &StaticInputs, i: usize) -> Option<[f32; 3]> {
+        let a = decode_a(*inputs.a.get(i)?)?;
+        let slopes = inputs.q.map(|q| q.get(i).map_or(0.0, |&c| slope_deg(c)));
+        let (pgv, pga) = (f64::from(shake.pgv[g]), f64::from(shake.pga[g]));
+        if !(pgv.is_finite() && pga.is_finite()) {
+            return None;
+        }
+        let (tv, ta) = (f64::from(shake.pgv_tau[g]), f64::from(shake.pga_tau[g]));
+        Some([0.0, -1.0, 1.0].map(|k: f64| {
+            let (kv, ka) = if tv.is_finite() && ta.is_finite() {
+                ((k * tv).exp(), (k * ta).exp())
+            } else {
+                (1.0, 1.0)
+            };
+            (slopes
+                .iter()
+                .map(|&s| jessee2018::sub_coverage_static(a, pgv * kv, pga * ka, s))
+                .sum::<f64>()
+                / 4.0) as f32
+        }))
     }
 }
 
@@ -723,6 +900,35 @@ mod tests {
         assert!(lithology_coef(0).is_none());
         assert!(land_cover_coef(210).is_none());
         assert_eq!(land_cover_coef(11), Some(0.0));
+    }
+
+    #[test]
+    fn heyelan_statik_ayni() {
+        use jessee2018::*;
+        use landslide_static::*;
+        let (rock, cti, land) = (
+            lithology_coef(9).unwrap(),
+            8.0,
+            land_cover_coef(120).unwrap(),
+        );
+        let a = static_part(rock, cti, land);
+        close(
+            logit_static(a, 80.0, 25.0),
+            logit(80.0, 25.0, rock, cti, land),
+            1e-12,
+        );
+        // Kuantalama: A ±0,013, eğim ±0,15°.
+        let ad = decode_a(encode_a(a)).unwrap();
+        assert!((ad - a).abs() <= 0.0128 + 1e-9);
+        assert!(decode_a(MASKED).is_none());
+        // Uç değerler aralıkta.
+        let lo = static_part(-1.92, 0.0, -1.26);
+        let hi = static_part(0.0, 19.0, 2.34);
+        assert!(lo > A_LO && hi < A_HI, "{lo} {hi}");
+        // 2°'yi aşmayan çeyrek 0'a.
+        assert_eq!(keep_slope(6), 0); // 1,8°
+        assert_eq!(keep_slope(7), 7); // 2,1°
+        close(slope_deg(250), 75.0, 1e-12);
     }
 
     #[test]
