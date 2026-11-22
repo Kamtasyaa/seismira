@@ -208,3 +208,15 @@ modified = true            # 0,1 ölçek çarpanı uygulandı, 0–2500 mm'ye k�
 license_checked = "2026-11-22"
 snapshot = "CHELSA_bio12_1981-2010_V.2.1.tif sha256 070c2309ead1ae703652e87f1ca51ba390c9ddfd9a236944528ae8b1c53a4e9a"
 files = "data/ground/inputs30.sras katmanı precip_mm (depoda değil); scripts/fetch_ground.py"
+
+[[dataset]]
+id = "fan-wtd-2017"
+name = "Küresel yeraltı su seviyesi derinliği, yıllık ortalama (Fan vd. 2017; 30″)"
+url = "http://thredds-gfnl.usc.es/thredds/catalog/GLOBALWTDFTP/annualmeans/catalog.html"
+license = "Yalnızca araştırma amaçlı serbest (dosya özniteliği); YENİDEN DAĞITIM İZNİ BEKLENİYOR"
+attribution = "Fan Y, Miguez-Macho G, Jobbágy EG, Jackson RB, Otero-Casal C (2017): Hydrologic regulation of plant rooting depth, Proceedings of the National Academy of Sciences 114 (40), 10572-10577, doi: 10.1073/pnas.1712381114."
+modified = true            # işaret pozitife çevrildi, Vs30 ızgarasına yerleştirildi, log kuantalama
+license_checked = "2026-11-22"
+distributed = false        # izin gelene kadar pakete girmez
+note = "Veri sorumlusu Gonzalo Miguez-Macho'dan (USC) e-postayla izin istendi. Zhu 2017 Fan, Li & Miguez-Macho (2013) sürümüyle kalibre edilmiş; bu 2017 sürümü."
+files = "data/ground/wtd.sras (yalnızca yerel; scripts/gen_fan_wtd.py + seismira-data wtd)"

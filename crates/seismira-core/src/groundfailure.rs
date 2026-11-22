@@ -1,0 +1,344 @@
+//! Deprem kaynaklı zemin yenilmesi: sıvılaşma (Zhu vd. 2017) ve heyelan
+//! (Nowicki Jessee vd. 2018) olasılık modelleri (CLAUDE.md Bölüm 7.9,
+//! docs/bilim.md 7.9).
+//!
+//! Katsayılar, kırpmalar ve maskeler: USGS groundfailure referans
+//! uygulaması (code.usgs.gov/ghsc/esi/groundfailure/groundfailure, kamu
+//! malı, commit fa7bd289, 2026-08-27): `src/gfail/models/zhu_2017.py`,
+//! `zhu_2017_coastal.py`, `jessee_2018.py`, `logbase.py` ve
+//! `defaultconfigfiles/models/*.ini`. Jessee katsayıları makalenin
+//! Tablo 3'üyle karşılaştırıldı (docs/bilim.md).
+//!
+//! İki model de lojistik: X = Σ bᵢ·terimᵢ, P = 1 / (1 + e^(−X)); P sonra
+//! "alansal kaplama"ya (hücre alanının etkilenen oranı) çevrilir. USGS'in
+//! gösterdiği (ve bizim haritada gösterdiğimiz) değer alansal kaplamadır.
+//! Sıra USGS'teki gibi: P → sarsıntı/Vs30 maskeleri → kaplama → eğim
+//! maskesi (çarpan).
+
+/// Zhu, Baise & Thompson (2017), "An Updated Geospatial Liquefaction Model
+/// for Global Application", BSSA 107(3), 1365–1385, doi:10.1785/0120160198.
+pub mod zhu2017 {
+    /// Genel model yeraltı su seviyesi (wtd) ister; kıyı modeli istemez
+    /// (wtd verisi olmadığında yedek, docs/bilim.md 7.9).
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Variant {
+        General,
+        Coastal,
+    }
+
+    /// Bir hücrenin girdileri.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct Inputs {
+        /// Medyan PGV (cm/s) ve PGA (g).
+        pub pgv_cms: f64,
+        pub pga_g: f64,
+        pub mw: f64,
+        /// Haritanın Vs30'u (m/s; yer hareketi modelinin sınırına
+        /// çekilmemiş değer: USGS de ham Vs30 katmanını kullanır).
+        pub vs30: f64,
+        /// Yıllık yağış (mm), kıyıya ve nehre uzaklık (km).
+        pub precip_mm: f64,
+        pub dc_km: f64,
+        pub dr_km: f64,
+        /// Yeraltı su seviyesi derinliği (m); yalnızca genel model.
+        pub wtd_m: f64,
+    }
+
+    /// Eğim maskesi: eğim ≤ 5° (ini: slopemin 0, slopemax 5).
+    pub const SLOPE_MAX_DEG: f64 = 5.0;
+    /// Sarsıntı ve zemin maskeleri (ini): PGV ≥ 3 cm/s, PGA ≥ %10 g,
+    /// Vs30 ≤ 620 m/s.
+    pub const MIN_PGV_CMS: f64 = 3.0;
+    pub const MIN_PGA_G: f64 = 0.10;
+    pub const MAX_VS30: f64 = 620.0;
+
+    /// Büyüklük ölçek çarpanı SF = 1 / (1 + e^(−2(M − 6))). USGS büyüklüğü
+    /// tek ondalığa yuvarlar ve e yerine 2.71828 yazar (fark ~1e−6,
+    /// ihmal edilir).
+    fn ln_pgv_sf(pgv_cms: f64, mw: f64) -> f64 {
+        let m = (mw * 10.0).round() / 10.0;
+        let sf = 1.0 / (1.0 + (-2.0 * (m - 6.0)).exp());
+        (pgv_cms.clamp(0.0, 150.0) * sf).ln()
+    }
+
+    /// Lojistik değişken X. Kırpma (USGS CLIPS): yağış 0–2500 mm, PGV
+    /// 0–150 cm/s.
+    pub fn logit(v: Variant, i: &Inputs) -> f64 {
+        let l = ln_pgv_sf(i.pgv_cms, i.mw);
+        let pr = i.precip_mm.clamp(0.0, 2500.0);
+        let vs = i.vs30.ln();
+        match v {
+            Variant::General => {
+                8.801 + 0.334 * l - 1.918 * vs + 0.0005408 * pr
+                    - 0.2054 * i.dc_km.min(i.dr_km)
+                    - 0.0333 * i.wtd_m
+            }
+            Variant::Coastal => {
+                let sdc = i.dc_km.sqrt();
+                12.435 + 0.301 * l - 2.615 * vs + 0.0005556 * pr - 0.0287 * sdc + 0.0666 * i.dr_km
+                    - 0.0369 * sdc * i.dr_km
+            }
+        }
+    }
+
+    /// Olasılık P; maskelenen hücrede (sarsıntı eşiği altında ya da
+    /// Vs30 > 620 m/s) `None` = tehlike yok.
+    pub fn probability(v: Variant, i: &Inputs) -> Option<f64> {
+        if i.pgv_cms < MIN_PGV_CMS || i.pga_g < MIN_PGA_G || i.vs30 > MAX_VS30 {
+            return None;
+        }
+        Some(1.0 / (1.0 + (-logit(v, i)).exp()))
+    }
+
+    /// Alansal kaplama (Zhu 2017; USGS COV_COEFFS): a / (1 + b·e^(−c·P))².
+    pub fn coverage(v: Variant, p: f64) -> f64 {
+        let (a, b, c) = match v {
+            Variant::General => (0.4915, 42.4, 9.165),
+            Variant::Coastal => (0.4208, 62.59, 11.43),
+        };
+        a / (1.0 + b * (-c * p).exp()).powi(2)
+    }
+
+    /// Hücrenin alansal kaplaması: `flat_fraction` = hücrede eğimi ≤ 5°
+    /// olan alan oranı (0–1).
+    pub fn cell_coverage(v: Variant, i: &Inputs, flat_fraction: f64) -> f64 {
+        probability(v, i).map_or(0.0, |p| coverage(v, p) * flat_fraction)
+    }
+}
+
+/// Nowicki Jessee, M.A. vd. (2018), "A Global Empirical Model for Near-Real-
+/// Time Assessment of Seismically Induced Landslides", JGR Earth Surface
+/// 123, 1835–1859, doi:10.1029/2017JF004494. Eş. 8 ve 9, Tablo 3.
+pub mod jessee2018 {
+    /// Eğim maskesi: eğim > 2° (ini: slopemin 2, slopemax 90).
+    pub const SLOPE_MIN_DEG: f64 = 2.0;
+    /// Sarsıntı maskesi: PGA ≥ %2 g (ini; Jibson & Harp 2016).
+    pub const MIN_PGA_G: f64 = 0.02;
+
+    /// Lojistik değişken X (Eş. 8). `rock` ve `land` sınıf katsayıları
+    /// ([`lithology_coef`], [`land_cover_coef`]). Kırpma (USGS): PGV
+    /// 0–211 cm/s, CTI 0–19.
+    pub fn logit(pgv_cms: f64, slope_deg: f64, rock: f64, cti: f64, land: f64) -> f64 {
+        let l = pgv_cms.clamp(0.0, 211.0).ln();
+        -6.30
+            + 1.65 * l
+            + 0.06 * slope_deg
+            + rock
+            + 0.03 * cti.clamp(0.0, 19.0)
+            + land
+            + 0.01 * l * slope_deg
+    }
+
+    /// Alansal kaplama (Eş. 9): exp(−7.592 + 5.237P − 3.042P² + 4.035P³).
+    pub fn coverage(p: f64) -> f64 {
+        (-7.592 + 5.237 * p - 3.042 * p * p + 4.035 * p * p * p).exp()
+    }
+
+    /// Bir alt alanın kaplaması; eğim ≤ 2° ya da PGA < %2 g ise 0.
+    pub fn sub_coverage(
+        pgv_cms: f64,
+        pga_g: f64,
+        slope_deg: f64,
+        rock: f64,
+        cti: f64,
+        land: f64,
+    ) -> f64 {
+        if pga_g < MIN_PGA_G || slope_deg <= SLOPE_MIN_DEG {
+            return 0.0;
+        }
+        let x = logit(pgv_cms, slope_deg, rock, cti, land);
+        coverage(1.0 / (1.0 + (-x).exp()))
+    }
+
+    /// 30″ hücrenin kaplaması: 7,5″ eğim çeyreklerinin (her biri hücrenin
+    /// dörtte biri, docs/bilim.md 7.9) ortalaması.
+    pub fn cell_coverage(
+        pgv_cms: f64,
+        pga_g: f64,
+        slopes_deg: [f64; 4],
+        rock: f64,
+        cti: f64,
+        land: f64,
+    ) -> f64 {
+        slopes_deg
+            .iter()
+            .map(|&s| sub_coverage(pgv_cms, pga_g, s, rock, cti, land))
+            .sum::<f64>()
+            / 4.0
+    }
+
+    /// GLiM üst sınıfları (Hartmann & Moosdorf 2012), USGS dosyasındaki sıra
+    /// (alfabetik, 1'den): 1 ev … 16 wb.
+    pub const GLIM_CLASSES: [&str; 16] = [
+        "ev", "ig", "mt", "nd", "pa", "pb", "pi", "py", "sc", "sm", "ss", "su", "va", "vb", "vi",
+        "wb",
+    ];
+
+    /// Pekişmemiş tortul (su): makale −3.22; USGS işletimde −1.36 kullanır
+    /// (jessee_2018.py, "OLD_UNCONSOLIDATED"/"NEW_UNCONSOLIDATED"). Seçim:
+    /// USGS değeri (docs/bilim.md 7.9).
+    pub const UNCONSOLIDATED_USGS: f64 = -1.36;
+
+    /// Litoloji katsayısı (Tablo 3), GLiM sınıf numarası (1–16). Tabloda
+    /// olmayan ev (evaporit, R'de referans düzey) ve ig (buzul) = 0
+    /// (VARSAYIM, docs/bilim.md). Su kütlesi (wb) ve bilinmeyen kod: `None`
+    /// (model uygulanmaz).
+    pub fn lithology_coef(class: u8) -> Option<f64> {
+        Some(
+            match GLIM_CLASSES.get(usize::from(class).checked_sub(1)?)? {
+                &"ev" | &"ig" => 0.0,
+                &"mt" => -1.87,
+                &"nd" => -0.66,
+                &"pa" => -0.78,
+                &"pb" => -1.88,
+                &"pi" => -1.61,
+                &"py" => -1.05,
+                &"sc" => -0.95,
+                &"sm" => -1.36,
+                &"ss" => -1.92,
+                &"su" => UNCONSOLIDATED_USGS,
+                &"va" => -1.54,
+                &"vb" => -1.50,
+                &"vi" => -0.81,
+                _ => return None,
+            },
+        )
+    }
+
+    /// Arazi örtüsü katsayısı (Tablo 3), GlobCover 2009 sınıf kodu.
+    /// Tabloda olmayan 11 (referans düzey) ve 170 = 0; 210 (su) ve
+    /// bilinmeyen kod: `None`.
+    pub fn land_cover_coef(class: u8) -> Option<f64> {
+        Some(match class {
+            11 | 170 => 0.0,
+            14 => 0.91,
+            20 => 0.88,
+            30 => 0.78,
+            40 => 0.68,
+            50 => 0.30,
+            60 => 1.77,
+            70 => 1.71,
+            90 => -1.26,
+            100 => 1.50,
+            110 => 0.68,
+            120 => 1.13,
+            130 => 0.79,
+            140 => 1.03,
+            150 => 0.54,
+            160 => 2.34,
+            180 => 1.19,
+            190 => 0.30,
+            200 => -0.06,
+            220 => -0.18,
+            230 => -1.08,
+            _ => return None,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn close(a: f64, b: f64, tol: f64) {
+        assert!((a - b).abs() < tol, "{a} ≠ {b}");
+    }
+
+    // Beklenen değerler: USGS formülleri Python'da bağımsız hesaplandı
+    // (2026-11-22; e yerine 2.71828 dahil, fark < 1e−6).
+    fn zhu_in() -> zhu2017::Inputs {
+        zhu2017::Inputs {
+            pgv_cms: 60.0,
+            pga_g: 0.4,
+            mw: 7.4,
+            vs30: 250.0,
+            precip_mm: 800.0,
+            dc_km: 3.0,
+            dr_km: 1.5,
+            wtd_m: 2.0,
+        }
+    }
+
+    #[test]
+    fn zhu_genel_usgs_ile_ayni() {
+        use zhu2017::*;
+        let i = zhu_in();
+        close(logit(Variant::General, &i), -0.383_428, 1e-5);
+        let p = probability(Variant::General, &i).unwrap();
+        close(p, 0.405_300, 1e-6);
+        close(coverage(Variant::General, p), 0.118_906, 1e-6);
+        // Kırpma (PGV 200 → 150, yağış 3000 → 2500) ve M 6.04 → 6.0.
+        let j = Inputs {
+            pgv_cms: 200.0,
+            mw: 6.04,
+            vs30: 180.0,
+            precip_mm: 3000.0,
+            dc_km: 10.0,
+            dr_km: 20.0,
+            wtd_m: 0.5,
+            ..i
+        };
+        close(logit(Variant::General, &j), -0.435_700, 1e-5);
+        // P = 1'de kaplama USGS'in maxprob değeri (0.487).
+        close(coverage(Variant::General, 1.0), 0.487, 5e-4);
+    }
+
+    #[test]
+    fn zhu_kiyi_usgs_ile_ayni() {
+        use zhu2017::*;
+        let i = zhu_in();
+        close(logit(Variant::Coastal, &i), -0.390_190, 1e-5);
+        let p = probability(Variant::Coastal, &i).unwrap();
+        close(coverage(Variant::Coastal, p), 0.160_258, 1e-6);
+    }
+
+    #[test]
+    fn zhu_maskeleri() {
+        use zhu2017::*;
+        let i = zhu_in();
+        for m in [
+            Inputs { pgv_cms: 2.9, ..i },
+            Inputs { pga_g: 0.09, ..i },
+            Inputs { vs30: 621.0, ..i },
+        ] {
+            assert!(probability(Variant::General, &m).is_none());
+            assert_eq!(cell_coverage(Variant::General, &m, 1.0), 0.0);
+        }
+        let full = cell_coverage(Variant::General, &i, 1.0);
+        close(cell_coverage(Variant::General, &i, 0.25), full / 4.0, 1e-12);
+    }
+
+    #[test]
+    fn jessee_usgs_ile_ayni() {
+        use jessee2018::*;
+        let sc = lithology_coef(9).unwrap(); // sc
+        assert_eq!(GLIM_CLASSES[8], "sc");
+        let lc = land_cover_coef(120).unwrap();
+        close(logit(80.0, 25.0, sc, 8.0, lc), 3.945_851, 1e-5);
+        close(sub_coverage(80.0, 0.3, 25.0, sc, 8.0, lc), 0.207_565, 1e-6);
+        // Pekişmemiş tortul: USGS değeri (−1.36), makaledeki −3.22 değil.
+        let su = lithology_coef(12).unwrap();
+        close(su, -1.36, 1e-12);
+        close(sub_coverage(80.0, 0.3, 25.0, su, 8.0, lc), 0.187_583, 1e-6);
+        // Kırpma: PGV 300 → 211, CTI 25 → 19.
+        let mt = lithology_coef(3).unwrap();
+        close(logit(300.0, 10.0, mt, 25.0, 0.0), 2.365_752, 1e-5);
+        // P = 1'de kaplama USGS maxprob (0.256).
+        close(coverage(1.0), 0.256, 5e-4);
+    }
+
+    #[test]
+    fn jessee_maskeleri_ve_ceyrekler() {
+        use jessee2018::*;
+        assert_eq!(sub_coverage(80.0, 0.3, 2.0, 0.0, 8.0, 0.0), 0.0);
+        assert_eq!(sub_coverage(80.0, 0.019, 30.0, 0.0, 8.0, 0.0), 0.0);
+        let one = sub_coverage(80.0, 0.3, 30.0, 0.0, 8.0, 0.0);
+        let c = cell_coverage(80.0, 0.3, [0.5, 1.0, 1.5, 30.0], 0.0, 8.0, 0.0);
+        close(c, one / 4.0, 1e-12);
+        // Su kütlesi ve bilinmeyen kodlar modeli kapatır.
+        assert!(lithology_coef(16).is_none());
+        assert!(lithology_coef(0).is_none());
+        assert!(land_cover_coef(210).is_none());
+        assert_eq!(land_cover_coef(11), Some(0.0));
+    }
+}

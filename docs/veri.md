@@ -261,6 +261,18 @@ Lisans kuralları:
     doi:10.5281/zenodo.7254221. Sınıfları (11) GlobCover LCCS sınıflarından
     farklı: Jessee katsayıları için sınıf eşlemesi gerekir (yaklaşım
     belgelenmeli, doğrulamada sapma ölçülmeli).
+- Fan WTD yerel dönüşüm (2026-11-22; İZİN BEKLENİYOR, yalnızca yerel):
+  5 kıta NetCDF4 (toplam 343 MB, SHA256 scripts/gen_fan_wtd.py'de),
+  `.venv/bin/python -I scripts/gen_fan_wtd.py` + `seismira-data wtd` →
+  data/ground/wtd.sras (169 MB, AYRI dosya; diğer girdilerle karışmaz).
+  Bulgular: (1) derinlik dosyada NEGATİF saklı (−1000…0 m), pozitife
+  çevrildi; (2) enlem/boylam float32'de birikimli hesaplanmış (son
+  değerlerde 0,09 hücre kayma), dizinler ilk değer + sabit adımla
+  hesaplandı; ızgara Vs30 ızgarasıyla hücre merkezinde hizalı;
+  (3) Vs30'da kara olup WTD'si olmayan 2,28 milyon hücre (adalar, kıyı
+  şeridi): genel model uygulanamaz, kıyı modeline düşülür.
+  Sağduyu: Adapazarı 3,4 m, İstanbul kıyısı 0,1 m, Sahra 61 m, Los
+  Angeles 12 m.
 - Üretim: `seismira-data ground-inputs` → data/ground/inputs30.sras
   (depoda değil). Yöntem ve varsayımlar: ground_inputs.rs modül belgesi
   ve docs/bilim.md 7.9.

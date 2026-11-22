@@ -305,9 +305,26 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   - CTI: HYDRO1k tanımı (belge doğrulandı, docs/veri.md); FA = 0 için
     FA + 1 hücre VARSAYIMI.
   - Uzaklıklar: 5 × 5 pahlı dönüşüm, 50 km'de kırpılır (0,2 km adım).
-  - Eğim: 30″ Horn. Jessee 2018 eğimi 7,5″'ten (md75) hesaplanacak (adım 3;
-    30″ eğim dikliği düşürür). Zhu 2017'nin eğim maskesi (0–5°) için hangi
-    çözünürlük kullanılacağı adım 3'te.
+  - Eğim: 30″ Horn (slope30, yalnızca CTI'de). Modellerin eğimi 7,5″'ten:
+    `seismira-data slope75` → data/ground/slope75.sras (adım 3, aşağıda).
+- USGS İŞLETİM AYARLARI (groundfailure `defaultconfigfiles/models/*.ini`,
+  main dalı, 2026-11-22 okundu):
+  - İki model de aynı eğim dosyasını kullanıyor (`global_grad.tif`, birim
+    gradyan, GMTED2010). Jessee: baselayer = slope (model eğim
+    çözünürlüğünde çalışır), eğim maskesi 2–90°, PGA ≥ %2 g, maxprob 0,256,
+    default_stddev 0,03 (logit). Zhu genel: baselayer = vs30, divfactor 2
+    (30″ hücre 2 × 2'ye bölünür, ~15″), eğim maskesi 0–5°, PGV ≥ 3 cm/s,
+    PGA ≥ %10 g, Vs30 ≤ 620 m/s, maxprob 0,487, default_stddev 0,05.
+    Enterpolasyon: sürekli katmanlar doğrusal, litoloji/arazi örtüsü en yakın.
+  - Zhu girdileri USGS'te: yağış WorldClim (mm), dc NASA Ocean Color (km), dr
+    HydroSHEDS (km), wtd Fan vd. 2013 (m).
+- FAZ 7 ADIM 3: 7,5″ EĞİM ÖZETİ (2026-11-22). Her 30″ hücrenin 16 alt
+  hücre eğimi (Horn, md75) sıralanır, 4'lü grupların ortalaması saklanır
+  (slope_q0 en düz … slope_q3 en dik, 0–75°, 0,3° adım). Gerekçe: Jessee'de
+  eğim ln(PGV) ile çarpım teriminde de var; tek ortalama eğim olasılığı
+  bozar. Uygulama: Jessee olasılığı 4 çeyrek üzerinden ortalanır (her çeyrek
+  2° maskesini ayrı uygular); Zhu'nun 0–5° maskesi = 5°'yi aşmayan çeyrek
+  oranı (USGS'in 15″ alt bölmesine yakın bir alansal kesir).
   - Eksik girdiler: yeraltı su seviyesi (Fan WTD, izin bekleniyor), litoloji
     (GLiM vektör lisansı), arazi örtüsü (GlobCover / ESA CCI lisansı).
 

@@ -129,7 +129,7 @@ fn tan_slope(ctx: &Ctx, e: &[i16], x: usize, y: usize) -> f32 {
 }
 
 /// Tüm ızgaralık kod dizisini döşemelere böler ve kodlar.
-fn encode_full(codes: &[u8], grid: &Grid) -> Result<Vec<Encoded>> {
+pub(crate) fn encode_full(codes: &[u8], grid: &Grid) -> Result<Vec<Encoded>> {
     let (tx_n, ty_n) = (grid.tiles_x() as usize, grid.tiles_y() as usize);
     let t = grid.tile as usize;
     let (w, h) = (grid.width as usize, grid.height as usize);

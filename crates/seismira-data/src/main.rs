@@ -9,6 +9,8 @@
 //! seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>
 //! seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>
 //! seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>
+//! seismira-data slope75 <gmted md75_grd> <vs30.sras> <çıktı.sras>
+//! seismira-data wtd <wtd_vs30grid.i16> <vs30.sras> <çıktı.sras>
 //! seismira-data ground-inputs <gmted md30_grd> <vs30.sras> <chelsa bio12.tif> <ne_10m_rivers.shp> <çıktı.sras>
 //! ```
 
@@ -24,8 +26,10 @@ mod exposure;
 mod geotiff;
 mod ground_inputs;
 mod regions;
+mod slope75;
 mod validate_damage;
 mod vs30;
+mod wtd;
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -62,6 +66,12 @@ fn main() -> Result<()> {
             Path::new(rivers),
             Path::new(output),
         ),
+        [cmd, raw, vs30, output] if cmd == "wtd" => {
+            wtd::run(Path::new(raw), Path::new(vs30), Path::new(output))
+        }
+        [cmd, md75, vs30, output] if cmd == "slope75" => {
+            slope75::run(Path::new(md75), Path::new(vs30), Path::new(output))
+        }
         [cmd, file, pts @ ..] if cmd == "sras-sample" => {
             let r = seismira_core::raster::Raster::open(std::fs::read(file)?)?;
             for p in pts {
@@ -105,6 +115,8 @@ fn main() -> Result<()> {
              seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>\n  \
              seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>\n  \
              seismira-data ground-inputs <gmted md30_grd> <vs30.sras> <chelsa bio12.tif> <ne_10m_rivers.shp> <çıktı.sras>\n  \
+             seismira-data slope75 <gmted md75_grd> <vs30.sras> <çıktı.sras>\n  \
+             seismira-data wtd <wtd_vs30grid.i16> <vs30.sras> <çıktı.sras>\n  \
              seismira-data aig-check <aig klasörü> <geotiff>...\n  \
              seismira-data tif-sample <geotiff> <boylam,enlem>..."
         ),
