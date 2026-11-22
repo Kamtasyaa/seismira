@@ -457,6 +457,18 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     YAPILMAZ. PTWC tehdit eşiği: tahmini kıyı genliği > 0,3 m. Sınırlar:
     ilk sonuçlar kolayca 2 kat değişebilir; küçük adalarda (< 30 km) ve
     resifli kıyılarda Green yasası fazla verir.
+- UYGULAMA (Faz 8 adım 4, 2026-11-23): varış süresi, seismira-core
+  `tsunami::travel` (birinci dereceden fast marching, 4 komşu, iki yönlü
+  güncelleme; boylam-enlem ızgarada dx = R cos φ Δλ). Kaynaklar: Sethian
+  (1996) PNAS 93(4) 1591–1595 ve Sethian (1999) kitabı (yöntem; formül
+  standart eikonal güncellemesi). Test: sabit derinlikte nokta kaynak,
+  analitik süreye göre eksende < %1, 45° köşegende +%0,66.
+  Gerçek veri denemesi (`seismira-data tsunami-eta`, nokta kaynak 143,0°D
+  38,1°K, k × k birleştirilmiş 1′ derinlik): 4′ küresel ızgara (5400 × 2700)
+  2,0 s, 2′ (10800 × 5400) 8,7 s (+ 1,4 s derinlik açma). Varış: Hilo 7,96 /
+  7,95 sa, Honolulu 7,56 / 7,75, Crescent City 10,05 / 9,85, Şili (Talcahuano
+  yakını) 22,5 / 22,6, Sendai kıyısı 1,2 sa. Gözlemlerle karşılaştırma
+  adım 7'de (kaynaklı varış verisiyle; burada nokta kaynak).
 - UYGULAMA (Faz 8 adım 3, 2026-11-23): Okada (1985) PDF'i NIED'den
   (bosai.go.jp/e/pdf/Okada_1985_BSSA.pdf; data/raw/papers/). seismira-core
   `tsunami::okada85::displacement`: sonlu dikdörtgen kaynak, yüzey (ux, uy,

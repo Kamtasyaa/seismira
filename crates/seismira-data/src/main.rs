@@ -34,6 +34,7 @@ mod lith;
 mod ls_static;
 mod regions;
 mod slope75;
+mod tsunami_eta;
 mod validate_damage;
 mod validate_landslide;
 mod validate_liquefaction;
@@ -116,6 +117,14 @@ fn main() -> Result<()> {
         [cmd, bathy, cities, output] if cmd == "coast-points" => {
             coast_points::run(Path::new(bathy), Path::new(cities), Path::new(output))
         }
+        [cmd, bathy, src, k, pts @ ..] if cmd == "tsunami-eta" => {
+            let pair = |s: &str| -> Result<(f64, f64)> {
+                let (a, b) = s.split_once(',').context("boylam,enlem")?;
+                Ok((a.trim().parse()?, b.trim().parse()?))
+            };
+            let pts: Vec<(f64, f64)> = pts.iter().map(|s| pair(s)).collect::<Result<_>>()?;
+            tsunami_eta::run(Path::new(bathy), pair(src)?, k.parse()?, &pts)
+        }
         [cmd, raw, output] if cmd == "bathy" => bathy::run(Path::new(raw), Path::new(output)),
         [cmd, ground, vs30, output] if cmd == "ls-static" => {
             ls_static::run(Path::new(ground), Path::new(vs30), Path::new(output))
@@ -176,6 +185,7 @@ fn main() -> Result<()> {
              seismira-data validate-landslide-scenario <jessee_2018_model.tif> <data/ground>\n  \
              seismira-data bathy <bathy_1m.i16> <çıktı.sras>\n  \
              seismira-data coast-points <bathy.sras> <cities15000.scty> <çıktı.bin>\n  \
+             seismira-data tsunami-eta <bathy.sras> <boylam,enlem> <k> <boylam,enlem>...\n  \
              seismira-data ls-static <data/ground> <vs30.sras> <çıktı.sras>\n  \
              seismira-data land-cover <ESACCI-LC-...-2009-v2.0.7.tif> <vs30.sras> <çıktı.sras>\n  \
              seismira-data liq-static <data/ground> <vs30.sras> <çıktı.sras> [--coastal]\n  \

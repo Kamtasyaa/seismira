@@ -4,6 +4,7 @@
 //! - [`coast`]: kıyı tahmin noktaları (`data/tsunami/coast.bin`).
 //! - [`okada85`]: sonlu dikdörtgen faydan yüzey yer değiştirmesi.
 //! - [`trigger`]: ilk değerlendirme (PTWC ölçütleri).
+//! - [`travel`]: varış süresi haritası (fast marching, √(g·h)).
 
 /// Deniz derinliği ızgarası: NOAA NCEI ETOPO 2022 (60″, CC0) + Natural Earth
 /// deniz maskesi (scripts/gen_bathy.py, `seismira-data bathy`; docs/veri.md).
@@ -432,6 +433,263 @@ pub mod trigger {
                     radius_km: Option::None
                 }
             );
+        }
+    }
+}
+
+/// Varış süresi: eikonal denklem |∇T| = 1 / c, c = √(g·h) (uzun dalga
+/// hızı), birinci dereceden fast marching (Sethian 1996, PNAS 93(4),
+/// 1591–1595; güncelleme kuralı: Sethian 1999, "Level Set Methods and Fast
+/// Marching Methods", 2. bs., Cambridge, Bölüm 8). Izgara boylam-enlem:
+/// hücre kenarları dx = R·cos φ·Δλ, dy = R·Δφ; 4 komşu, iki yönlü
+/// (ikinci dereceden denklem) güncelleme. Doğruluk birim testinde: sabit
+/// derinlikte nokta kaynaktan analitik süreye göre eksen boyunca < %1, 45°
+/// köşegende +%0,66 (docs/bilim.md 7.10).
+pub mod travel {
+    use std::cmp::Ordering;
+    use std::collections::BinaryHeap;
+    use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+
+    /// Yerçekimi ivmesi (m/s²).
+    pub const G: f64 = 9.81;
+    const R_M: f64 = 6_371_008.8;
+
+    /// Hesap ızgarası: satır satır, kuzeyden güneye; `depth` (m) NaN = kara.
+    pub struct Grid<'a> {
+        pub west: f64,
+        pub north: f64,
+        pub cell: f64,
+        pub width: usize,
+        pub height: usize,
+        pub depth: &'a [f32],
+        /// Izgara 360°'yi kaplıyorsa boylamda sarmal.
+        pub wrap: bool,
+    }
+
+    #[derive(PartialEq)]
+    struct Item(f64, usize);
+    impl Eq for Item {}
+    impl PartialOrd for Item {
+        fn partial_cmp(&self, o: &Self) -> Option<Ordering> {
+            Some(self.cmp(o))
+        }
+    }
+    impl Ord for Item {
+        fn cmp(&self, o: &Self) -> Ordering {
+            // En küçük süre önce (BinaryHeap en büyüğü verir).
+            o.0.total_cmp(&self.0).then(o.1.cmp(&self.1))
+        }
+    }
+
+    /// `seeds`: (hücre, başlangıç süresi s). `t_max`: bu süreden sonrası
+    /// hesaplanmaz (INFINITY kalır). İptal: `None`.
+    pub fn compute(
+        g: &Grid,
+        seeds: &[(usize, f64)],
+        t_max: f64,
+        cancel: &AtomicBool,
+    ) -> Option<Vec<f32>> {
+        let n = g.width * g.height;
+        assert_eq!(g.depth.len(), n);
+        let mut t = vec![f64::INFINITY; n];
+        let mut done = vec![false; n];
+        let mut heap = BinaryHeap::new();
+        for &(i, t0) in seeds {
+            if g.depth[i].is_finite() && t0 < t[i] {
+                t[i] = t0;
+                heap.push(Item(t0, i));
+            }
+        }
+        let dy = R_M * g.cell.to_radians();
+        let dx_row: Vec<f64> = (0..g.height)
+            .map(|r| {
+                let lat = g.north - (r as f64 + 0.5) * g.cell;
+                (R_M * lat.to_radians().cos() * g.cell.to_radians()).max(1.0)
+            })
+            .collect();
+        let mut steps = 0u64;
+        while let Some(Item(ti, i)) = heap.pop() {
+            if done[i] || ti > t[i] {
+                continue;
+            }
+            done[i] = true;
+            if ti > t_max {
+                break;
+            }
+            steps += 1;
+            if steps.is_multiple_of(1 << 16) && cancel.load(AtomicOrdering::Relaxed) {
+                return None;
+            }
+            let (r, c) = (i / g.width, i % g.width);
+            let mut nb = [usize::MAX; 4];
+            if c > 0 {
+                nb[0] = i - 1;
+            } else if g.wrap {
+                nb[0] = i + g.width - 1;
+            }
+            if c + 1 < g.width {
+                nb[1] = i + 1;
+            } else if g.wrap {
+                nb[1] = i + 1 - g.width;
+            }
+            if r > 0 {
+                nb[2] = i - g.width;
+            }
+            if r + 1 < g.height {
+                nb[3] = i + g.width;
+            }
+            for &j in &nb {
+                if j == usize::MAX || done[j] || !g.depth[j].is_finite() {
+                    continue;
+                }
+                let tj = update(g, &t, &done, j, dx_row[j / g.width], dy);
+                if tj < t[j] {
+                    t[j] = tj;
+                    heap.push(Item(tj, j));
+                }
+            }
+        }
+        Some(t.into_iter().map(|v| v as f32).collect())
+    }
+
+    /// Hücrenin hızı (m/s); kara 0.
+    pub fn speed(depth_m: f32) -> f64 {
+        if depth_m.is_finite() && depth_m > 0.0 {
+            (G * f64::from(depth_m)).sqrt()
+        } else {
+            0.0
+        }
+    }
+
+    /// Birinci dereceden upwind güncellemesi: kabul edilmiş komşulardan
+    /// ((T − a)/dx)² + ((T − b)/dy)² = 1/c².
+    fn update(g: &Grid, t: &[f64], done: &[bool], j: usize, dx: f64, dy: f64) -> f64 {
+        let (r, c) = (j / g.width, j % g.width);
+        let val = |k: usize| if done[k] { t[k] } else { f64::INFINITY };
+        let left = if c > 0 {
+            val(j - 1)
+        } else if g.wrap {
+            val(j + g.width - 1)
+        } else {
+            f64::INFINITY
+        };
+        let right = if c + 1 < g.width {
+            val(j + 1)
+        } else if g.wrap {
+            val(j + 1 - g.width)
+        } else {
+            f64::INFINITY
+        };
+        let up = if r > 0 {
+            val(j - g.width)
+        } else {
+            f64::INFINITY
+        };
+        let down = if r + 1 < g.height {
+            val(j + g.width)
+        } else {
+            f64::INFINITY
+        };
+        let a = left.min(right);
+        let b = up.min(down);
+        let f = 1.0 / speed(g.depth[j]);
+        let one = (a + dx * f).min(b + dy * f);
+        if !a.is_finite() || !b.is_finite() {
+            return one;
+        }
+        // İki yönlü çözüm: (1/dx² + 1/dy²)T² − 2(a/dx² + b/dy²)T +
+        // (a²/dx² + b²/dy² − f²) = 0.
+        let (ax, by) = (1.0 / (dx * dx), 1.0 / (dy * dy));
+        let qa = ax + by;
+        let qb = -2.0 * (a * ax + b * by);
+        let qc = a * a * ax + b * b * by - f * f;
+        let disc = qb * qb - 4.0 * qa * qc;
+        if disc < 0.0 {
+            return one;
+        }
+        let tt = (-qb + disc.sqrt()) / (2.0 * qa);
+        if tt >= a.max(b) { tt.min(one) } else { one }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn sabit_derinlik_analitik() {
+            // Ekvatorda 0,02° hücreli 601 × 601 ızgara, 4000 m derinlik,
+            // ortadan nokta kaynak.
+            let (w, h) = (601usize, 601usize);
+            let depth = vec![4000.0f32; w * h];
+            let g = Grid {
+                west: -6.01,
+                north: 6.01,
+                cell: 0.02,
+                width: w,
+                height: h,
+                depth: &depth,
+                wrap: false,
+            };
+            let mid = 300 * w + 300;
+            let t = compute(&g, &[(mid, 0.0)], f64::INFINITY, &AtomicBool::new(false)).unwrap();
+            let c = speed(4000.0);
+            let cell_m = R_M * 0.02f64.to_radians();
+            // Doğu: 250 hücre (enlem 0, cos ≈ 1).
+            let east = f64::from(t[300 * w + 550]);
+            let exact = 250.0 * cell_m / c;
+            assert!((east / exact - 1.0).abs() < 0.01, "doğu {east} / {exact}");
+            // Güney.
+            let south = f64::from(t[550 * w + 300]);
+            assert!(
+                (south / exact - 1.0).abs() < 0.01,
+                "güney {south} / {exact}"
+            );
+            // Köşegen (45°): iki yönlü güncellemeyle küçük fazlalık.
+            let diag = f64::from(t[(300 + 177) * w + 300 + 177]);
+            let exact_d = 177.0 * 2f64.sqrt() * cell_m / c;
+            // Ölçülen: 1,0066 (2026-11-23).
+            assert!(
+                diag >= exact_d * 0.99 && diag < exact_d * 1.02,
+                "köşegen {diag} / {exact_d}"
+            );
+        }
+
+        #[test]
+        fn kara_engeli_ve_sarmal() {
+            // 10 × 3 ızgara, ortada kara sütunu (yalnızca alt satırda geçit),
+            // sarmal açık: kaynak solda, karşıya en kısa yol sarmaldan.
+            let (w, h) = (10usize, 3usize);
+            let mut depth = vec![1000.0f32; w * h];
+            for r in 0..2 {
+                depth[r * w + 5] = f32::NAN;
+            }
+            let g = Grid {
+                west: 0.0,
+                north: 1.0,
+                cell: 0.1,
+                width: w,
+                height: h,
+                depth: &depth,
+                wrap: true,
+            };
+            let t = compute(&g, &[(0, 0.0)], f64::INFINITY, &AtomicBool::new(false)).unwrap();
+            assert!(t[5].is_infinite());
+            // Sütun 9, sarmal üzerinden kaynağa komşu.
+            let one = (R_M * 0.1f64.to_radians() * (0.95f64).to_radians().cos()) / speed(1000.0);
+            assert!((f64::from(t[9]) / one - 1.0).abs() < 0.01);
+            // İptal.
+            let stop = AtomicBool::new(true);
+            let big = vec![1000.0f32; 512 * 256];
+            let gb = Grid {
+                west: 0.0,
+                north: 1.0,
+                cell: 0.01,
+                width: 512,
+                height: 256,
+                depth: &big,
+                wrap: false,
+            };
+            assert!(compute(&gb, &[(0, 0.0)], f64::INFINITY, &stop).is_none());
         }
     }
 }
