@@ -459,6 +459,16 @@ impl MapWidget {
         }
     }
 
+    /// Bir noktanın görünen tüm dünya kopyalarındaki ekran konumları.
+    pub fn screen_positions(&self, rect: Rect, lonlat: (f64, f64)) -> Vec<Pos2> {
+        let (x, y) = mercator::to_unit(lonlat.0, lonlat.1);
+        let (first, n) = self.view.copies(rect);
+        (first..first + n as i32)
+            .map(|k| self.view.world_to_screen(rect, [x + f64::from(k), y]))
+            .filter(|p| rect.contains(*p))
+            .collect()
+    }
+
     /// Zemin yenilmesi kareleri (Bölüm 2.6): içi boş kırmızı çerçeve ve
     /// köşesinde tür harfi. `boxes`: (batı, kuzey, doğu, güney) derece,
     /// opaklık 0–1, harf, harf sağ köşede mi.

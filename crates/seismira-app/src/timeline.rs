@@ -2,7 +2,6 @@
 //! (CLAUDE.md Bölüm 10).
 
 use eframe::egui::{self, Key, Modifiers, RichText};
-use seismira_core::sim::Simulation;
 
 use crate::i18n::Lang;
 
@@ -80,14 +79,14 @@ pub fn ui(
     ui: &mut egui::Ui,
     lang: Lang,
     clock: &mut Clock,
-    sim: Option<&Simulation>,
+    sim_end: Option<f64>,
     next_event: Option<f64>,
 ) {
     let t = |k| lang.t(k);
-    let end = sim.map_or(0.0, Simulation::end_time);
+    let end = sim_end.unwrap_or(0.0);
     // Klavye: metin kutusu odakta değilse. Kaydırıcıdan önce tüketilir ki
     // odaktaki kaydırıcı aynı tuşu ikinci kez işlemesin.
-    if sim.is_some() && !ui.ctx().egui_wants_keyboard_input() {
+    if sim_end.is_some() && !ui.ctx().egui_wants_keyboard_input() {
         ui.input_mut(|i| {
             for (key, sign) in [(Key::ArrowLeft, -1.0), (Key::ArrowRight, 1.0)] {
                 if i.consume_key(Modifiers::SHIFT, key) {
@@ -102,7 +101,7 @@ pub fn ui(
         });
     }
 
-    ui.add_enabled_ui(sim.is_some(), |ui| {
+    ui.add_enabled_ui(sim_end.is_some(), |ui| {
         ui.horizontal(|ui| {
             if ui.button("⏮").on_hover_text(t("restart")).clicked() {
                 clock.t = 0.0;

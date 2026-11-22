@@ -15,6 +15,7 @@ mod shindo_style;
 mod text_test;
 mod theme;
 mod timeline;
+mod tsunami;
 
 /// Çoklu örnekleme (MSAA): harita çizgileri ve kıyılar için kenar yumuşatma.
 /// Harita çizim hattı da aynı örnek sayısını kullanmak zorundadır.

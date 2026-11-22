@@ -81,7 +81,7 @@ impl Regions {
 /// Belleğe eşlenmiş bir `.sras` rasterı.
 pub type MappedRaster = seismira_core::raster::Raster<memmap2::Mmap>;
 
-fn map_raster(path: &std::path::Path) -> Result<MappedRaster, String> {
+pub(crate) fn map_raster(path: &std::path::Path) -> Result<MappedRaster, String> {
     let err = |e: std::io::Error| format!("{}: {e}", path.display());
     let file = std::fs::File::open(path).map_err(err)?;
     // SAFETY: load_vs30 ile aynı (salt okunur veri dosyası).
@@ -299,6 +299,8 @@ pub enum JobMsg {
         regions: Vec<RegionGroundFailure>,
         boxes: Vec<GroundBox>,
     },
+    /// Tsunami tahmini (ayrı iş parçacığından).
+    Tsunami(crate::tsunami::TsunamiResult),
 }
 
 /// Zemin yenilmesi türü.
@@ -506,6 +508,7 @@ pub struct Datasets {
     pub slab: Option<Arc<Slab2>>,
     pub exposure: Option<Arc<Exposure>>,
     pub ground: Option<Arc<Ground>>,
+    pub tsunami: Option<Arc<crate::tsunami::TsunamiData>>,
 }
 
 impl Job {
@@ -519,9 +522,24 @@ impl Job {
             slab,
             exposure,
             ground,
+            tsunami,
         } = data;
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = channel();
+        // Tsunami ayrı iş parçacığında (küresel varış hesabı saniyeler
+        // sürebilir; sarsıntı sonuçlarını bekletmesin).
+        if let Some(td) = tsunami {
+            let (tx, flag, ctx, cities) = (tx.clone(), cancel.clone(), ctx.clone(), cities.clone());
+            let _ = std::thread::Builder::new()
+                .name("tsunami-hesabı".into())
+                .spawn(move || {
+                    if let Some(r) = crate::tsunami::run(&quake, &td, &cities, &flag)
+                        && tx.send(JobMsg::Tsunami(r)).is_ok()
+                    {
+                        ctx.request_repaint();
+                    }
+                });
+        }
         let flag = cancel.clone();
         std::thread::Builder::new()
             .name("sarsıntı-hesabı".into())

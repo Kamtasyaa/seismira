@@ -190,3 +190,24 @@ region-damage-moderate = Moderate damage: ~{ $n } buildings ({ $p }%)
 region-damage-nodata = No building data for this region (ESRM20 covers Europe and Türkiye only).
 tip-damage = Estimated extensive damage or collapse: { $p }% (likely range { $lo }–{ $hi }%)
 tip-damage-note = (using the region's building mix, not the city's own data)
+
+# Tsunami (Faz 8)
+tsunami-cat-major = Major tsunami warning
+tsunami-cat-warning = Tsunami warning
+tsunami-cat-advisory = Tsunami advisory
+tsunami-issued = { $cat }: { $regions }
+tsunami-heights = Estimated maximum runup (rough): { $list }
+tsunami-info-small = Tsunami information: earthquake too small for a tsunami threat (PTWC criteria)
+tsunami-info-deep = Tsunami information: earthquake too deep (≥ 100 km), no threat expected (PTWC criteria)
+tsunami-info-inland = Tsunami information: earthquake inland, no threat expected (PTWC criteria)
+tsunami-arrived = Tsunami arrived: { $region } { $h }
+tsunami-height-suffix = (~{ $m } m)
+tsunami-legend-title = Tsunami (JMA categories, ~3 min after the quake)
+tsunami-legend-major = Major tsunami warning: > 3 m
+tsunami-legend-warning = Tsunami warning: 1–3 m
+tsunami-legend-advisory = Advisory: 0.2–1 m or threat zone (no height)
+tsunami-legend-note = Heights are rough estimates (near-field runup, Riquelme et al. 2015)
+tsunami-tip = { $place }: { $cat }, { $h }, first wave { $eta }
+tsunami-no-height = height not estimated
+tsunami-height = estimated ~{ $m } m
+tsunami-unnamed = Coast

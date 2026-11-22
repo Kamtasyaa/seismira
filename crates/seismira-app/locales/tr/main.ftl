@@ -190,3 +190,24 @@ region-damage-moderate = Orta hasar: ~{ $n } bina (%{ $p })
 region-damage-nodata = Bu bölge için bina verisi yok (ESRM20 yalnızca Avrupa ve Türkiye).
 tip-damage = Tahmini ağır hasar veya göçme: %{ $p } (olası %{ $lo }–{ $hi })
 tip-damage-note = (ilin bina dağılımıyla; şehrin kendi bina verisi değil)
+
+# Tsunami (Faz 8)
+tsunami-cat-major = Büyük tsunami uyarısı
+tsunami-cat-warning = Tsunami uyarısı
+tsunami-cat-advisory = Tsunami dikkat bildirimi
+tsunami-issued = { $cat }: { $regions }
+tsunami-heights = Tahmini en yüksek tırmanma (kaba tahmin): { $list }
+tsunami-info-small = Tsunami bilgisi: deprem tsunami için küçük, tehdit beklenmiyor (PTWC ölçütü)
+tsunami-info-deep = Tsunami bilgisi: deprem çok derin (≥ 100 km), tehdit beklenmiyor (PTWC ölçütü)
+tsunami-info-inland = Tsunami bilgisi: deprem karada, tehdit beklenmiyor (PTWC ölçütü)
+tsunami-arrived = Tsunami ulaştı: { $region } { $h }
+tsunami-height-suffix = (~{ $m } m)
+tsunami-legend-title = Tsunami (JMA kategorileri, depremden ~3 dk sonra)
+tsunami-legend-major = Büyük tsunami uyarısı: > 3 m
+tsunami-legend-warning = Tsunami uyarısı: 1–3 m
+tsunami-legend-advisory = Dikkat: 0,2–1 m ya da tehdit bölgesi (yükseklik yok)
+tsunami-legend-note = Yükseklikler kaba tahmindir (yakın alan tırmanması, Riquelme vd. 2015)
+tsunami-tip = { $place }: { $cat }, { $h }, ilk dalga { $eta }
+tsunami-no-height = yükseklik tahmin edilmedi
+tsunami-height = tahmini ~{ $m } m
+tsunami-unnamed = Kıyı

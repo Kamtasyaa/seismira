@@ -382,6 +382,10 @@ pub struct SeismiraApp {
     damage: Option<compute::DamageResults>,
     /// Zemin yenilmesi girdileri (`data/ground/`); yoksa katman gösterilmez.
     ground: Option<Arc<compute::Ground>>,
+    /// Tsunami verisi (`data/tsunami/`); yoksa tsunami hesaplanmaz.
+    tsunami_data: Option<Arc<crate::tsunami::TsunamiData>>,
+    /// Son hesabın tsunami tahmini.
+    tsunami: Option<crate::tsunami::TsunamiResult>,
     /// Son hesabın zemin yenilmesi sonuçları ([`compute::GroundKind`]
     /// sırası): bölge özetleri (kimliğe göre sıralı; bölge kartı) ve
     /// haritadaki kırmızı kareler (belirme anına göre sıralı).
@@ -449,6 +453,9 @@ impl SeismiraApp {
                 .inspect_err(|e| log::warn!("zemin yenilmesi girdileri yok: {e}"))
                 .ok()
         });
+        let tsunami_data = crate::tsunami::TsunamiData::load(&paths::data_dir().join("tsunami"))
+            .inspect_err(|e| log::warn!("tsunami verisi yok: {e}"))
+            .ok();
         let regions = compute::Regions::load(&paths::data_dir().join("regions"))
             .inspect_err(|e| log::warn!("bölge verisi yok: {e}"))
             .ok();
@@ -498,6 +505,8 @@ impl SeismiraApp {
             damage: None,
             ground,
             ground_failure: Default::default(),
+            tsunami_data,
+            tsunami: None,
             regions,
             region_events: Vec::new(),
             region_results: Vec::new(),
@@ -714,6 +723,7 @@ impl SeismiraApp {
                 city_layer::draw_legend(ui, rect, &lang.t("shindo-legend"), Some(&limit));
             }
             self.draw_ground_failure(ui, rect);
+            self.draw_tsunami(ui, rect);
         } else if self.draft.has_epicenter {
             self.map
                 .draw_epicenter(ui, rect, self.draft.quake.epicenter);
@@ -1021,6 +1031,10 @@ impl SeismiraApp {
             .chain(self.alert.iter().map(|a| a.t))
             .chain(self.region_events.iter().map(|e| e.t))
             .chain(self.city_events.iter().map(|e| e.t))
+            .chain(self.tsunami.iter().flat_map(|ts| {
+                std::iter::once(crate::tsunami::ISSUE_S)
+                    .chain(ts.region_arrivals().into_iter().map(|r| r.t))
+            }))
             .filter(|&et| et > t + 1e-6)
             .min_by(f64::total_cmp)
     }
@@ -1186,6 +1200,132 @@ impl SeismiraApp {
         paint_card(ui, rect, at, lines, Some(s.max));
     }
 
+    /// Simülasyonun sonu: S cephesi ya da son tsunami varışı (+10 dk).
+    fn sim_end(&self) -> Option<f64> {
+        let sim = self.sim.as_ref()?;
+        let tsu = self
+            .tsunami
+            .as_ref()
+            .and_then(crate::tsunami::TsunamiResult::last_eta)
+            .map_or(0.0, |t| t + 600.0);
+        Some(sim.end_time().max(tsu))
+    }
+
+    /// Tsunami kıyı noktaları, ipucu ve açıklama (Bölüm 2.7): uyarı anından
+    /// (depremden ~3 dk sonra) itibaren, JMA renkleriyle, 1 Hz yumuşak
+    /// yanıp söner ("Hareketi azalt"ta sabit).
+    fn draw_tsunami(&self, ui: &egui::Ui, rect: egui::Rect) {
+        use crate::tsunami::{Category, ISSUE_S};
+        let Some(ts) = &self.tsunami else {
+            return;
+        };
+        if self.clock.t < ISSUE_S || ts.coast.is_empty() {
+            return;
+        }
+        let lang = self.lang;
+        let alpha = crate::ground_style::pulse(ui.input(|i| i.time), self.reduce_motion);
+        let painter = ui.painter_at(rect);
+        let hover = ui
+            .input(|i| i.pointer.hover_pos())
+            .filter(|p| rect.contains(*p));
+        let mut best: Option<(f32, &crate::tsunami::CoastNote)> = None;
+        // Düşük kategoriler önce: yüksekler üstte kalsın.
+        for cat in [Category::Advisory, Category::Warning, Category::Major] {
+            for c in ts.coast.iter().filter(|c| c.category == cat) {
+                for p in self.map.screen_positions(rect, (c.lon, c.lat)) {
+                    painter.circle_filled(p, 4.5, Color32::from_black_alpha((150.0 * alpha) as u8));
+                    painter.circle_filled(p, 3.2, cat.color().gamma_multiply(alpha));
+                    if let Some(h) = hover {
+                        let d = h.distance(p);
+                        if d < 8.0 && best.is_none_or(|(bd, _)| d < bd) {
+                            best = Some((d, c));
+                        }
+                    }
+                }
+            }
+        }
+        // Açıklama: sol altta.
+        let font = FontId::proportional(12.0);
+        let rows: Vec<(Option<Color32>, String)> = vec![
+            (None, lang.t("tsunami-legend-title")),
+            (
+                Some(Category::Major.color()),
+                lang.t("tsunami-legend-major"),
+            ),
+            (
+                Some(Category::Warning.color()),
+                lang.t("tsunami-legend-warning"),
+            ),
+            (
+                Some(Category::Advisory.color()),
+                lang.t("tsunami-legend-advisory"),
+            ),
+            (None, lang.t("tsunami-legend-note")),
+        ];
+        let galleys: Vec<_> = rows
+            .iter()
+            .enumerate()
+            .map(|(k, (_, t))| {
+                let c = if k == rows.len() - 1 {
+                    ui.visuals().weak_text_color()
+                } else {
+                    ui.visuals().text_color()
+                };
+                painter.layout_no_wrap(t.clone(), font.clone(), c)
+            })
+            .collect();
+        let w = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max) + 26.0;
+        let h = galleys.len() as f32 * 17.0 + 10.0;
+        let bg = egui::Rect::from_min_size(
+            egui::pos2(rect.left() + 12.0, rect.bottom() - 48.0 - h),
+            egui::vec2(w, h),
+        );
+        painter.rect_filled(bg, 4.0, theme::MAP_BG.gamma_multiply(0.85));
+        let mut y = bg.top() + 5.0;
+        for ((color, _), g) in rows.iter().zip(galleys) {
+            let x = bg.left() + 6.0;
+            if let Some(c) = color {
+                painter.circle_filled(egui::pos2(x + 6.0, y + 8.0), 5.0, *c);
+            }
+            painter.galley(egui::pos2(x + 18.0, y), g, Color32::WHITE);
+            y += 17.0;
+        }
+        // İpucu: en yakın nokta.
+        if let Some((_, c)) = best
+            && let Some(hp) = hover
+        {
+            let place = c
+                .place
+                .as_ref()
+                .map_or_else(|| lang.t("tsunami-unnamed"), |(n, r)| format!("{n} ({r})"));
+            let height = c.height.map_or_else(
+                || lang.t("tsunami-no-height"),
+                |m| {
+                    lang.t_args(
+                        "tsunami-height",
+                        &[("m", lang.num(m, if m < 10.0 { 1 } else { 0 }))],
+                    )
+                },
+            );
+            let text = lang.t_args(
+                "tsunami-tip",
+                &[
+                    ("place", place),
+                    ("cat", lang.t(c.category.key())),
+                    ("h", height),
+                    ("eta", timeline::format_hms(c.eta_s)),
+                ],
+            );
+            let g = painter.layout_no_wrap(text, font, Color32::WHITE);
+            let r = egui::Rect::from_min_size(hp + egui::vec2(14.0, 10.0), g.size()).expand(5.0);
+            painter.rect_filled(r, 4.0, theme::MAP_BG.gamma_multiply(0.95));
+            painter.galley(r.min + egui::vec2(5.0, 5.0), g, Color32::WHITE);
+        }
+        if !self.reduce_motion {
+            ui.ctx().request_repaint();
+        }
+    }
+
     /// Bu türün katmanı Görünüm menüsünde açık mı?
     fn ground_shown(&self, kind: compute::GroundKind) -> bool {
         match kind {
@@ -1258,6 +1398,7 @@ impl SeismiraApp {
         self.job = None; // Drop → arka plan hesabı iptal
         self.map.set_grid(None);
         self.ground_failure = Default::default();
+        self.tsunami = None;
         self.map.set_region_lines(None);
         self.map.set_region_styles(Vec::new());
         self.region_shown.clear();
@@ -1301,6 +1442,7 @@ impl SeismiraApp {
                 slab: self.slab.clone(),
                 exposure: self.exposure.clone(),
                 ground: self.ground.clone(),
+                tsunami: self.tsunami_data.clone(),
             };
             self.job = Some(compute::Job::spawn(self.draft.quake, data, ctx.clone()));
         }
@@ -1521,6 +1663,104 @@ impl SeismiraApp {
                 at: sim.quake.epicenter,
             });
         }
+        // Tsunami: uyarı (~3 dk) ve il başına ilk varış.
+        if let Some(ts) = &self.tsunami {
+            use crate::tsunami::{Category, ISSUE_S};
+            use seismira_core::tsunami::trigger::{Assessment, Reason};
+            if now >= ISSUE_S {
+                match ts.assessment {
+                    Assessment::Information(r) => notes.push(Note {
+                        t: ISSUE_S,
+                        text: lang.t(match r {
+                            Reason::TooSmall => "tsunami-info-small",
+                            Reason::TooDeep => "tsunami-info-deep",
+                            Reason::Inland => "tsunami-info-inland",
+                        }),
+                        color: ui.visuals().text_color(),
+                        badge: None,
+                        at: sim.quake.epicenter,
+                    }),
+                    Assessment::Threat { .. } => {
+                        let arrivals = ts.region_arrivals();
+                        for cat in [Category::Major, Category::Warning, Category::Advisory] {
+                            let names: Vec<&str> = arrivals
+                                .iter()
+                                .filter(|r| r.category == cat)
+                                .map(|r| r.region.as_str())
+                                .collect();
+                            if names.is_empty() {
+                                continue;
+                            }
+                            const SHOWN: usize = 6;
+                            let mut list = names[..names.len().min(SHOWN)].join(", ");
+                            if names.len() > SHOWN {
+                                list = lang.t_args(
+                                    "early-warning-more",
+                                    &[("regions", list), ("n", (names.len() - SHOWN).to_string())],
+                                );
+                            }
+                            notes.push(Note {
+                                t: ISSUE_S,
+                                text: lang.t_args(
+                                    "tsunami-issued",
+                                    &[("cat", lang.t(cat.key())), ("regions", list)],
+                                ),
+                                color: cat.color(),
+                                badge: None,
+                                at: sim.quake.epicenter,
+                            });
+                        }
+                        // Videodaki gibi yükseklik listesi: en yüksek 6 yer.
+                        let mut seen = std::collections::HashSet::new();
+                        let mut tops: Vec<&crate::tsunami::CoastNote> = ts
+                            .coast
+                            .iter()
+                            .filter(|c| c.height.is_some() && c.place.is_some())
+                            .collect();
+                        tops.sort_by(|a, b| b.height.unwrap().total_cmp(&a.height.unwrap()));
+                        let list: Vec<String> = tops
+                            .into_iter()
+                            .filter(|c| seen.insert(c.place.as_ref().unwrap().0.clone()))
+                            .take(6)
+                            .map(|c| {
+                                let m = c.height.unwrap();
+                                format!(
+                                    "{} ({} m)",
+                                    c.place.as_ref().unwrap().0,
+                                    lang.num(m, if m < 10.0 { 1 } else { 0 })
+                                )
+                            })
+                            .collect();
+                        if !list.is_empty() {
+                            notes.push(Note {
+                                t: ISSUE_S,
+                                text: lang.t_args("tsunami-heights", &[("list", list.join(", "))]),
+                                color: ui.visuals().text_color(),
+                                badge: None,
+                                at: sim.quake.epicenter,
+                            });
+                        }
+                        for r in arrivals.into_iter().filter(|r| r.t <= now) {
+                            let h = r.height.map_or_else(String::new, |m| {
+                                lang.t_args(
+                                    "tsunami-height-suffix",
+                                    &[("m", lang.num(m, if m < 10.0 { 1 } else { 0 }))],
+                                )
+                            });
+                            notes.push(Note {
+                                t: r.t,
+                                text: lang
+                                    .t_args("tsunami-arrived", &[("region", r.region), ("h", h)]),
+                                color: r.category.color(),
+                                badge: None,
+                                at: r.at,
+                            });
+                        }
+                    }
+                    Assessment::None => {}
+                }
+            }
+        }
         // Kırmızı kareler: her bölgede (tür başına) ilk karenin belirdiği an.
         for kind in compute::GroundKind::ALL {
             if !self.ground_shown(kind) {
@@ -1643,7 +1883,8 @@ impl eframe::App for SeismiraApp {
             .show(ui, |ui| {
                 ui.add_space(4.0);
                 let next = self.next_event_after(self.clock.t);
-                timeline::ui(ui, lang, &mut self.clock, self.sim.as_ref(), next);
+                let end = self.sim_end();
+                timeline::ui(ui, lang, &mut self.clock, end, next);
                 if self.show_disclaimer {
                     ui.separator();
                     egui::Sides::new().shrink_left().show(
@@ -1735,6 +1976,7 @@ impl eframe::App for SeismiraApp {
                         regions,
                         boxes,
                     } => self.ground_failure[kind as usize] = (regions, boxes),
+                    compute::JobMsg::Tsunami(r) => self.tsunami = Some(r),
                 }
             }
             if done {
@@ -1743,9 +1985,9 @@ impl eframe::App for SeismiraApp {
         }
 
         // Simülasyon saati: duvar saatine göre ilerler; oynarken sürekli çizim.
-        if let Some(sim) = &self.sim {
+        if let Some(end) = self.sim_end() {
             let dt = f64::from(ui.input(|i| i.stable_dt));
-            self.clock.advance(dt, sim.end_time());
+            self.clock.advance(dt, end);
             if self.clock.playing {
                 ui.ctx().request_repaint();
             }

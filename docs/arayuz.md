@@ -446,3 +446,32 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   kendi belirsizliği DAHİL DEĞİL: Kahramanmaraş doğrulamasında USGS'le fark
   ~2 kat (docs/dogrulama.md). Kullanıcıya bildirildi; gerekirse kart metni
   "yalnızca sarsıntı belirsizliği" diye netleştirilebilir.
+
+## Tsunami (Faz 8 adım 6, 2026-11-23)
+
+- Hesap ayrı iş parçacığında (crates/seismira-app/src/tsunami.rs): 1′
+  bölgesel pencere (PTWC yarıçapı + 2°, en çok ±14°; Mw ≥ 7,9'da ±8°) ile
+  yakın alan tırmanması ve varış; Mw ≥ 7,9'da ek olarak küresel 4′ varış
+  (Tōhoku: bölgesel 0,5 s, küresel +6 s). Simülasyon sonu = max(S cephesi
+  sonu, son tsunami varışı + 10 dk); zaman çizgisi buna uzar.
+- Uyarı anı: depremden 180 s sonra (JMA "約3分" hedefi, 気象庁
+  津波警報・注意報 sayfası 2026-11-23 okundu; PTWC ilk ürünü 3–10 dk).
+- Kategoriler (aynı JMA sayfası): 大津波警報 > 3 m (mor 200,0,255),
+  津波警報 1–3 m (kırmızı 255,40,0), 津波注意報 0,2–1 m (sarı 250,245,0;
+  JMA HPColorGuide renkleri). Yakın alanda yükseklik = Riquelme tırmanma
+  tahmini (JMA'nın "kıyıda tsunami yüksekliği" değil, tırmanma; kaba
+  tahmin olarak etiketli). Uzak alanda (PTWC tehdit bölgesi, yükseklik
+  yok) ve doğrultu atımlıda: sarı.
+- Haritada kıyı noktaları (~10 km arayla) kategori renginde nokta, koyu
+  kenarlı; 1 Hz yumuşak yanıp söner (ground_style::pulse), "Hareketi
+  azalt"ta sabit. Fareyle noktaya gelince ipucu: yer (şehir, il), kategori,
+  tahmini yükseklik ya da "yükseklik tahmin edilmedi", ilk dalga anı.
+- Açıklama sol altta: üç kategori + "yükseklikler kaba tahmindir".
+- Bildirimler: 180 s'de kategori başına il listesi ("Büyük tsunami
+  uyarısı: Iwate, Miyagi, …"), referans videodaki gibi en yüksek 6 yerin
+  listesi ("Tahmini en yüksek tırmanma: Ishinomaki (35 m), …"); her ile ilk
+  dalga ulaşınca "Tsunami ulaştı: Miyagi (~35 m)". Mw 6,5–7,0 / derin /
+  karada: tek bilgi bildirimi (PTWC ölçütü). ⏭ tsunami olaylarına da atlar.
+- Henüz yok: bölge kartında tsunami satırı (kıyı noktası → bölge kimliği
+  eşlemesi gerekiyor), Görünüm menüsünde aç/kapa.
+
