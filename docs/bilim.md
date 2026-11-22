@@ -438,6 +438,17 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   ayarlanabilir). Bildirim ve kıyı vurgusu o anda başlar.
 - Yalnızca okyanusa bağlı kıyılar; göller ve iç sular maskelenir.
 - Aşama 3 (isteğe bağlı): sığ su denklemleri, wgpu compute shader.
+- UYGULAMA (Faz 8 adım 3, 2026-11-23): Okada (1985) PDF'i NIED'den
+  (bosai.go.jp/e/pdf/Okada_1985_BSSA.pdf; data/raw/papers/). seismira-core
+  `tsunami::okada85::displacement`: sonlu dikdörtgen kaynak, yüzey (ux, uy,
+  uz), Eş. (24)–(30), cos δ = 0 için Eş. (29), tekillik kuralları (i)–(iii)
+  (s. 1148). Tablo 2'nin üç sonlu kaynak durumu (x=2, y=3, d=4, δ=70°;
+  x=y=0, δ=±90°; L=3, W=2; λ=μ) doğrultu / eğim / açılma için 4 anlamlı
+  basamakla tutuyor (ilk denemede, düzeltme gerekmedi). MathWorks
+  "okada85" sayfasındaki "üç denklem düzeltmesi" notu gerinim/eğim
+  formülleri içindir; yer değiştirmede görülmedi. Gerinim ve eğim
+  uygulanmadı (gerek yok). d: fayın ALT kenarının derinliği; uygulamada
+  üst kenar derinliği + W sin δ.
 
 
 ## Uygulama notları
