@@ -452,3 +452,53 @@ tüm hücrelerle 485,8 / 120,8, yani USGS'in ölçüsü PGA ≥ %10 g'ye uyuyor)
 SAPMA (kullanıcıya bildirildi, 2026-11-23): uçtan uca heyelan toplamı
 USGS'in ~0,7 katı (zemin katmanları tek başına 0,9).
 
+## Faz 8: tsunami doğrulaması, Tōhoku 2011, Noto 2024, Maule 2010 (2026-11-23)
+
+Gözlemler: NOAA NCEI / WDS Global Historical Tsunami Database (HazEL API,
+doi:10.7289/V5PN93H7; scripts/fetch_tsunami_validation.py → data/raw/
+validation/tsunami/, depoda değil): olay 5413 (6429 kayıt), 5907 (537),
+4682 (692). Ölçüm türü kodları API'de tanımlı değil; kayıt adlarından
+çıkarıldı: 2 mareograf, 3 DART (BPR), 4 / 5 saha araştırması, 1 görgü.
+Kaynak parametreleri: USGS ComCat merkez üssü / derinlik ve Mww moment
+tensörü düğüm düzlemi (Tōhoku Mw 9,1, 192/8/78, arayüz; Noto Mw 7,5,
+49/41/103, kabuk; Maule Mw 8,8, 17/13/108, arayüz). Araç: `seismira-data
+validate-tsunami` (uygulamayla aynı pencere kuralları: bölgesel 1′, Mw ≥
+7,9'da küresel 4′).
+
+Varış (tür 2 ve 3, `travHours/travMins`; model: gözleme 15 km içindeki en
+yakın deniz hücresi):
+
+| Deprem | < 1000 km: medyan model/gözlem, ±%20 içinde | ≥ 1000 km |
+|---|---|---|
+| Tōhoku | 0,87 (0,80–1,00), %63 (79 gözlem) | 0,95 (0,90–0,98), **%95** (191) |
+| Noto | 1,02 (0,93–1,30), %50 (14 / 31) | modelde karşılığı yok (6; pencere dışı, Mw < 7,9) |
+| Maule | 0,91 (0,36–1,17), %40 (5) | 0,99 (0,97–1,00), **%95** (133) |
+
+Uzak alanda ölçüt (%20) sağlanıyor. Yakın alanda SAĞLANMIYOR: model biraz
+erken (Tōhoku medyan 0,87); bazı yakın mareograf "varışları" (Miyako 2 dk,
+Kamaishi 4 dk, Valparaíso 3 dk) büyük olasılıkla eş-sismik su seviyesi
+değişimi ya da ilk küçük hareket; kaynak alanı varsayımı (|uz| ≥ %25 H) ve
+1′ kıyı derinliği de etkili. Değiştirilmedi.
+
+Yükseklik (tür 2 ve 4, `runupHt`; model: yakın alan tırmanması olan kıyı
+noktası ≤ 20 km). JMA kategorisi bölgenin EN YÜKSEK değerine göre verildiği
+için asıl ölçü bölge bazında (NCEI `area`) en yüksek / en yüksek:
+
+| Deprem | R0 / gözlenen en yüksek | Bölge bazında aynı kategori | Nokta bazında aynı / ort. oran |
+|---|---|---|---|
+| Tōhoku | 34,3 / 38,6 m | 8 / 14 (%57) | %77 / ×5,2 |
+| Noto | 13,8 / 6,6 m | 9 / 13 (%69) | %53 / ×3,4 |
+| Maule | 16,1 / 17,2 m | 5 / 8 (%62) | %93 / ×1,6 |
+
+Ölçüt ("bölgelerin çoğunda aynı") üçünde de sağlanıyor. SAPMALAR
+(kullanıcıya bildirildi, 2026-11-23): (1) model fay uçlarının ötesinde fazla
+veriyor (Tōhoku: Sahalin 5,2 / 0,2 m, Kuril 7,3 / 2,3, Hokkaido 17 / 6,7):
+Riquelme Eş. 2'nin Lorentz azalması yavaş; Okada profili (makalenin FFM
+sürümü) denendi ama fay ucunun hemen ötesindeki yüksek gözlemleri sıfırlıyor,
+makaledeki analitik f(p) korundu. (2) Korunaklı körfezlerde çok fazla
+(Tokyo, Kanagawa, Toyama: 12–18 m / 1,4–2,8 m): makale koyları kapsam dışı
+sayar; kıyı noktası "koy içi" ayrımı yok. (3) Noto (kabuk içi, sığ deniz,
+d = 78 m) en yüksekte ×2: Riquelme'nin geçerlilik alanı (dalma-batma) dışı.
+Nokta bazında model ×1,6–5 fazla: formül EN YÜKSEK tırmanmayı verir; tek
+bir noktadaki tırmanma bunun altında kalır (beklenen).
+

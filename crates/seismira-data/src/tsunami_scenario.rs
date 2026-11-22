@@ -13,6 +13,44 @@ use std::io::BufReader;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
+/// 1′ derinlik rasterından (boylam `west`, enlem `north` köşeli, w1 × h1
+/// hücre) k × k birleştirilmiş derinlik (m; NaN kara). Uygulamadaki
+/// `tsunami::TsunamiData::window` ile aynı kural.
+pub(crate) fn depth_window(
+    r: &Raster<Vec<u8>>,
+    west: f64,
+    north: f64,
+    w1: u32,
+    h1: u32,
+    k: usize,
+) -> Result<Vec<f32>> {
+    let g = r.grid;
+    let li = r.layer("depth_m").context("depth_m")?;
+    let info = &r.layers[li];
+    let col0 = ((west - g.west) / g.cell).round() as i64;
+    let row0 = ((g.north - north) / g.cell).round() as i64;
+    let codes = r.window(li, col0, row0, w1, h1, bathy::LAND)?;
+    let (w, h) = (w1 as usize / k, h1 as usize / k);
+    let mut depth = vec![f32::NAN; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let (mut s, mut n) = (0.0f32, 0u32);
+            for dy in 0..k {
+                for dx in 0..k {
+                    if let Some(v) = info.value(codes[(y * k + dy) * w1 as usize + x * k + dx]) {
+                        s += v;
+                        n += 1;
+                    }
+                }
+            }
+            if n > 0 {
+                depth[y * w + x] = s / n as f32;
+            }
+        }
+    }
+    Ok(depth)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     data: &Path,

@@ -1048,6 +1048,9 @@ pub mod forecast {
         pub slope: f64,
         pub r0: f64,
         pub coast: Vec<CoastResult>,
+        /// Pencerenin varış süresi ızgarası (s; `depth` ile aynı hücreler;
+        /// kaynak denizde değilse boş).
+        pub eta: Vec<f32>,
     }
 
     /// `depth`: kaynak çevresini ve tehdit bölgesini kapsayan pencere.
@@ -1093,6 +1096,7 @@ pub mod forecast {
             slope: f64::NAN,
             r0: 0.0,
             coast: Vec::new(),
+            eta: Vec::new(),
         };
         if seeds.is_empty() || q.mw < 6.5 {
             return Some(empty);
@@ -1190,6 +1194,7 @@ pub mod forecast {
             slope,
             r0,
             coast: out,
+            eta,
             ..empty
         })
     }
