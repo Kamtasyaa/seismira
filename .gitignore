@@ -18,3 +18,6 @@
 
 # Faz 7 girdi katmanları (~yüzlerce MB): seismira-data ground-inputs ile.
 /data/ground/
+
+# Faz 8 tsunami verisi (bathy 25 MB, kıyı 2 MB): scripts/prepare_data.py ile.
+/data/tsunami/

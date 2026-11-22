@@ -255,3 +255,14 @@ license_checked = "2026-11-22"
 snapshot = "ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7.tif sha256 ca06f473204e39e93d33e06c6c6e7cc01ebf7d0ad068c898f15c1cb01b65ba4a"
 files = "data/ground/landcover.sras (depoda değil; seismira-data land-cover)"
 
+[[dataset]]
+id = "etopo-2022-60s"
+name = "ETOPO 2022 Global Relief Model, 60″ yüzey yüksekliği (EGM2008)"
+url = "https://www.ncei.noaa.gov/products/etopo-global-relief-model"
+license = "CC0-1.0"
+attribution = "NOAA National Centers for Environmental Information. 2022: ETOPO 2022 15 Arc-Second Global Relief Model. NOAA National Centers for Environmental Information. DOI: 10.25921/fd45-gt74."
+modified = true            # Natural Earth deniz maskesi, buz sahanlığı / göl maskesi, log u8 kuantalama
+license_checked = "2026-11-23"
+snapshot = "ETOPO_2022_v1_60s_N90W180_surface.tif sha256 9d27d4b8ea8e76977e2988bca667d7c8fa68b927355feffcddd6b4875a7fd08e"
+files = "data/tsunami/bathy.sras, data/tsunami/coast.bin (depoda değil; scripts/prepare_data.py)"
+

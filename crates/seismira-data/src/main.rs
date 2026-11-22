@@ -22,7 +22,9 @@ use shapefile::{Point, Polygon, PolygonRing, Polyline, Shape, ShapeReader};
 use std::path::Path;
 
 mod aig;
+mod bathy;
 mod city_sites;
+mod coast_points;
 mod exposure;
 mod geotiff;
 mod ground_inputs;
@@ -111,6 +113,10 @@ fn main() -> Result<()> {
         [cmd, usgs, ground] if cmd == "validate-landslide-scenario" => {
             validate_landslide::run_scenario(Path::new(usgs), Path::new(ground))
         }
+        [cmd, bathy, cities, output] if cmd == "coast-points" => {
+            coast_points::run(Path::new(bathy), Path::new(cities), Path::new(output))
+        }
+        [cmd, raw, output] if cmd == "bathy" => bathy::run(Path::new(raw), Path::new(output)),
         [cmd, ground, vs30, output] if cmd == "ls-static" => {
             ls_static::run(Path::new(ground), Path::new(vs30), Path::new(output))
         }
@@ -168,6 +174,8 @@ fn main() -> Result<()> {
              seismira-data lith <glim_vs30grid.u8> <vs30.sras> <çıktı.sras>\n  \
              seismira-data validate-landslide <grid.xml> <jessee_2018_model.tif> <data/ground> <vs30.sras>\n  \
              seismira-data validate-landslide-scenario <jessee_2018_model.tif> <data/ground>\n  \
+             seismira-data bathy <bathy_1m.i16> <çıktı.sras>\n  \
+             seismira-data coast-points <bathy.sras> <cities15000.scty> <çıktı.bin>\n  \
              seismira-data ls-static <data/ground> <vs30.sras> <çıktı.sras>\n  \
              seismira-data land-cover <ESACCI-LC-...-2009-v2.0.7.tif> <vs30.sras> <çıktı.sras>\n  \
              seismira-data liq-static <data/ground> <vs30.sras> <çıktı.sras> [--coastal]\n  \

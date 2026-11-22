@@ -429,7 +429,8 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   yayımlanmış uyarı ölçütlerinden doğrulanır.
 - Aşama 2, kaynak ve varış: Okada (1985) ile sonlu faydan deniz
   tabanı düşey yer değiştirmesi (fay tipi etkisi buradan gelir;
-  doğrultu atımlıda küçük çıkar). GEBCO üzerinde √(g·h) hızıyla,
+  doğrultu atımlıda küçük çıkar). Derinlik (ETOPO 2022, okyanusta GEBCO
+  tabanlı; docs/veri.md) üzerinde √(g·h) hızıyla,
   KAYNAK ALANINDAN başlayan fast marching ile varış süresi haritası.
   Kıyı yüksekliği: Abe'nin ampirik bağıntısı (Abe 1995, doğrula)
   veya Green yasası; "kaba tahmin" etiketli.

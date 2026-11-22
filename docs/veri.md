@@ -17,7 +17,7 @@
 | Levha sınırları, tektonik bölgeleme | Bird (2003) PB2002 veya USGS STREC | Kontrol et |
 | Vs30 | USGS küresel Vs30 | Kontrol et |
 | Yükselti, eğim, CTI | Copernicus DEM GLO-90 veya SRTM | Kontrol et |
-| Deniz derinliği | GEBCO | Kontrol et |
+| Deniz derinliği | NOAA NCEI ETOPO 2022, 60″ (okyanusta GEBCO tabanlı) | CC0-1.0 (NCEI ISO üst verisi, 2026-11-23) |
 | Yağış | CHELSA V2.1 klimatolojileri (bio12) | CC0 1.0 (EnviDat, DOĞRULANDI 2026-11-22) |
 | Yeraltı su seviyesi | Fan vd. (2017) WTD, USC thredds | "Yalnızca araştırma amaçlı serbest": dağıtım için yazardan İZİN İSTENİYOR (2026-11-22) |
 | Nehirler | GMTED2010'dan kendi ürettiğimiz ağ + Natural Earth 10m nehir orta hatları (HydroSHEDS KULLANILMAZ) | Kamu malı türevi (karar 2026-11-22) |
@@ -311,3 +311,25 @@ Lisans kuralları:
   ve/veya bilimsel amaç"). Sınıf eşlemesi docs/bilim.md 7.9.
 - GlobCover 2009: ESA DUE sitesi yanıt vermiyor (2026-11-22 de). Alternatif:
   aynı LCCS sınıf sistemini kullanan ESA CCI Land Cover (lisansı kontrol et).
+
+## Tsunami: derinlik ve kıyı noktaları (Faz 8 adım 1, 2026-11-23)
+
+- GEBCO_2026 (kamu malı, gebco.net "Terms of use" 2026-11-23 okundu) asıl
+  adaydı; tüm indirme bağlantıları (BODC dahil) CEDA'ya gidiyor ve CEDA
+  2026-11-23'te TLS bağlantısını reddetti (birkaç saat önce ESA CCI aynı
+  sunucudan inmişti). Yerine NOAA NCEI ETOPO 2022 60″ yüzey yüksekliği
+  (CC0-1.0; okyanus derinliği GEBCO ve diğer kaynaklardan). 1′ tsunami
+  varış süresi hesabı için yeterli. scripts/fetch_etopo.py (SHA256).
+- Deniz maskesi (scripts/gen_bathy.py): Natural Earth 10m kara ve göl DEĞİL;
+  ETOPO > 10 m olan "deniz" hücreleri kara sayılır (2,4 M hücre, çoğu
+  Antarktika buz sahanlığı: "surface" ürünü buz yüzeyini verir), 0–10 m
+  olanlar 1 m. Bağlı bileşenlerden yalnızca dünya okyanusu (Marmara dahil)
+  ve Karadeniz (Azak dahil; İstanbul Boğazı 1′'de kapalı) tutulur; Hazar
+  (NE'de kara da göl de değil), Lut Gölü ve kopan küçük lagünler maskelenir.
+- `seismira-data bathy` → data/tsunami/bathy.sras (25 MB; log 1–11 000 m,
+  251 kod). Sağduyu: Marmara 1270 m, Karadeniz ortası 2220 m, Mariana
+  çukuru 10 598 m, Japonya çukuru 7304 m, Hazar ve Lut maskeli.
+- `seismira-data coast-points` → data/tsunami/coast.bin (1,9 MB): denize
+  bakan 830 248 hücreden ~10 km arayla 96 661 nokta, her birinde derinlik ve
+  en yakın şehir (cities15000). Türkiye 787, Japonya 2128 nokta.
+

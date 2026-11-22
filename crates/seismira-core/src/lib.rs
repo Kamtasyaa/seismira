@@ -25,6 +25,7 @@ pub mod site;
 pub mod slab;
 pub mod source;
 pub mod traveltime;
+pub mod tsunami;
 pub mod warning;
 
 /// Çekirdek sürümü (Cargo.toml'dan).

@@ -27,7 +27,12 @@ data/exposure/esrm20.sexp: python3 scripts/fetch_esrm20.py (673 MB) +
 `seismira-data exposure data/raw/esrm20/<commit> data/regions/admin1.sras
 data/exposure/esrm20.sexp`.
 
-7. (`--ground`) Zemin yenilmesi girdileri (Faz 7): GMTED2010 + CHELSA
+7. Tsunami (Faz 8): ETOPO 2022 1′ indirilir (466 MB, scripts/fetch_etopo.py),
+   .venv Python'u ile scripts/gen_bathy.py (rasterio, pyogrio, scipy; ~1 dk,
+   ~5 GB RAM) ve `seismira-data bathy` → data/tsunami/bathy.sras (25 MB),
+   `seismira-data coast-points` → data/tsunami/coast.bin (2 MB).
+
+8. (`--ground`) Zemin yenilmesi girdileri (Faz 7): GMTED2010 + CHELSA
    indirilir (~3,6 GB, scripts/fetch_ground.py), data/ground/inputs30.sras
    (~4 dk, ~8,5 GB RAM) ve data/ground/slope75.sras (~5 dk) üretilir; bunlardan
    uygulamanın okuduğu tek dosya data/ground/liq_static.sras (sıvılaşmanın
@@ -98,6 +103,23 @@ def main() -> int:
             "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
             "city-sites", str(cities.relative_to(ROOT)), str(vs30.relative_to(ROOT)),
             ghsl, str(sites.relative_to(ROOT)),
+        )
+    tsu = ROOT / "data" / "tsunami"
+    bathy = tsu / "bathy.sras"
+    coast = tsu / "coast.bin"
+    if not bathy.exists():
+        run(py, "scripts/fetch_etopo.py")
+        venv = ROOT / ".venv" / "bin" / "python"
+        run(str(venv if venv.exists() else py), "-I", "scripts/gen_bathy.py")
+        run(
+            "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+            "bathy", "data/raw/etopo/bathy_1m.i16", str(bathy.relative_to(ROOT)),
+        )
+    if not coast.exists():
+        run(
+            "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+            "coast-points", str(bathy.relative_to(ROOT)),
+            str(cities.relative_to(ROOT)), str(coast.relative_to(ROOT)),
         )
     if "--ground" in sys.argv[1:]:
         ground = ROOT / "data" / "ground"
