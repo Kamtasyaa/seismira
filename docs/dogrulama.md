@@ -410,3 +410,45 @@ ağını hangi eşikle kullandığı makalede olmalı (BSSA, kapalı erişim; Zh
 Earthquake Spectra da kapalı, OpenAlex 2026-11-22). Tek bir kaydırma iki
 depremi birlikte tutturmadığı için ayar YAPILMADI; makale gelince tanım
 uygulanıp bu tablo yeniden üretilecek. Kullanıcıdan PDF istendi.
+
+## Faz 7: heyelan doğrulaması, Kahramanmaraş 2023 ve Noto 2024 (2026-11-23)
+
+Referans: USGS Ground Failure, Nowicki Jessee vd. (2018) modeli
+(`jessee_2018_model.tif`, 7,5″, alansal kaplama). us6000jllz sürüm 14
+(ShakeMap v17), us6000m0xl sürüm 10 (ShakeMap v10); ComCat `ground-failure`
+ürününden. USGS'in raporladığı toplam tehlike: Kahramanmaraş **370 km²**
+(± 19), Noto **89 km²** (± 59). Ham veri `data/raw/validation/*/groundfailure/`
+(depoda değil). Araç: `seismira-data validate-landslide` (ham katmanlar,
+ShakeMap sarsıntısı) ve `validate-landslide-scenario` (uçtan uca).
+
+Ölçü: PGA ≥ %10 g hücrelerde Σ kaplama × alan (bizim 30″ hücrelerde; USGS
+7,5″ haritası 4 × 4 ortalanır, NaN = 0). Yöntem sınaması: USGS haritasının
+bizim hücrelerdeki toplamı 391,4 / 95,0 km² (raporlanandan %6 / %7 fazla;
+tüm hücrelerle 485,8 / 120,8, yani USGS'in ölçüsü PGA ≥ %10 g'ye uyuyor).
+
+1. Sarsıntı = ShakeMap, zemin katmanları bizim (GLiM vektör → 30″, ESA CCI
+   2009 → GlobCover eşlemesi, CTI, 7,5″ eğim çeyrekleri). CCI 60/70
+   (yoğunluğu belirsiz orman) eşlemesine duyarlılık:
+
+   | CCI 60/70 eşlemesi | K.maraş oran | K.maraş korelasyon | Noto oran | Noto korelasyon |
+   |---|---|---|---|---|
+   | iki katsayının ortalaması (ilk sürüm) | 0,86 | 0,908 | 0,28 | 0,836 |
+   | **kapalı (50 / 70; seçilen)** | **0,90** | **0,936** | **0,88** | **0,945** |
+   | açık (60 / 90) | 0,89 | 0,864 | 0,27 | 0,346 |
+
+   Sonuç: GlobCover 2009 bu ormanları çoğunlukla kapalı sınıflamış; kapalı
+   eşleme iki depremde de USGS'i %10–12 içinde ve 0,94–0,95 korelasyonla
+   yeniden üretiyor. Kalan küçük fark: GLiM sürümü / rasterleme (USGS 250 m),
+   CTI (HYDRO1k / bizim GMTED akış birikimi), eğim (USGS 7,5″ doğrudan / bizim
+   çeyrek ortalaması), arazi örtüsü (GlobCover / CCI).
+2. Uçtan uca (Kahramanmaraş; bizim CY14 sarsıntısı, tek düzlemli fay, USGS
+   düğüm düzlemi 227,6° / 89,2°; uygulamanın `ls_static.sras` dosyası):
+   **bizim 337,2 km² (tüm hücreler), USGS aynı alanda 487,8 km², oran
+   0,69.** Zemin ×0,90 (adım 1) → sarsıntı modeli ×~0,77. Sıvılaşmada
+   sarsıntı ×1,28 YUKARI idi (ovalar); heyelanda AŞAĞI (dağlık, sert zemin).
+   İkisi de tek düzlemli fay + istasyon verisi olmayan medyan tahminden;
+   katsayılar değiştirilmedi.
+
+SAPMA (kullanıcıya bildirildi, 2026-11-23): uçtan uca heyelan toplamı
+USGS'in ~0,7 katı (zemin katmanları tek başına 0,9).
+

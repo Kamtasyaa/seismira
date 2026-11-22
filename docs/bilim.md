@@ -347,11 +347,13 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   - CCI 140 (liken, yosun) → 140 (otsu): GlobCover'da karşılığı yok.
   - CCI 60 ve 70 ("kapalı-açık, >%15"; 2009'da sırasıyla 9,5 ve 13,6
     milyon hücre) GlobCover'da yoğunluğa göre ikiye ayrılmış: 50/60
-    (0,30 / 1,77) ve 70/90 (1,71 / −1,26). Hangisi olduğu bilinmediği için
-    iki katsayının ORTALAMASI (1,035 ve 0,225) kullanılır. Fark büyük
-    (logitte ±0,7 ve ±1,5); doğrulamada duyarlılık ölçülmeli. İyileştirme
-    adayı: ağaç örtüsü yoğunluğu katmanıyla (ör. MODIS VCF) %40 eşiğinde
-    ayırmak.
+    (0,30 / 1,77) ve 70/90 (1,71 / −1,26). İlk sürümde iki katsayının
+    ortalaması alınmıştı; 2026-11-23 doğrulaması (docs/dogrulama.md, Faz 7
+    heyelan) KAPALI eşlemeyi (60 → 50, 70 → 70) açıkça destekledi
+    (Kahramanmaraş oran 0,90 / korelasyon 0,94; Noto 0,88 / 0,95; ortalama
+    Noto'da 0,28, açık 0,27 / 0,35). Uygulama kapalı eşlemeyi kullanır.
+    İyileştirme adayı: ağaç örtüsü yoğunluğu katmanıyla (ör. MODIS VCF) %40
+    eşiğinde ayırmak.
     Başka aday: Copernicus CGLS-LC100 2019 (Zenodo 3939050,
     `PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif`,
     1 713 345 228 B): kapalı (111–116) / açık (121–126) orman sınıfları

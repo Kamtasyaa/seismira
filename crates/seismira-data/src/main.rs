@@ -33,6 +33,7 @@ mod ls_static;
 mod regions;
 mod slope75;
 mod validate_damage;
+mod validate_landslide;
 mod validate_liquefaction;
 mod vs30;
 mod wtd;
@@ -101,6 +102,15 @@ fn main() -> Result<()> {
         [cmd, tif, vs30, output] if cmd == "land-cover" => {
             land_cover::run(Path::new(tif), Path::new(vs30), Path::new(output))
         }
+        [cmd, grid, usgs, ground, vs30] if cmd == "validate-landslide" => validate_landslide::run(
+            Path::new(grid),
+            Path::new(usgs),
+            Path::new(ground),
+            Path::new(vs30),
+        ),
+        [cmd, usgs, ground] if cmd == "validate-landslide-scenario" => {
+            validate_landslide::run_scenario(Path::new(usgs), Path::new(ground))
+        }
         [cmd, ground, vs30, output] if cmd == "ls-static" => {
             ls_static::run(Path::new(ground), Path::new(vs30), Path::new(output))
         }
@@ -156,6 +166,8 @@ fn main() -> Result<()> {
              seismira-data slope75 <gmted md75_grd> <vs30.sras> <çıktı.sras>\n  \
              seismira-data wtd <wtd_vs30grid.i16> <vs30.sras> <çıktı.sras>\n  \
              seismira-data lith <glim_vs30grid.u8> <vs30.sras> <çıktı.sras>\n  \
+             seismira-data validate-landslide <grid.xml> <jessee_2018_model.tif> <data/ground> <vs30.sras>\n  \
+             seismira-data validate-landslide-scenario <jessee_2018_model.tif> <data/ground>\n  \
              seismira-data ls-static <data/ground> <vs30.sras> <çıktı.sras>\n  \
              seismira-data land-cover <ESACCI-LC-...-2009-v2.0.7.tif> <vs30.sras> <çıktı.sras>\n  \
              seismira-data liq-static <data/ground> <vs30.sras> <çıktı.sras> [--coastal]\n  \

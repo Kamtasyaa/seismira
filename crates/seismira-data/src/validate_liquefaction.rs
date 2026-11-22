@@ -24,16 +24,16 @@ use std::path::Path;
 const R_KM: f64 = 6371.0088;
 
 /// ShakeMap grid.xml: düğüm ızgarası ve PGA (g), PGV (cm/s), SVEL (m/s).
-struct ShakeMapGrid {
-    lon_min: f64,
-    lat_max: f64,
-    dlon: f64,
-    dlat: f64,
-    nlon: usize,
-    nlat: usize,
-    pga: Vec<f32>,
-    pgv: Vec<f32>,
-    svel: Vec<f32>,
+pub(crate) struct ShakeMapGrid {
+    pub(crate) lon_min: f64,
+    pub(crate) lat_max: f64,
+    pub(crate) dlon: f64,
+    pub(crate) dlat: f64,
+    pub(crate) nlon: usize,
+    pub(crate) nlat: usize,
+    pub(crate) pga: Vec<f32>,
+    pub(crate) pgv: Vec<f32>,
+    pub(crate) svel: Vec<f32>,
 }
 
 fn attr(s: &str, name: &str) -> Result<f64> {
@@ -43,7 +43,7 @@ fn attr(s: &str, name: &str) -> Result<f64> {
     Ok(s[i..i + j].parse()?)
 }
 
-fn read_grid_xml(path: &Path) -> Result<ShakeMapGrid> {
+pub(crate) fn read_grid_xml(path: &Path) -> Result<ShakeMapGrid> {
     let text = std::fs::read_to_string(path)?;
     let spec_at = text
         .find("<grid_specification")

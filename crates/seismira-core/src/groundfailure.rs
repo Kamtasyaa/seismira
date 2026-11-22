@@ -278,11 +278,15 @@ pub mod jessee2018 {
     /// ESA CCI Land Cover (v2.0.7, PUG v2 Tablo 3-1) sınıfının karşılık
     /// geldiği GlobCover 2009 sınıf(lar)ı. İki lejant da UN-LCCS'den
     /// türetilmiş ama kodlar farklı; eşleme sınıf tanımlarının
-    /// karşılaştırılmasıyla kuruldu (VARSAYIM, docs/bilim.md 7.9). İki sınıf
-    /// dönerse CCI sınıfı GlobCover'da yoğunluğa göre ikiye bölünmüştür
-    /// (CCI 60, 70 "kapalı-açık >%15"; GlobCover kapalı >%40 / açık
-    /// %15–40): katsayıların ortalaması alınır ([`cci_land_cover_coef`]).
-    /// `None`: su (210), veri yok (0), bilinmeyen kod.
+    /// karşılaştırılmasıyla kuruldu (docs/bilim.md 7.9). CCI 60 ve 70
+    /// ("kapalı-açık, >%15") GlobCover'da yoğunluğa göre ikiye ayrılmış
+    /// (kapalı >%40 / açık %15–40); KAPALI sınıfa eşlenir: USGS'in GlobCover
+    /// ile ürettiği haritalarla doğrulamada (Kahramanmaraş 2023, Noto 2024)
+    /// kapalı eşleme oran 0,90 / 0,88 ve korelasyon 0,94 / 0,95 verdi; iki
+    /// katsayının ortalaması Noto'da 0,28'e düşüyordu (docs/dogrulama.md).
+    /// Birden çok sınıf dönerse katsayıların ortalaması alınır
+    /// ([`cci_land_cover_coef`]). `None`: su (210), veri yok (0), bilinmeyen
+    /// kod.
     pub fn cci_to_globcover(cci: u8) -> Option<&'static [u8]> {
         Some(match cci {
             10..=12 => &[14],
@@ -290,11 +294,9 @@ pub mod jessee2018 {
             30 => &[20],
             40 => &[30],
             50 => &[40],
-            60 => &[50, 60],
-            61 => &[50],
+            60 | 61 => &[50],
             62 => &[60],
-            70 => &[70, 90],
-            71 => &[70],
+            70 | 71 => &[70],
             // GlobCover'da kapalı iğne yapraklı yaprak döken sınıfı yok;
             // 90 "açık iğne yapraklı, yaprak döken ya da her dem yeşil".
             72 | 80..=82 => &[90],
@@ -940,9 +942,9 @@ mod tests {
         assert_eq!(cci_land_cover_coef(61), Some(0.30));
         assert_eq!(cci_land_cover_coef(62), Some(1.77));
         assert_eq!(cci_land_cover_coef(81), Some(-1.26));
-        // Yoğunluğu belirsiz sınıflar: kapalı ve açık ortalaması.
-        close(cci_land_cover_coef(60).unwrap(), (0.30 + 1.77) / 2.0, 1e-12);
-        close(cci_land_cover_coef(70).unwrap(), (1.71 - 1.26) / 2.0, 1e-12);
+        // Yoğunluğu belirsiz sınıflar: kapalı (doğrulamayla seçildi).
+        assert_eq!(cci_land_cover_coef(60), Some(0.30));
+        assert_eq!(cci_land_cover_coef(70), Some(1.71));
         // Su ve veri yok modeli kapatır.
         assert!(cci_land_cover_coef(210).is_none());
         assert!(cci_land_cover_coef(0).is_none());
