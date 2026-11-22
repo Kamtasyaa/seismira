@@ -338,3 +338,46 @@ PGV 12 cm/s, tahmin 20 cm/s.
     etkilenmez. ESRM20 Türkiye stoku 2011 sayımına dayanıyor olabilir
     (doğrula: ESRM20 teknik rapor, Türkiye bölümü).
 
+
+## Faz 7: sıvılaşma doğrulaması, 2023 Kahramanmaraş (2026-11-22)
+
+Referans: USGS Ground Failure ürünü, us6000jllz sürüm 14 (2023-04-14),
+Zhu vd. (2017) genel model, ShakeMap v17 ile (info.json). İndirme: ComCat
+`ground-failure` ürünü (`zhu_2017_general_model.tif`, 15″, alansal kaplama)
+ve `includesuperseded=true` ile ShakeMap v17 `grid.xml` (2′ aralık). Ham
+veri `data/raw/validation/kahramanmaras2023/groundfailure/` (depoda değil).
+USGS'in raporladığı toplam tehlike (hagg0.1g, PGA ≥ %10 g hücrelerde
+Σ kaplama × alan): **569,7 km²**.
+
+Ölçü: aynı toplam tehlike (bizim 30″ hücrelerimizde; USGS 15″ haritası 2 × 2
+ortalanır, maskeli NaN = 0). Yöntem sınaması: USGS haritasının bizim
+hücrelerimizdeki toplamı 558,8 km² (raporlanan değerden %2 az: hücre
+eşlemesi ve alan hesabı).
+
+1. Sarsıntı = USGS ShakeMap v17 (çift doğrusal enterpolasyon), zemin
+   katmanları bizim (`seismira-data validate-liquefaction … 7.8 <kip>`):
+
+   | Vs30 | Bizim (km²) | Oran | Korelasyon | Aynı sınıf | ln oran (ikisi ≥ %0,5) |
+   |---|---|---|---|---|---|
+   | ShakeMap SVEL | 634,8 | 1,14 | 0,777 | %76,8 | +0,12 |
+   | Bizim Vs30 (USGS 2026 mozaiği) | 921,3 | 1,65 | 0,883 | %75,6 | +0,59 |
+
+   Aynı Vs30 ile fark %14: yağış (CHELSA 1981–2010 / WorldClim 1950–2000),
+   nehre ve kıyıya uzaklık (GMTED akış ağı + NE / HydroSHEDS, NASA), su
+   seviyesi (Fan 2017 / Fan 2013), eğim (7,5″ çeyrek / 15″ enterpolasyon).
+   Asıl fark Vs30: 2026 mozaiği bölgede ShakeMap'in Vs30'undan daha düşük
+   (yumuşak zemin); uygulama yeni haritayı kullanır (bilinçli seçim).
+2. Uçtan uca (`validate-liquefaction-scenario`): bizim sarsıntı modelimiz
+   (CY14, tek düzlemli fay: USGS düğüm düzlemi 227,6° / 89,2°), bizim Vs30,
+   uygulamadaki zincirin aynısı (adım 1). **Bizim 1177,8 km², USGS aynı
+   alanda 589,7 km², oran 2,00.** ≥ %0,5 hücre: bizim 19 717, USGS 10 990.
+   Ayrışım (çarpımsal): Vs30 ×1,45, diğer zemin katmanları ×1,14, sarsıntı
+   modeli ×1,28 (istasyon verisiyle düzeltilmiş ShakeMap'e göre; tek
+   düzlemli fay ve medyan GMPE; Faz 6 hasar doğrulamasıyla aynı yön).
+
+SAPMA (kullanıcıya bildirildi, 2026-11-22): Kahramanmaraş'ta sıvılaşma
+toplam tehlikesi USGS'in ~2 katı. Katsayılar değiştirilmedi (formüller
+yayımlanmış kaynaktan, CLAUDE.md Bölüm 7). Model belirsizliği zaten büyük:
+USGS'in kendi σ'sı (beta dağılımı) ve Zhu 2017'nin olay bazında
+saçılımı (doğrula: makale kapalı erişim). İleride bakılabilecek: Vs30
+haritasının bölgesel farkı; tek düzlem yerine çok parçalı fay.

@@ -28,6 +28,7 @@ mod ground_inputs;
 mod regions;
 mod slope75;
 mod validate_damage;
+mod validate_liquefaction;
 mod vs30;
 mod wtd;
 
@@ -66,6 +67,19 @@ fn main() -> Result<()> {
             Path::new(rivers),
             Path::new(output),
         ),
+        [cmd, grid, usgs, ground, vs30, mw, mode] if cmd == "validate-liquefaction" => {
+            validate_liquefaction::run(
+                Path::new(grid),
+                Path::new(usgs),
+                Path::new(ground),
+                Path::new(vs30),
+                mw.parse()?,
+                mode,
+            )
+        }
+        [cmd, usgs, ground] if cmd == "validate-liquefaction-scenario" => {
+            validate_liquefaction::run_scenario(Path::new(usgs), Path::new(ground))
+        }
         [cmd, raw, vs30, output] if cmd == "wtd" => {
             wtd::run(Path::new(raw), Path::new(vs30), Path::new(output))
         }

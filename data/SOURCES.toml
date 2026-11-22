@@ -220,3 +220,14 @@ license_checked = "2026-11-22"
 distributed = false        # izin gelene kadar pakete girmez
 note = "Veri sorumlusu Gonzalo Miguez-Macho'dan (USC) e-postayla izin istendi. Zhu 2017 Fan, Li & Miguez-Macho (2013) sürümüyle kalibre edilmiş; bu 2017 sürümü."
 files = "data/ground/wtd.sras (yalnızca yerel; scripts/gen_fan_wtd.py + seismira-data wtd)"
+
+[[dataset]]
+id = "usgs-groundfailure-kahramanmaras2023"
+name = "USGS Ground Failure ürünü, us6000jllz sürüm 14 (Zhu 2017 genel model) ve ShakeMap v17 grid.xml (yalnızca doğrulama)"
+url = "https://earthquake.usgs.gov/earthquakes/eventpage/us6000jllz/ground-failure"
+license = "Public Domain (USGS)"
+attribution = "U.S. Geological Survey Ground Failure product (Allstadt, K.E. vd. 2022, The USGS ground failure product: near-real-time estimates of earthquake-triggered landslides and liquefaction, Earthquake Spectra 38(1)); ShakeMap (Worden, C.B. vd., USGS)."
+modified = false
+license_checked = "2026-11-22"
+distributed = false
+files = "data/raw/validation/kahramanmaras2023/groundfailure/ (depoda değil; docs/dogrulama.md Faz 7)"
