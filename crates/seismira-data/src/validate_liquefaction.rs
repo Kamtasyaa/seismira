@@ -208,6 +208,21 @@ pub fn run(
     let val = |r: &Raster<Vec<u8>>, li: usize, codes: &[u8], i: usize| -> Option<f64> {
         r.layers[li].value(codes[i]).map(f64::from)
     };
+    // Tanı (docs/dogrulama.md): SEISMIRA_DIAG_DR_ADD=km nehre uzaklığa,
+    // SEISMIRA_DIAG_PRECIP_MUL=k yağışa uygulanır (duyarlılık denemesi).
+    let env = |k: &str, d: f64| {
+        std::env::var(k)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(d)
+    };
+    let (dr_add, pr_mul) = (
+        env("SEISMIRA_DIAG_DR_ADD", 0.0),
+        env("SEISMIRA_DIAG_PRECIP_MUL", 1.0),
+    );
+    if dr_add != 0.0 || pr_mul != 1.0 {
+        println!("TANI: dr + {dr_add} km, yağış × {pr_mul}");
+    }
     let mut s = Sums::default();
     for y in 0..h as usize {
         for x in 0..w as usize {
@@ -282,9 +297,9 @@ pub fn run(
                             pga_g: pga,
                             mw,
                             vs30: vs,
-                            precip_mm: p,
+                            precip_mm: p * pr_mul,
                             dc_km: dcv,
-                            dr_km: drv,
+                            dr_km: drv + dr_add,
                             wtd_m: wv.unwrap_or(0.0),
                         },
                         flat as f64 / 4.0,

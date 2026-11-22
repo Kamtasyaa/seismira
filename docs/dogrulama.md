@@ -381,3 +381,32 @@ yayımlanmış kaynaktan, CLAUDE.md Bölüm 7). Model belirsizliği zaten büyü
 USGS'in kendi σ'sı (beta dağılımı) ve Zhu 2017'nin olay bazında
 saçılımı (doğrula: makale kapalı erişim). İleride bakılabilecek: Vs30
 haritasının bölgesel farkı; tek düzlem yerine çok parçalı fay.
+
+### 2024 Noto (Mw 7,5) ve duyarlılık (2026-11-22)
+
+USGS Ground Failure us6000m0xl sürüm 10, ShakeMap v10 (1′ aralık); USGS
+toplam tehlike 777,2 km² (bizim hücrelerde 776,9: yöntem birebir).
+
+| Vs30 | Bizim (km²) | Oran | Korelasyon | Aynı sınıf |
+|---|---|---|---|---|
+| ShakeMap SVEL | 1059,5 | 1,36 | 0,805 | %50,9 |
+| Bizim Vs30 | 1286,6 | 1,66 | 0,788 | %47,7 |
+
+Zemin katmanlarımız iki depremde de yukarı sapıyor (aynı Vs30 ile ×1,14 ve
+×1,36). Duyarlılık (`SEISMIRA_DIAG_DR_ADD`, nehre uzaklığa sabit ekleme,
+SVEL ile):
+
+| dr + | Kahramanmaraş oran | Noto oran |
+|---|---|---|
+| 0 | 1,14 | 1,36 |
+| 0,5 km | 0,94 | 1,25 |
+| 1 km | 0,78 | 1,15 |
+| 2 km | 0,51 | 0,96 |
+
+Sonuç: nehre uzaklık en duyarlı girdi (−0,2054/km, ve çoğu hücrede
+min(dc, dr) = dr). Nehir ağının tanımı (bizde 10 km² eşiği + Vs30 göl kodu +
+Natural Earth hatları) DOĞRULANMAMIŞ bir varsayım; Zhu 2017'nin HydroSHEDS
+ağını hangi eşikle kullandığı makalede olmalı (BSSA, kapalı erişim; Zhu 2015
+Earthquake Spectra da kapalı, OpenAlex 2026-11-22). Tek bir kaydırma iki
+depremi birlikte tutturmadığı için ayar YAPILMADI; makale gelince tanım
+uygulanıp bu tablo yeniden üretilecek. Kullanıcıdan PDF istendi.
