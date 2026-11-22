@@ -22,11 +22,13 @@ use rayon::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Bir hücrenin sonucu: (sınıf, aletsel şiddet, P varışı, S varışı, bitiş,
-/// yükseliş adımı, medyan PGV, medyan PGA).
-type Cell = (u8, f32, f32, f32, f32, f32, f32, f32);
+/// yükseliş adımı, medyan PGV, medyan PGA, PGV τ, PGA τ).
+type Cell = (u8, f32, f32, f32, f32, f32, f32, f32, f32, f32);
 
 const EMPTY: Cell = (
     NO_DATA,
+    f32::NAN,
+    f32::NAN,
     f32::NAN,
     f32::NAN,
     f32::NAN,
@@ -166,6 +168,11 @@ pub struct ShakeGrid {
     /// NaN.
     pub pgv: Vec<f32>,
     pub pga: Vec<f32>,
+    /// ln PGV ve ln PGA'nın olaylar arası standart sapması (τ): bölge
+    /// toplamlarının "olası aralığı" için (tüm hücreler birlikte kayar;
+    /// hasar hesabıyla aynı yaklaşım, docs/bilim.md 7.7).
+    pub pgv_tau: Vec<f32>,
+    pub pga_tau: Vec<f32>,
 }
 
 impl ShakeGrid {
@@ -251,6 +258,8 @@ pub fn compute(
                                     * crate::component::ln_larger_per_rotd50_pgv(q.mw, r.dist.rrup)
                                         .exp()) as f32,
                                 m.pga.median() as f32,
+                                m.pgv.tau as f32,
+                                m.pga.tau as f32,
                             )
                         }
                         _ => EMPTY,
@@ -270,11 +279,15 @@ pub fn compute(
         rise: Vec::with_capacity(w * h),
         pgv: Vec::with_capacity(w * h),
         pga: Vec::with_capacity(w * h),
+        pgv_tau: Vec::with_capacity(w * h),
+        pga_tau: Vec::with_capacity(w * h),
     };
     for row in rows {
-        for (c, j, tp, ts, e, r, v, a) in row? {
+        for (c, j, tp, ts, e, r, v, a, vt, at) in row? {
             grid.pgv.push(v);
             grid.pga.push(a);
+            grid.pgv_tau.push(vt);
+            grid.pga_tau.push(at);
             grid.class.push(c);
             grid.jma.push(j);
             grid.t_p.push(tp);

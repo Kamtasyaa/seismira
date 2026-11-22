@@ -276,7 +276,12 @@ pub mod liquefaction_grid {
     #[derive(Clone, Debug)]
     pub struct LiquefactionGrid {
         pub spec: GridSpec,
+        /// Medyan sarsıntıyla.
         pub coverage: Vec<f32>,
+        /// Sarsıntı (ln PGV, ln PGA) olaylar arası −1τ / +1τ kaydırılınca:
+        /// bölge toplamlarının "olası aralığı".
+        pub coverage_lo: Vec<f32>,
+        pub coverage_hi: Vec<f32>,
         /// Genel / kıyı modeliyle hesaplanan (sıfırdan büyük) hücre sayısı.
         pub general: u32,
         pub coastal: u32,
@@ -295,7 +300,7 @@ pub mod liquefaction_grid {
         let spec = shake.spec;
         let n = domain.w as usize * domain.h as usize;
         assert_eq!(inputs.vs30.len(), n, "Vs30 penceresi alanla uyuşmuyor");
-        let rows: Vec<Option<Vec<(f32, u8)>>> = (0..spec.height)
+        let rows: Vec<Option<Vec<CellOut>>> = (0..spec.height)
             .into_par_iter()
             .map(|row| {
                 if cancel.load(Ordering::Relaxed) {
@@ -305,12 +310,12 @@ pub mod liquefaction_grid {
                     .map(|col| {
                         let g = (row * spec.width + col) as usize;
                         if shake.class[g] == NO_DATA {
-                            return (0.0, 0);
+                            return ([0.0; 3], 0);
                         }
                         let bx = (col * step + step / 2).min(domain.w - 1) as usize;
                         let by = (row * step + step / 2).min(domain.h - 1) as usize;
                         let i = by * domain.w as usize + bx;
-                        cell(shake, g, i, mw, inputs).unwrap_or((0.0, 0))
+                        cell(shake, g, i, mw, inputs).unwrap_or(([0.0; 3], 0))
                     })
                     .collect();
                 Some(out)
@@ -319,12 +324,16 @@ pub mod liquefaction_grid {
         let mut grid = LiquefactionGrid {
             spec,
             coverage: Vec::with_capacity((spec.width * spec.height) as usize),
+            coverage_lo: Vec::with_capacity((spec.width * spec.height) as usize),
+            coverage_hi: Vec::with_capacity((spec.width * spec.height) as usize),
             general: 0,
             coastal: 0,
         };
         for row in rows {
-            for (c, v) in row? {
+            for ([c, lo, hi], v) in row? {
                 grid.coverage.push(c);
+                grid.coverage_lo.push(lo);
+                grid.coverage_hi.push(hi);
                 if c > 0.0 {
                     match v {
                         1 => grid.general += 1,
@@ -337,8 +346,11 @@ pub mod liquefaction_grid {
         Some(grid)
     }
 
-    /// Bir hücre: (kaplama, 1 genel / 2 kıyı). Girdi eksikse `None`.
-    fn cell(shake: &ShakeGrid, g: usize, i: usize, mw: f64, inp: &Inputs) -> Option<(f32, u8)> {
+    /// Bir hücrenin sonucu: ([medyan, −1τ, +1τ] kaplama, 1 genel / 2 kıyı).
+    type CellOut = ([f32; 3], u8);
+
+    /// Bir hücre ([`CellOut`]). Girdi eksikse `None`.
+    fn cell(shake: &ShakeGrid, g: usize, i: usize, mw: f64, inp: &Inputs) -> Option<CellOut> {
         let vs30 = f64::from(*inp.vs30.get(i)?);
         let (pgv, pga) = (f64::from(shake.pgv[g]), f64::from(shake.pga[g]));
         if !(vs30.is_finite() && pgv.is_finite() && pga.is_finite()) {
@@ -351,7 +363,7 @@ pub mod liquefaction_grid {
             }
         }
         if flat == 0 {
-            return Some((0.0, 0));
+            return Some(([0.0; 3], 0));
         }
         let wtd = inp.wtd_m.and_then(|l| l.at(i));
         let variant = if wtd.is_some() {
@@ -369,8 +381,21 @@ pub mod liquefaction_grid {
             dr_km: inp.dr_km.at(i)?,
             wtd_m: wtd.unwrap_or(0.0),
         };
-        let c = zhu2017::cell_coverage(variant, &x, f64::from(flat) / 4.0);
-        Some((c as f32, if variant == Variant::General { 1 } else { 2 }))
+        let (tv, ta) = (f64::from(shake.pgv_tau[g]), f64::from(shake.pga_tau[g]));
+        let c = [0.0, -1.0, 1.0].map(|k: f64| {
+            let (kv, ka) = if tv.is_finite() && ta.is_finite() {
+                ((k * tv).exp(), (k * ta).exp())
+            } else {
+                (1.0, 1.0)
+            };
+            let xi = zhu2017::Inputs {
+                pgv_cms: pgv * kv,
+                pga_g: pga * ka,
+                ..x
+            };
+            zhu2017::cell_coverage(variant, &xi, f64::from(flat) / 4.0) as f32
+        });
+        Some((c, if variant == Variant::General { 1 } else { 2 }))
     }
 }
 
@@ -518,6 +543,8 @@ mod tests {
             rise: vec![0.4; 2],
             pgv: vec![60.0; 2],
             pga: vec![0.4; 2],
+            pgv_tau: vec![0.3; 2],
+            pga_tau: vec![0.3; 2],
         };
         let code = |l: &LayerInfo, v: f32| l.quantize(v);
         let prc = [code(&pr, 800.0); 2];
@@ -584,5 +611,17 @@ mod tests {
         close(f64::from(g.coverage[0]), full, 1e-6);
         close(f64::from(g.coverage[1]), full / 4.0, 1e-6);
         assert_eq!((g.general, g.coastal), (0, 2));
+        // Aralık: daha güçlü sarsıntı daha çok sıvılaşma.
+        assert!(g.coverage_lo[0] < g.coverage[0] && g.coverage[0] < g.coverage_hi[0]);
+        let hi = zhu2017::cell_coverage(
+            zhu2017::Variant::Coastal,
+            &zhu2017::Inputs {
+                pgv_cms: 60.0 * 0.3f64.exp(),
+                pga_g: 0.4 * 0.3f64.exp(),
+                ..x
+            },
+            1.0,
+        );
+        close(f64::from(g.coverage_hi[0]), hi, 1e-5);
     }
 }

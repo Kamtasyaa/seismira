@@ -580,6 +580,8 @@ mod tests {
             rise: vec![crate::shaking::RISE_STEP_S as f32; 4],
             pgv: vec![f32::NAN; 4],
             pga: vec![f32::NAN; 4],
+            pgv_tau: vec![f32::NAN; 4],
+            pga_tau: vec![f32::NAN; 4],
         };
         let ids = vec![1, 2, 1, 2];
         let s = summarize(&grid, &domain, 1, &ids);
@@ -697,6 +699,8 @@ mod tests {
             rise: vec![crate::shaking::RISE_STEP_S as f32; n as usize],
             pgv: vec![f32::NAN; n as usize],
             pga: vec![f32::NAN; n as usize],
+            pgv_tau: vec![f32::NAN; n as usize],
+            pga_tau: vec![f32::NAN; n as usize],
         };
         let ids = vec![1 | BUILT_BIT; n as usize];
         let r = summarize(&grid, &domain, 1, &ids)[0];

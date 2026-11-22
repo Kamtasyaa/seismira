@@ -1131,13 +1131,21 @@ impl SeismiraApp {
                 .binary_search_by_key(&id, |r| r.id)
             && self.clock.t >= self.liquefaction_regions[k].t_first
         {
-            let km2 = self.liquefaction_regions[k].km2;
-            let n = if km2 < 10.0 {
-                lang.num(km2, 1)
-            } else {
-                lang.num(km2, 0)
+            let fmt = |km2: f64| {
+                if km2 < 10.0 {
+                    lang.num(km2, 1)
+                } else {
+                    lang.num(km2, 0)
+                }
             };
-            lines.push((lang.t_args("region-liquefaction", &[("km2", n)]), text));
+            let [m, lo, hi] = self.liquefaction_regions[k].km2;
+            lines.push((
+                lang.t_args(
+                    "region-liquefaction",
+                    &[("km2", fmt(m)), ("lo", fmt(lo)), ("hi", fmt(hi))],
+                ),
+                text,
+            ));
         }
         match self.damage.as_ref().and_then(|d| d.region(id)) {
             Some(d) if d.buildings > 0.0 => {

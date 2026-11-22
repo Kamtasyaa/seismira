@@ -121,7 +121,7 @@ region-max-city = Highest: Shindo { $s } ({ $city })
 region-typical = Widespread: Shindo { $s } (at least 10% of the built-up area)
 region-arrivals = First P: T+{ $p }, first S: T+{ $s }
 region-lead = Early warning: { $s } s before the first S in the region
-region-liquefaction = Liquefaction: ~{ $km2 } km² of area affected (estimated)
+region-liquefaction = Liquefaction: ~{ $km2 } km² of area affected (likely { $lo }–{ $hi })
 region-blind = Early warning: blind zone (the alert comes after the first S)
 region-not-covered = Outside early-warning coverage (below Shindo 4)
 

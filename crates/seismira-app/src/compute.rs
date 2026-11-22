@@ -262,7 +262,8 @@ pub enum JobMsg {
 #[derive(Clone, Copy, Debug)]
 pub struct RegionLiquefaction {
     pub id: seismira_core::region::RegionId,
-    pub km2: f64,
+    /// [medyan, −1τ, +1τ].
+    pub km2: [f64; 3],
     pub t_first: f64,
 }
 
@@ -277,14 +278,15 @@ fn liquefaction_by_region(
     use std::collections::BTreeMap;
     const R_KM: f64 = 6371.0088;
     let spec = liq.spec;
-    let mut by: BTreeMap<seismira_core::region::RegionId, (f64, f64)> = BTreeMap::new();
+    let mut by: BTreeMap<seismira_core::region::RegionId, ([f64; 3], f64)> = BTreeMap::new();
     for row in 0..spec.height {
         let (_, lat) = spec.center(0, row);
         let area = (R_KM * spec.cell.to_radians()).powi(2) * lat.to_radians().cos();
         for col in 0..spec.width {
             let i = (row * spec.width + col) as usize;
             let c = f64::from(liq.coverage[i]);
-            if c <= 0.0 {
+            let hi = f64::from(liq.coverage_hi[i]);
+            if hi <= 0.0 {
                 continue;
             }
             let bx = (col * step + step / 2).min(domain.w - 1) as usize;
@@ -293,8 +295,10 @@ fn liquefaction_by_region(
             if id == 0 {
                 continue;
             }
-            let e = by.entry(id).or_insert((0.0, f64::INFINITY));
-            e.0 += c * area;
+            let e = by.entry(id).or_insert(([0.0; 3], f64::INFINITY));
+            e.0[0] += c * area;
+            e.0[1] += f64::from(liq.coverage_lo[i]) * area;
+            e.0[2] += hi * area;
             if c >= f64::from(crate::ground_style::MIN_COVERAGE) {
                 e.1 = e.1.min(f64::from(shake.t_end[i]));
             }

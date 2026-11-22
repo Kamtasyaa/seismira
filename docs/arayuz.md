@@ -423,4 +423,10 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
 - Bölge kartı: "Sıvılaşma: ~X km² etkilenen alan (tahmini)" satırı (USGS'in
   "aggregate hazard" ölçüsü: bölgedeki Σ kaplama × hücre alanı), bölgede ilk
   kare belirdikten sonra ve katman açıkken. İzmit Mw 7,6 denemesinde Sakarya
-  ~110 km².
+  ~110 km² (olası 100–120).
+- "Olası" aralık yalnızca sarsıntının olaylar arası belirsizliğini (ln PGV,
+  ln PGA ± 1τ; hasarla aynı yöntem) yansıtır ve dardır, çünkü Zhu modelinde
+  PGV'nin etkisi zayıftır (ln PGV katsayısı 0,334). Girdi verisi ve modelin
+  kendi belirsizliği DAHİL DEĞİL: Kahramanmaraş doğrulamasında USGS'le fark
+  ~2 kat (docs/dogrulama.md). Kullanıcıya bildirildi; gerekirse kart metni
+  "yalnızca sarsıntı belirsizliği" diye netleştirilebilir.
