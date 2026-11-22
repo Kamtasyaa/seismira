@@ -2,7 +2,8 @@
 """Uygulamanın çalışması için gereken tüm veriyi hazırlar.
 
 Kullanım (depo kökünden):
-    python3 scripts/prepare_data.py
+    python3 scripts/prepare_data.py            # temel veri
+    python3 scripts/prepare_data.py --ground   # + sıvılaşma girdileri (ağır)
 
 Adımlar:
 1. Yazı tipleri (CJK dahil) indirilir ve doğrulanır.
@@ -25,6 +26,13 @@ data/slab2 (scripts/gen_slab2.py, elle indirilen Slab2 arşivi + h5py).
 data/exposure/esrm20.sexp: python3 scripts/fetch_esrm20.py (673 MB) +
 `seismira-data exposure data/raw/esrm20/<commit> data/regions/admin1.sras
 data/exposure/esrm20.sexp`.
+
+7. (`--ground`) Zemin yenilmesi girdileri (Faz 7): GMTED2010 + CHELSA
+   indirilir (~3,6 GB, scripts/fetch_ground.py), data/ground/inputs30.sras
+   (~4 dk, ~8,5 GB RAM) ve data/ground/slope75.sras (~5 dk) üretilir.
+   Yeraltı su seviyesi (data/ground/wtd.sras) ayrı lisanslıdır ve burada
+   ÜRETİLMEZ (scripts/gen_fan_wtd.py; docs/veri.md). Yoksa uygulama Zhu 2017
+   kıyı modelini kullanır.
 
 Her adım tekrar çalıştırılabilir; var olan doğru dosyalar yeniden indirilmez.
 """
@@ -88,6 +96,27 @@ def main() -> int:
             "city-sites", str(cities.relative_to(ROOT)), str(vs30.relative_to(ROOT)),
             ghsl, str(sites.relative_to(ROOT)),
         )
+    if "--ground" in sys.argv[1:]:
+        ground = ROOT / "data" / "ground"
+        ground.mkdir(parents=True, exist_ok=True)
+        inputs = ground / "inputs30.sras"
+        slope = ground / "slope75.sras"
+        if not (inputs.exists() and slope.exists()):
+            run(py, "scripts/fetch_ground.py")
+        if not inputs.exists():
+            run(
+                "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+                "ground-inputs", "data/raw/gmted/md30/md30_grd", str(vs30.relative_to(ROOT)),
+                "data/raw/chelsa/CHELSA_bio12_1981-2010_V.2.1.tif",
+                "data/raw/natural-earth/v5.1.2/ne_10m_rivers_lake_centerlines.shp",
+                str(inputs.relative_to(ROOT)),
+            )
+        if not slope.exists():
+            run(
+                "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+                "slope75", "data/raw/gmted/md75/md75_grd", str(vs30.relative_to(ROOT)),
+                str(slope.relative_to(ROOT)),
+            )
     print("Veri hazır.")
     return 0
 
