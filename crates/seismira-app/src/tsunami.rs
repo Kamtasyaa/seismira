@@ -315,6 +315,45 @@ pub fn run(
     })
 }
 
+/// Kıyı noktalarını bölgelere dağıtır: nokta denizde olduğu için çevresinde
+/// (≈2, 5, 10 km, 8 yön) ilk kimlikli kara hücresinin bölgesi. Bölge başına
+/// (en yüksek kategori, en yüksek tahmin, ilk varış).
+pub fn by_region(
+    r: &TsunamiResult,
+    map: &seismira_core::region::RegionMap<Vec<u8>>,
+) -> std::collections::HashMap<seismira_core::region::RegionId, (Category, Option<f64>, f64)> {
+    let mut out: std::collections::HashMap<_, (Category, Option<f64>, f64)> = Default::default();
+    for c in &r.coast {
+        let mut id = 0;
+        'search: for km in [0.0, 2.0, 5.0, 10.0] {
+            for k in 0..8 {
+                let az = f64::from(k) * 45.0;
+                let p = seismira_core::geo::destination((c.lon, c.lat), az, km);
+                if let Ok(v) = map.id_at(p.0, p.1)
+                    && v != 0
+                {
+                    id = v;
+                    break 'search;
+                }
+                if km == 0.0 {
+                    break;
+                }
+            }
+        }
+        if id == 0 {
+            continue;
+        }
+        let e = out.entry(id).or_insert((c.category, c.height, c.eta_s));
+        e.0 = e.0.max(c.category);
+        e.1 = match (e.1, c.height) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        };
+        e.2 = e.2.min(c.eta_s);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

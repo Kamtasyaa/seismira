@@ -472,6 +472,11 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   listesi ("Tahmini en yüksek tırmanma: Ishinomaki (35 m), …"); her ile ilk
   dalga ulaşınca "Tsunami ulaştı: Miyagi (~35 m)". Mw 6,5–7,0 / derin /
   karada: tek bilgi bildirimi (PTWC ölçütü). ⏭ tsunami olaylarına da atlar.
-- Henüz yok: bölge kartında tsunami satırı (kıyı noktası → bölge kimliği
-  eşlemesi gerekiyor), Görünüm menüsünde aç/kapa.
+- Bölge kartı: "Tsunami: <kategori>, tahmini ~X m (ya da yükseklik tahmin
+  edilmedi), ilk dalga T+…" (uyarı anından sonra). Kıyı noktası denizde
+  olduğu için bölgesi çevresindeki (0, 2, 5, 10 km; 8 yön) ilk kimlikli kara
+  hücresinden (crates/seismira-app/src/tsunami.rs `by_region`).
+- Görünüm menüsü → "Tsunami uyarıları" (veri varsa; varsayılan açık,
+  kaydedilir): kapalıyken kıyı noktaları, açıklama, bildirimler ve bölge
+  kartı satırı gizlenir (hesap yine yapılır, zaman çizgisi yine uzar).
 

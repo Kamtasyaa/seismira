@@ -29,6 +29,7 @@ const STORAGE_REDUCE_MOTION: &str = "reduce_motion";
 const STORAGE_FAULT_TRACE: &str = "fault_trace";
 const STORAGE_GROUND_FAILURE: &str = "ground_failure";
 const STORAGE_LANDSLIDE: &str = "landslide";
+const STORAGE_TSUNAMI: &str = "tsunami";
 
 /// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
 const BLINK_HZ: f64 = 1.0;
@@ -363,6 +364,9 @@ pub struct SeismiraApp {
     /// Heyelan katmanı (Bölüm 2.6; varsayılan açık, Görünüm menüsü,
     /// kaydedilir; veri yoksa menüde görünmez).
     show_landslide: bool,
+    /// Tsunami katmanı ve bildirimleri (Bölüm 2.7; varsayılan açık,
+    /// Görünüm menüsü, kaydedilir).
+    show_tsunami: bool,
     map: MapWidget,
     /// Sağ paneldeki taslak deprem.
     draft: panel::Draft,
@@ -386,6 +390,12 @@ pub struct SeismiraApp {
     tsunami_data: Option<Arc<crate::tsunami::TsunamiData>>,
     /// Son hesabın tsunami tahmini.
     tsunami: Option<crate::tsunami::TsunamiResult>,
+    /// Bölge kartı için bölge başına tsunami özeti: (en yüksek kategori,
+    /// en yüksek tahmin, ilk varış).
+    tsunami_regions: std::collections::HashMap<
+        seismira_core::region::RegionId,
+        (crate::tsunami::Category, Option<f64>, f64),
+    >,
     /// Son hesabın zemin yenilmesi sonuçları ([`compute::GroundKind`]
     /// sırası): bölge özetleri (kimliğe göre sıralı; bölge kartı) ve
     /// haritadaki kırmızı kareler (belirme anına göre sıralı).
@@ -493,6 +503,10 @@ impl SeismiraApp {
                 .storage
                 .and_then(|s| s.get_string(STORAGE_LANDSLIDE))
                 .is_none_or(|v| v == "1"),
+            show_tsunami: cc
+                .storage
+                .and_then(|s| s.get_string(STORAGE_TSUNAMI))
+                .is_none_or(|v| v == "1"),
             map: MapWidget::new(paths::data_dir(), initial_view()),
             draft: panel::Draft::default(),
             sim: None,
@@ -507,6 +521,7 @@ impl SeismiraApp {
             ground_failure: Default::default(),
             tsunami_data,
             tsunami: None,
+            tsunami_regions: Default::default(),
             regions,
             region_events: Vec::new(),
             region_results: Vec::new(),
@@ -601,6 +616,9 @@ impl SeismiraApp {
                 ui.checkbox(&mut self.show_ground, t("menu-liquefaction"));
                 if self.ground.as_ref().is_some_and(|g| g.has_landslide()) {
                     ui.checkbox(&mut self.show_landslide, t("menu-landslide"));
+                }
+                if self.tsunami_data.is_some() {
+                    ui.checkbox(&mut self.show_tsunami, t("menu-tsunami"));
                 }
                 ui.checkbox(&mut self.reduce_motion, t("menu-reduce-motion"));
                 ui.checkbox(&mut self.show_text_test, t("menu-text-test"));
@@ -1031,10 +1049,15 @@ impl SeismiraApp {
             .chain(self.alert.iter().map(|a| a.t))
             .chain(self.region_events.iter().map(|e| e.t))
             .chain(self.city_events.iter().map(|e| e.t))
-            .chain(self.tsunami.iter().flat_map(|ts| {
-                std::iter::once(crate::tsunami::ISSUE_S)
-                    .chain(ts.region_arrivals().into_iter().map(|r| r.t))
-            }))
+            .chain(
+                self.tsunami
+                    .iter()
+                    .filter(|_| self.show_tsunami)
+                    .flat_map(|ts| {
+                        std::iter::once(crate::tsunami::ISSUE_S)
+                            .chain(ts.region_arrivals().into_iter().map(|r| r.t))
+                    }),
+            )
             .filter(|&et| et > t + 1e-6)
             .min_by(f64::total_cmp)
     }
@@ -1132,6 +1155,32 @@ impl SeismiraApp {
                 }
             });
         }
+        // Tsunami: bölgenin kıyısındaki en yüksek kategori, tahmin, ilk varış.
+        if self.show_tsunami
+            && self.clock.t >= crate::tsunami::ISSUE_S
+            && let Some(&(cat, h, eta)) = self.tsunami_regions.get(&id)
+        {
+            let h = h.map_or_else(
+                || lang.t("tsunami-no-height"),
+                |m| {
+                    lang.t_args(
+                        "tsunami-height",
+                        &[("m", lang.num(m, if m < 10.0 { 1 } else { 0 }))],
+                    )
+                },
+            );
+            lines.push((
+                lang.t_args(
+                    "region-tsunami",
+                    &[
+                        ("cat", lang.t(cat.key())),
+                        ("h", h),
+                        ("eta", timeline::format_hms(eta)),
+                    ],
+                ),
+                text,
+            ));
+        }
         // Sıvılaşma ve heyelan: bölgede ilk kare belirdiyse (katman açıksa).
         for kind in compute::GroundKind::ALL {
             let (show, key) = match kind {
@@ -1219,7 +1268,7 @@ impl SeismiraApp {
         let Some(ts) = &self.tsunami else {
             return;
         };
-        if self.clock.t < ISSUE_S || ts.coast.is_empty() {
+        if !self.show_tsunami || self.clock.t < ISSUE_S || ts.coast.is_empty() {
             return;
         }
         let lang = self.lang;
@@ -1399,6 +1448,7 @@ impl SeismiraApp {
         self.map.set_grid(None);
         self.ground_failure = Default::default();
         self.tsunami = None;
+        self.tsunami_regions.clear();
         self.map.set_region_lines(None);
         self.map.set_region_styles(Vec::new());
         self.region_shown.clear();
@@ -1664,7 +1714,7 @@ impl SeismiraApp {
             });
         }
         // Tsunami: uyarı (~3 dk) ve il başına ilk varış.
-        if let Some(ts) = &self.tsunami {
+        if let Some(ts) = self.tsunami.as_ref().filter(|_| self.show_tsunami) {
             use crate::tsunami::{Category, ISSUE_S};
             use seismira_core::tsunami::trigger::{Assessment, Reason};
             if now >= ISSUE_S {
@@ -1976,7 +2026,14 @@ impl eframe::App for SeismiraApp {
                         regions,
                         boxes,
                     } => self.ground_failure[kind as usize] = (regions, boxes),
-                    compute::JobMsg::Tsunami(r) => self.tsunami = Some(r),
+                    compute::JobMsg::Tsunami(r) => {
+                        self.tsunami_regions = self
+                            .regions
+                            .as_ref()
+                            .map(|reg| crate::tsunami::by_region(&r, &reg.map))
+                            .unwrap_or_default();
+                        self.tsunami = Some(r);
+                    }
                 }
             }
             if done {
@@ -2039,6 +2096,10 @@ impl eframe::App for SeismiraApp {
         storage.set_string(
             STORAGE_LANDSLIDE,
             if self.show_landslide { "1" } else { "0" }.to_owned(),
+        );
+        storage.set_string(
+            STORAGE_TSUNAMI,
+            if self.show_tsunami { "1" } else { "0" }.to_owned(),
         );
     }
 }
