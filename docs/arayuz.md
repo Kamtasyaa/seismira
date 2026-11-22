@@ -418,8 +418,13 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   üstünde, ilk kare belirince) her tonun yüzdesi yazar.
 - Görünüm menüsü → "Sıvılaşma riski (sarsıntı bitince)": varsayılan açık,
   kaydedilir.
-- Heyelan katmanı henüz YOK: litoloji ve arazi örtüsü verisinin lisans
-  kararı bekleniyor (docs/veri.md).
+- Heyelan katmanı (2026-11-23): `data/ground/ls_static.sras` varsa
+  gösterilir (yoksa Görünüm menüsünde seçeneği de çıkmaz). Sıvılaşmayla aynı
+  çizim (blok piramidi, sarsıntı bitince belirir), ayrı ton ailesi
+  (turuncu-kahve; sıvılaşma pembe-kırmızı), ayrı açıklama kutusu (ikisi
+  birlikteyse üst üste), bölge kartında "Heyelan: ~X km² (olası a–b)".
+  Sınıf sınırları USGS jessee_2018.ini (0,002 … 0,5). Aynı hücrede iki
+  katman varsa heyelan üstte. Görünüm menüsü seçimi kaydedilir.
 - Bölge kartı: "Sıvılaşma: ~X km² etkilenen alan (tahmini)" satırı (USGS'in
   "aggregate hazard" ölçüsü: bölgedeki Σ kaplama × hücre alanı), bölgede ilk
   kare belirdikten sonra ve katman açıkken. İzmit Mw 7,6 denemesinde Sakarya

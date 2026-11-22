@@ -28,6 +28,7 @@ const STORAGE_LANG: &str = "lang";
 const STORAGE_REDUCE_MOTION: &str = "reduce_motion";
 const STORAGE_FAULT_TRACE: &str = "fault_trace";
 const STORAGE_GROUND_FAILURE: &str = "ground_failure";
+const STORAGE_LANDSLIDE: &str = "landslide";
 
 /// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
 const BLINK_HZ: f64 = 1.0;
@@ -359,6 +360,9 @@ pub struct SeismiraApp {
     /// Sıvılaşma katmanı (Bölüm 2.6; varsayılan açık, Görünüm menüsü,
     /// kaydedilir).
     show_ground: bool,
+    /// Heyelan katmanı (Bölüm 2.6; varsayılan açık, Görünüm menüsü,
+    /// kaydedilir; veri yoksa menüde görünmez).
+    show_landslide: bool,
     map: MapWidget,
     /// Sağ paneldeki taslak deprem.
     draft: panel::Draft,
@@ -385,7 +389,10 @@ pub struct SeismiraApp {
         f64,
     )>,
     /// Bölge başına sıvılaşma özeti (kimliğe göre sıralı; bölge kartı).
-    liquefaction_regions: Vec<compute::RegionLiquefaction>,
+    liquefaction_regions: Vec<compute::RegionGroundFailure>,
+    /// Heyelan: açıklama kutusunun belireceği an ve bölge özetleri.
+    landslide_first: Option<f64>,
+    landslide_regions: Vec<compute::RegionGroundFailure>,
     /// Bölge kimliği rasterı (il / eyalet); yoksa bölge bildirimleri
     /// GeoNames admin1 adlarıyla şehirlerden üretilir.
     regions: Option<Arc<compute::Regions>>,
@@ -482,6 +489,10 @@ impl SeismiraApp {
                 .storage
                 .and_then(|s| s.get_string(STORAGE_GROUND_FAILURE))
                 .is_none_or(|v| v == "1"),
+            show_landslide: cc
+                .storage
+                .and_then(|s| s.get_string(STORAGE_LANDSLIDE))
+                .is_none_or(|v| v == "1"),
             map: MapWidget::new(paths::data_dir(), initial_view()),
             draft: panel::Draft::default(),
             sim: None,
@@ -495,6 +506,8 @@ impl SeismiraApp {
             ground,
             liquefaction: None,
             liquefaction_regions: Vec::new(),
+            landslide_first: None,
+            landslide_regions: Vec::new(),
             regions,
             region_events: Vec::new(),
             region_results: Vec::new(),
@@ -587,6 +600,9 @@ impl SeismiraApp {
                 ui.checkbox(&mut self.show_grid, t("menu-shake-grid"));
                 ui.checkbox(&mut self.show_fault_trace, t("menu-fault-trace"));
                 ui.checkbox(&mut self.show_ground, t("menu-liquefaction"));
+                if self.ground.as_ref().is_some_and(|g| g.has_landslide()) {
+                    ui.checkbox(&mut self.show_landslide, t("menu-landslide"));
+                }
                 ui.checkbox(&mut self.reduce_motion, t("menu-reduce-motion"));
                 ui.checkbox(&mut self.show_text_test, t("menu-text-test"));
             });
@@ -627,13 +643,16 @@ impl SeismiraApp {
                 .filter(|_| self.show_grid)
                 .map(|_| self.clock.t),
         );
-        self.map.set_ground_time(
-            self.sim
-                .as_ref()
-                .filter(|_| self.show_ground)
-                .map(|_| self.clock.t),
-            self.reduce_motion,
-        );
+        for (kind, show) in [
+            (crate::map::GroundKind::Liquefaction, self.show_ground),
+            (crate::map::GroundKind::Landslide, self.show_landslide),
+        ] {
+            self.map.set_ground_time(
+                kind,
+                self.sim.as_ref().filter(|_| show).map(|_| self.clock.t),
+                self.reduce_motion,
+            );
+        }
         let out = self.map.ui(ui, frame, crate::MSAA);
         if let Some(c) = out.clicked {
             if self.sim.is_some() {
@@ -714,11 +733,33 @@ impl SeismiraApp {
                 let limit = lang.t_args("model-limit", &[("km", lang.num(gmm.max_rrup_km(), 0))]);
                 city_layer::draw_legend(ui, rect, &lang.t("shindo-legend"), Some(&limit));
             }
+            let mut slot = 0;
             if self.show_ground
                 && let Some((_, first)) = &self.liquefaction
                 && self.clock.t >= *first
             {
-                crate::ground_style::draw_legend(ui, rect, lang, &lang.t("liquefaction-legend"));
+                crate::ground_style::draw_legend(
+                    ui,
+                    rect,
+                    lang,
+                    &lang.t("liquefaction-legend"),
+                    &crate::ground_style::LIQUEFACTION,
+                    slot,
+                );
+                slot += 1;
+            }
+            if self.show_landslide
+                && let Some(first) = self.landslide_first
+                && self.clock.t >= first
+            {
+                crate::ground_style::draw_legend(
+                    ui,
+                    rect,
+                    lang,
+                    &lang.t("landslide-legend"),
+                    &crate::ground_style::LANDSLIDE,
+                    slot,
+                );
             }
         } else if self.draft.has_epicenter {
             self.map
@@ -1124,28 +1165,36 @@ impl SeismiraApp {
                 }
             });
         }
-        // Sıvılaşma: bölgede ilk kare belirdiyse (katman açıksa).
-        if self.show_ground
-            && let Ok(k) = self
-                .liquefaction_regions
-                .binary_search_by_key(&id, |r| r.id)
-            && self.clock.t >= self.liquefaction_regions[k].t_first
-        {
-            let fmt = |km2: f64| {
-                if km2 < 10.0 {
-                    lang.num(km2, 1)
-                } else {
-                    lang.num(km2, 0)
-                }
-            };
-            let [m, lo, hi] = self.liquefaction_regions[k].km2;
-            lines.push((
-                lang.t_args(
-                    "region-liquefaction",
-                    &[("km2", fmt(m)), ("lo", fmt(lo)), ("hi", fmt(hi))],
-                ),
-                text,
-            ));
+        // Sıvılaşma ve heyelan: bölgede ilk kare belirdiyse (katman açıksa).
+        for (show, regions, key) in [
+            (
+                self.show_ground,
+                &self.liquefaction_regions,
+                "region-liquefaction",
+            ),
+            (
+                self.show_landslide,
+                &self.landslide_regions,
+                "region-landslide",
+            ),
+        ] {
+            if show
+                && let Ok(k) = regions.binary_search_by_key(&id, |r| r.id)
+                && self.clock.t >= regions[k].t_first
+            {
+                let fmt = |km2: f64| {
+                    if km2 < 10.0 {
+                        lang.num(km2, 1)
+                    } else {
+                        lang.num(km2, 0)
+                    }
+                };
+                let [m, lo, hi] = regions[k].km2;
+                lines.push((
+                    lang.t_args(key, &[("km2", fmt(m)), ("lo", fmt(lo)), ("hi", fmt(hi))]),
+                    text,
+                ));
+            }
         }
         match self.damage.as_ref().and_then(|d| d.region(id)) {
             Some(d) if d.buildings > 0.0 => {
@@ -1194,9 +1243,13 @@ impl SeismiraApp {
         self.region_card = None;
         self.job = None; // Drop → arka plan hesabı iptal
         self.map.set_grid(None);
-        self.map.set_ground(None);
+        for kind in crate::map::GroundKind::ALL {
+            self.map.set_ground(kind, None);
+        }
         self.liquefaction = None;
         self.liquefaction_regions.clear();
+        self.landslide_first = None;
+        self.landslide_regions.clear();
         self.map.set_region_lines(None);
         self.map.set_region_styles(Vec::new());
         self.region_shown.clear();
@@ -1611,8 +1664,25 @@ impl eframe::App for SeismiraApp {
                             .filter(|(c, _)| **c >= crate::ground_style::MIN_COVERAGE)
                             .map(|(_, &t)| f64::from(t))
                             .fold(f64::INFINITY, f64::min);
-                        self.map.set_ground(Some((liq.clone(), shake)));
+                        self.map.set_ground(
+                            crate::map::GroundKind::Liquefaction,
+                            Some((liq.clone(), shake)),
+                        );
                         self.liquefaction = first.is_finite().then_some((liq, first));
+                    }
+                    compute::JobMsg::Landslide(ls, shake, by_region) => {
+                        self.landslide_regions = by_region;
+                        let min = crate::ground_style::LANDSLIDE.min();
+                        let first = ls
+                            .coverage
+                            .iter()
+                            .zip(&shake.t_end)
+                            .filter(|(c, _)| **c >= min)
+                            .map(|(_, &t)| f64::from(t))
+                            .fold(f64::INFINITY, f64::min);
+                        self.landslide_first = first.is_finite().then_some(first);
+                        self.map
+                            .set_ground(crate::map::GroundKind::Landslide, Some((ls, shake)));
                     }
                 }
             }
@@ -1672,6 +1742,10 @@ impl eframe::App for SeismiraApp {
         storage.set_string(
             STORAGE_GROUND_FAILURE,
             if self.show_ground { "1" } else { "0" }.to_owned(),
+        );
+        storage.set_string(
+            STORAGE_LANDSLIDE,
+            if self.show_landslide { "1" } else { "0" }.to_owned(),
         );
     }
 }

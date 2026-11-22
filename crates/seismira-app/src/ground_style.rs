@@ -1,29 +1,60 @@
-//! Sıvılaşma katmanının renk ölçeği ve açıklama kutusu (Bölüm 2.6:
-//! "kırmızı tonlu kareler", yoğunluk = olasılık).
+//! Zemin yenilmesi katmanlarının (sıvılaşma, heyelan) renk ölçekleri ve
+//! açıklama kutuları (Bölüm 2.6: "kırmızı tonlu kareler", yoğunluk =
+//! olasılık).
 //!
 //! Gösterilen değer USGS Ground Failure ile aynı: hücre alanının etkilenen
 //! oranı (alansal kaplama). Sınıf sınırları USGS'in görüntüleme ayarından
-//! (`zhu_2017_general.ini`, `display_options.lims.model`: 0,005 … 0,5).
+//! (`defaultconfigfiles/models/*.ini`, `display_options.lims.model`):
+//! sıvılaşma (`zhu_2017_general.ini`) 0,005 … 0,5, heyelan
+//! (`jessee_2018.ini`) 0,002 … 0,5 (main dalı, 2026-11-22 okundu).
 //! Renk tek bilgi taşıyıcı değil (Bölüm 3): açıklama kutusunda her tonun
-//! yüzde değeri yazar.
+//! yüzde değeri ve katmanın adı yazar; iki katman ayrı ton ailesinde
+//! (sıvılaşma pembe-kırmızı, heyelan turuncu-kahve).
 
 use crate::i18n::Lang;
 use eframe::egui::{self, Align2, Color32, FontId, Rect, vec2};
 
-/// Bu oranın altındaki hücreler çizilmez (USGS'in ilk sınıf sınırı).
-pub const MIN_COVERAGE: f32 = 0.005;
+/// Bir katmanın renk ölçeği.
+pub struct Palette {
+    /// Sınıfların alt sınırları (alan oranı) ve renkleri; ilk sınırın
+    /// altındaki hücreler çizilmez.
+    pub classes: [(f32, Color32); 6],
+}
 
-/// Sınıfların alt sınırları (alan oranı) ve renkleri: açık pembeden koyu
-/// kırmızıya. Koyu harita zemininde ve Shindo renklerinin üstünde ayırt
-/// edilsin diye doygun ve opak.
-pub const CLASSES: [(f32, Color32); 6] = [
-    (0.005, Color32::from_rgb(0xFF, 0xC2, 0xC2)),
-    (0.01, Color32::from_rgb(0xFF, 0x8F, 0x8F)),
-    (0.02, Color32::from_rgb(0xFF, 0x55, 0x55)),
-    (0.05, Color32::from_rgb(0xE5, 0x1C, 0x1C)),
-    (0.10, Color32::from_rgb(0xB0, 0x00, 0x0C)),
-    (0.20, Color32::from_rgb(0x6E, 0x00, 0x10)),
-];
+impl Palette {
+    /// Çizilen en küçük oran.
+    pub fn min(&self) -> f32 {
+        self.classes[0].0
+    }
+}
+
+/// Sıvılaşma: açık pembeden koyu kırmızıya. Koyu harita zemininde ve
+/// Shindo renklerinin üstünde ayırt edilsin diye doygun ve opak.
+pub const LIQUEFACTION: Palette = Palette {
+    classes: [
+        (0.005, Color32::from_rgb(0xFF, 0xC2, 0xC2)),
+        (0.01, Color32::from_rgb(0xFF, 0x8F, 0x8F)),
+        (0.02, Color32::from_rgb(0xFF, 0x55, 0x55)),
+        (0.05, Color32::from_rgb(0xE5, 0x1C, 0x1C)),
+        (0.10, Color32::from_rgb(0xB0, 0x00, 0x0C)),
+        (0.20, Color32::from_rgb(0x6E, 0x00, 0x10)),
+    ],
+};
+
+/// Heyelan: açık şeftaliden koyu kahveye (sıvılaşmadan ayrı ton ailesi).
+pub const LANDSLIDE: Palette = Palette {
+    classes: [
+        (0.002, Color32::from_rgb(0xFF, 0xD9, 0xA8)),
+        (0.01, Color32::from_rgb(0xFF, 0xB0, 0x5E)),
+        (0.02, Color32::from_rgb(0xF5, 0x86, 0x22)),
+        (0.05, Color32::from_rgb(0xCC, 0x5A, 0x00)),
+        (0.10, Color32::from_rgb(0x94, 0x3B, 0x00)),
+        (0.20, Color32::from_rgb(0x5C, 0x24, 0x00)),
+    ],
+};
+
+/// Sıvılaşmanın çizilen en küçük oranı (bölge özeti de bunu kullanır).
+pub const MIN_COVERAGE: f32 = LIQUEFACTION.classes[0].0;
 
 /// Bir oranı yüzde metnine çevirir ("%0,5" / "0.5%").
 fn percent(lang: Lang, v: f32) -> String {
@@ -37,14 +68,18 @@ fn percent(lang: Lang, v: f32) -> String {
     lang.t_args("percent", &[("v", n)])
 }
 
+/// Açıklama kutusunun dikey yeri (piksel): `slot` 0 Shindo açıklamasının
+/// hemen üstü, 1 onun da üstü (iki katman birlikte gösterilince).
+const SLOT_H: f32 = 56.0;
+
 /// Açıklama kutusu: Shindo açıklamasının üstünde, sağ altta.
-pub fn draw_legend(ui: &egui::Ui, rect: Rect, lang: Lang, title: &str) {
+pub fn draw_legend(ui: &egui::Ui, rect: Rect, lang: Lang, title: &str, pal: &Palette, slot: u32) {
     let painter = ui.painter_at(rect);
     let sw = vec2(30.0, 12.0);
-    let width = CLASSES.len() as f32 * sw.x;
+    let width = pal.classes.len() as f32 * sw.x;
     // Shindo açıklamasının yüksekliği (city_layer::draw_legend): kutu +
     // başlık + model sınırı notu + kenar boşlukları.
-    let below = 12.0 + crate::shindo_style::BOX_SIZE.y + 18.0 + 22.0 + 14.0;
+    let below = 12.0 + crate::shindo_style::BOX_SIZE.y + 18.0 + 22.0 + 14.0 + slot as f32 * SLOT_H;
     let galley = painter.layout_no_wrap(
         title.to_owned(),
         FontId::proportional(12.0),
@@ -64,7 +99,7 @@ pub fn draw_legend(ui: &egui::Ui, rect: Rect, lang: Lang, title: &str) {
         ui.visuals().text_color(),
     );
     let origin = origin + vec2(width_all - width, 0.0);
-    for (k, (lo, color)) in CLASSES.iter().enumerate() {
+    for (k, (lo, color)) in pal.classes.iter().enumerate() {
         let r = Rect::from_min_size(origin + vec2(k as f32 * sw.x, 0.0), sw);
         painter.rect_filled(r.shrink2(vec2(1.0, 0.0)), 1.0, *color);
         painter.text(
@@ -88,7 +123,13 @@ pub const LEVELS: u32 = 7;
 /// sıfırdan büyük hücrelerde sarsıntının en erken bittiği an. Izgara
 /// 2^(LEVELS−1)'in katına tamamlanır (dolgu kaplaması 0); döner:
 /// (genişlik, yükseklik, düzeyler).
-pub fn pyramid(coverage: &[f32], t_end: &[f32], w: u32, h: u32) -> (u32, u32, Vec<Vec<[f32; 4]>>) {
+pub fn pyramid(
+    pal: &Palette,
+    coverage: &[f32],
+    t_end: &[f32],
+    w: u32,
+    h: u32,
+) -> (u32, u32, Vec<Vec<[f32; 4]>>) {
     let m = 1u32 << (LEVELS - 1);
     let (pw, ph) = (w.div_ceil(m) * m, h.div_ceil(m) * m);
     // Düzey 0: (kaplama, an).
@@ -102,7 +143,7 @@ pub fn pyramid(coverage: &[f32], t_end: &[f32], w: u32, h: u32) -> (u32, u32, Ve
             }
         }
     }
-    let texel = |(c, t): (f32, f32)| match CLASSES.iter().rposition(|(lo, _)| c >= *lo) {
+    let texel = |(c, t): (f32, f32)| match pal.classes.iter().rposition(|(lo, _)| c >= *lo) {
         Some(k) if t.is_finite() => [k as f32, t, 0.0, 0.0],
         _ => [-1.0, f32::INFINITY, 0.0, 0.0],
     };
@@ -139,7 +180,7 @@ mod tests {
     #[test]
     fn piramit_ortalama_ve_en_erken_an() {
         // 3 × 1 ızgara: 0,2 (t 10), 0 , 0,06 (t 5).
-        let (pw, ph, lv) = pyramid(&[0.2, 0.0, 0.06], &[10.0, 20.0, 5.0], 3, 1);
+        let (pw, ph, lv) = pyramid(&LIQUEFACTION, &[0.2, 0.0, 0.06], &[10.0, 20.0, 5.0], 3, 1);
         assert_eq!((pw, ph), (64, 64));
         assert_eq!(lv.len(), LEVELS as usize);
         // Düzey 0: hücreler ayrı.

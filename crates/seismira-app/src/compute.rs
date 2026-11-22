@@ -94,10 +94,25 @@ fn map_raster(path: &std::path::Path) -> Result<MappedRaster, String> {
 /// önceden hesaplanmış zemin kısmı (`data/ground/liq_static.sras`,
 /// `seismira-data liq-static`) belleğe eşlenir, yalnızca deprem alanının
 /// döşemeleri okunur.
+///
+/// Heyelan (`ls_static.sras`, `seismira-data ls-static`) isteğe bağlıdır:
+/// yoksa (ör. litoloji izni gelmediği için dağıtılan pakette) heyelan
+/// katmanı gösterilmez.
 pub struct Ground {
     liq: MappedRaster,
     /// liq_x, liq_xf (yoksa `None`: yalnızca kaba kod), liq_cls.
     layers: (usize, Option<usize>, usize),
+    /// Heyelan: raster ve ls_a, ls_q0–3 katmanları.
+    landslide: Option<(MappedRaster, [usize; 5])>,
+}
+
+/// İki rasterın ızgarası aynı mı (pencereler hizalı olmalı)?
+fn same_grid(r: &seismira_core::raster::Grid, g: &seismira_core::raster::Grid) -> bool {
+    r.west == g.west
+        && r.north == g.north
+        && r.cell == g.cell
+        && r.width == g.width
+        && r.height == g.height
 }
 
 impl Ground {
@@ -106,12 +121,7 @@ impl Ground {
         use seismira_core::groundfailure::static_layer;
         let liq = map_raster(&dir.join(static_layer::FILE))?;
         let (r, g) = (liq.grid, vs30.grid());
-        if r.west != g.west
-            || r.north != g.north
-            || r.cell != g.cell
-            || r.width != g.width
-            || r.height != g.height
-        {
+        if !same_grid(&r, &g) {
             return Err(format!(
                 "{} Vs30 ızgarasıyla aynı değil",
                 static_layer::FILE
@@ -122,7 +132,71 @@ impl Ground {
                 .ok_or_else(|| format!("{}: '{n}' katmanı yok", static_layer::FILE))
         };
         let layers = (need("liq_x")?, liq.layer("liq_xf"), need("liq_cls")?);
-        Ok(Arc::new(Self { liq, layers }))
+        let landslide = match Self::load_landslide(dir, &g) {
+            Ok(l) => Some(l),
+            Err(e) => {
+                log::warn!("heyelan katmanı yok: {e}");
+                None
+            }
+        };
+        Ok(Arc::new(Self {
+            liq,
+            layers,
+            landslide,
+        }))
+    }
+
+    fn load_landslide(
+        dir: &std::path::Path,
+        g: &seismira_core::raster::Grid,
+    ) -> Result<(MappedRaster, [usize; 5]), String> {
+        use seismira_core::groundfailure::landslide_static as ls;
+        let r = map_raster(&dir.join(ls::FILE))?;
+        if !same_grid(&r.grid, g) {
+            return Err(format!("{} Vs30 ızgarasıyla aynı değil", ls::FILE));
+        }
+        let want = ls::layers();
+        let mut idx = [0usize; 5];
+        for (k, info) in want.iter().enumerate() {
+            let li = r
+                .layer(&info.name)
+                .ok_or_else(|| format!("{}: '{}' katmanı yok", ls::FILE, info.name))?;
+            if r.layers[li] != *info {
+                return Err(format!("{}: '{}' kodlaması farklı", ls::FILE, info.name));
+            }
+            idx[k] = li;
+        }
+        Ok((r, idx))
+    }
+
+    pub fn has_landslide(&self) -> bool {
+        self.landslide.is_some()
+    }
+
+    /// Alan penceresinde heyelan kaplaması; katman yoksa ya da okuma
+    /// hatasında `None`.
+    fn landslide(
+        &self,
+        shake: &seismira_core::grid::ShakeGrid,
+        domain: &seismira_core::grid::Domain,
+        step: u32,
+        cancel: &AtomicBool,
+    ) -> Option<seismira_core::groundfailure::landslide_grid::LandslideGrid> {
+        use seismira_core::groundfailure::landslide_grid::{StaticInputs, compute};
+        use seismira_core::groundfailure::landslide_static::MASKED;
+        let (r, idx) = self.landslide.as_ref()?;
+        let read = |li: usize| -> Option<Vec<u8>> {
+            r.window(li, domain.col0, domain.row0, domain.w, domain.h, MASKED)
+                .inspect_err(|e| log::error!("heyelan katmanı okunamadı: {e}"))
+                .ok()
+        };
+        let a = read(idx[0])?;
+        let q: Vec<Vec<u8>> = idx[1..].iter().map(|&li| read(li)).collect::<Option<_>>()?;
+        let inputs = StaticInputs {
+            a: &a,
+            q: [&q[0], &q[1], &q[2], &q[3]],
+        };
+        compute(shake, domain, step, &inputs, cancel)
     }
 
     /// Alan penceresinde sıvılaşma kaplaması; okuma hatasında `None`
@@ -223,15 +297,22 @@ pub enum JobMsg {
     Liquefaction(
         Arc<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid>,
         Arc<seismira_core::grid::ShakeGrid>,
-        Vec<RegionLiquefaction>,
+        Vec<RegionGroundFailure>,
+    ),
+    /// Heyelan alansal kaplaması (sıvılaşmayla aynı hücreler).
+    Landslide(
+        Arc<seismira_core::groundfailure::landslide_grid::LandslideGrid>,
+        Arc<seismira_core::grid::ShakeGrid>,
+        Vec<RegionGroundFailure>,
     ),
 }
 
-/// Bir bölgenin sıvılaşma özeti: toplam tehlike (Σ kaplama × alan, km²;
-/// USGS Ground Failure'ın "aggregate hazard" ölçüsü) ve bölgede ilk karenin
-/// belirdiği an (s). Kimliğe göre sıralı.
+/// Bir bölgenin zemin yenilmesi (sıvılaşma ya da heyelan) özeti: toplam
+/// tehlike (Σ kaplama × alan, km²; USGS Ground Failure'ın "aggregate
+/// hazard" ölçüsü) ve bölgede ilk karenin belirdiği an (s). Kimliğe göre
+/// sıralı.
 #[derive(Clone, Copy, Debug)]
-pub struct RegionLiquefaction {
+pub struct RegionGroundFailure {
     pub id: seismira_core::region::RegionId,
     /// [medyan, −1τ, +1τ].
     pub km2: [f64; 3],
@@ -239,24 +320,27 @@ pub struct RegionLiquefaction {
 }
 
 /// Bölge toplamları (ince ızgaranın temsilci taban hücresinin bölgesine).
-fn liquefaction_by_region(
-    liq: &seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid,
+/// `cov`: [medyan, −1τ, +1τ] kaplama; `min`: çizilen en küçük oran (ilk
+/// karenin anı için).
+fn ground_by_region(
+    cov: [&[f32]; 3],
+    min: f32,
     shake: &seismira_core::grid::ShakeGrid,
     domain: &seismira_core::grid::Domain,
     step: u32,
     ids: &[seismira_core::region::RegionId],
-) -> Vec<RegionLiquefaction> {
+) -> Vec<RegionGroundFailure> {
     use std::collections::BTreeMap;
     const R_KM: f64 = 6371.0088;
-    let spec = liq.spec;
+    let spec = shake.spec;
     let mut by: BTreeMap<seismira_core::region::RegionId, ([f64; 3], f64)> = BTreeMap::new();
     for row in 0..spec.height {
         let (_, lat) = spec.center(0, row);
         let area = (R_KM * spec.cell.to_radians()).powi(2) * lat.to_radians().cos();
         for col in 0..spec.width {
             let i = (row * spec.width + col) as usize;
-            let c = f64::from(liq.coverage[i]);
-            let hi = f64::from(liq.coverage_hi[i]);
+            let c = f64::from(cov[0][i]);
+            let hi = f64::from(cov[2][i]);
             if hi <= 0.0 {
                 continue;
             }
@@ -268,16 +352,16 @@ fn liquefaction_by_region(
             }
             let e = by.entry(id).or_insert(([0.0; 3], f64::INFINITY));
             e.0[0] += c * area;
-            e.0[1] += f64::from(liq.coverage_lo[i]) * area;
+            e.0[1] += f64::from(cov[1][i]) * area;
             e.0[2] += hi * area;
-            if c >= f64::from(crate::ground_style::MIN_COVERAGE) {
+            if c >= f64::from(min) {
                 e.1 = e.1.min(f64::from(shake.t_end[i]));
             }
         }
     }
     by.into_iter()
         .filter(|(_, (_, t))| t.is_finite())
-        .map(|(id, (km2, t_first))| RegionLiquefaction { id, km2, t_first })
+        .map(|(id, (km2, t_first))| RegionGroundFailure { id, km2, t_first })
         .collect()
 }
 
@@ -474,22 +558,50 @@ fn shake_grid(
                 liq.coastal,
                 t0.elapsed().as_millis()
             );
-            let by_region = regions
-                .and_then(|r| {
-                    r.map
-                        .window(domain.col0, domain.row0, domain.w, domain.h)
-                        .inspect_err(|e| log::error!("bölge penceresi okunamadı: {e}"))
-                        .ok()
-                })
-                .map(|ids| liquefaction_by_region(&liq, &g, &domain, s, &ids))
-                .unwrap_or_default();
+            let ids = regions.and_then(|r| {
+                r.map
+                    .window(domain.col0, domain.row0, domain.w, domain.h)
+                    .inspect_err(|e| log::error!("bölge penceresi okunamadı: {e}"))
+                    .ok()
+            });
+            let by_region = |cov: [&[f32]; 3], min: f32| {
+                ids.as_ref()
+                    .map(|ids| ground_by_region(cov, min, &g, &domain, s, ids))
+                    .unwrap_or_default()
+            };
+            let liq_regions = by_region(
+                [&liq.coverage, &liq.coverage_lo, &liq.coverage_hi],
+                crate::ground_style::LIQUEFACTION.min(),
+            );
             if tx
-                .send(JobMsg::Liquefaction(Arc::new(liq), g.clone(), by_region))
+                .send(JobMsg::Liquefaction(Arc::new(liq), g.clone(), liq_regions))
                 .is_err()
             {
                 return;
             }
             ctx.request_repaint();
+            if gr.has_landslide() {
+                let t0 = std::time::Instant::now();
+                let Some(ls) = gr.landslide(&g, &domain, s, cancel) else {
+                    return; // iptal ya da okuma hatası (günlükte)
+                };
+                log::info!(
+                    "heyelan: {} hücre > 0, {} ms",
+                    ls.coverage.iter().filter(|&&c| c > 0.0).count(),
+                    t0.elapsed().as_millis()
+                );
+                let ls_regions = by_region(
+                    [&ls.coverage, &ls.coverage_lo, &ls.coverage_hi],
+                    crate::ground_style::LANDSLIDE.min(),
+                );
+                if tx
+                    .send(JobMsg::Landslide(Arc::new(ls), g.clone(), ls_regions))
+                    .is_err()
+                {
+                    return;
+                }
+                ctx.request_repaint();
+            }
         }
     }
     if let (Some(reg), Some(exp)) = (regions, exposure) {

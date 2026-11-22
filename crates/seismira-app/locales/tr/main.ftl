@@ -8,6 +8,7 @@ menu-disclaimer = Eğitim uyarısı
 menu-shake-grid = Sarsıntı alanı
 menu-fault-trace = Simülasyon sonunda fay izi
 menu-liquefaction = Sıvılaşma riski (sarsıntı bitince)
+menu-landslide = Heyelan riski (sarsıntı bitince)
 menu-reduce-motion = Hareketi azalt
 menu-text-test = Yazı testi
 menu-language = Dil
@@ -82,6 +83,7 @@ traveltime-missing = Seyahat süresi tablosu bulunamadı (data/traveltime/ak135.
 # Şiddet ve şehirler (Faz 3)
 shindo-legend = Shindo (JMA)
 liquefaction-legend = Sıvılaşma: etkilenen alan oranı (Zhu vd. 2017)
+landslide-legend = Heyelan: etkilenen alan oranı (Nowicki Jessee vd. 2018)
 percent = %{ $v }
 city-p-arrived = P dalgası ulaştı: { $city }
 city-shindo = { $city }: Shindo { $shindo }
@@ -122,6 +124,7 @@ region-typical = Yaygın: Shindo { $s } (yerleşim alanının en az %10'u)
 region-arrivals = İlk P: T+{ $p }, ilk S: T+{ $s }
 region-lead = Erken uyarı: bölgedeki ilk S'ten { $s } s önce
 region-liquefaction = Sıvılaşma: ~{ $km2 } km² etkilenen alan (olası { $lo }–{ $hi })
+region-landslide = Heyelan: ~{ $km2 } km² etkilenen alan (olası { $lo }–{ $hi })
 region-blind = Erken uyarı: kör bölge (uyarı ilk S'ten sonra geliyor)
 region-not-covered = Erken uyarı kapsamı dışında (Shindo 4'ün altı)
 

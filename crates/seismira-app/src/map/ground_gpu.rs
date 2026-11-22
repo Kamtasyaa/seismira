@@ -1,11 +1,45 @@
-//! Sıvılaşma katmanının GPU kaynakları (grid_gpu.rs ile aynı yapı).
+//! Zemin yenilmesi katmanlarının (sıvılaşma, heyelan) GPU kaynakları
+//! (grid_gpu.rs ile aynı yapı; her katmanın ayrı dokusu ve uniform'u).
 //!
 //! Kaplama bir kez dokuya yüklenir (Rgba32Float: renk sınıfı, hücrede
 //! sarsıntının bittiği an); her karede yalnızca uniform güncellenir.
 
 use eframe::wgpu;
 use seismira_core::grid::{GridSpec, ShakeGrid};
-use seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid;
+
+/// Katman sırası: [`GroundGpus::layers`] dizini.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GroundKind {
+    Liquefaction = 0,
+    Landslide = 1,
+}
+
+impl GroundKind {
+    pub const ALL: [GroundKind; 2] = [GroundKind::Liquefaction, GroundKind::Landslide];
+
+    pub fn palette(self) -> &'static crate::ground_style::Palette {
+        match self {
+            GroundKind::Liquefaction => &crate::ground_style::LIQUEFACTION,
+            GroundKind::Landslide => &crate::ground_style::LANDSLIDE,
+        }
+    }
+}
+
+/// Paint callback kaynağı: iki katman (heyelan sıvılaşmanın üstünde çizilir).
+pub struct GroundGpus {
+    pub layers: [GroundGpu; 2],
+}
+
+impl GroundGpus {
+    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, msaa: u32) -> Self {
+        Self {
+            layers: [
+                GroundGpu::new(device, format, msaa),
+                GroundGpu::new(device, format, msaa),
+            ],
+        }
+    }
+}
 
 /// WGSL `GroundUniforms` ile birebir aynı.
 #[repr(C)]
@@ -111,25 +145,29 @@ impl GroundGpu {
         }
     }
 
-    /// Kaplamayı dokuya yükler (öncekinin yerine). `shake`: aynı ızgaranın
-    /// sarsıntı sonucu (hücrede sarsıntının bittiği an).
+    /// Kaplamayı dokuya yükler (öncekinin yerine). `coverage`: `shake` ile
+    /// aynı ızgarada hücre başına alan oranı; `shake`: hücrede sarsıntının
+    /// bittiği an.
     pub fn upload(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        liq: &LiquefactionGrid,
+        kind: GroundKind,
+        coverage: &[f32],
         shake: &ShakeGrid,
     ) {
-        let (w, h) = (liq.spec.width, liq.spec.height);
+        let spec = shake.spec;
+        let (w, h) = (spec.width, spec.height);
         let max = device.limits().max_texture_dimension_2d;
-        if w > max || h > max || shake.spec != liq.spec {
-            log::error!("sıvılaşma ızgarası {w}×{h} yüklenemedi (doku sınırı ya da ızgara farkı)");
+        if w > max || h > max || coverage.len() != (w * h) as usize {
+            log::error!("{kind:?} ızgarası {w}×{h} yüklenemedi (doku sınırı ya da ızgara farkı)");
             self.loaded = None;
             return;
         }
-        let (pw, ph, levels) = crate::ground_style::pyramid(&liq.coverage, &shake.t_end, w, h);
+        let (pw, ph, levels) =
+            crate::ground_style::pyramid(kind.palette(), coverage, &shake.t_end, w, h);
         if pw > max || ph > max {
-            log::error!("sıvılaşma dokusu {pw}×{ph} sınırı ({max}) aşıyor");
+            log::error!("{kind:?} dokusu {pw}×{ph} sınırı ({max}) aşıyor");
             self.loaded = None;
             return;
         }
@@ -184,7 +222,7 @@ impl GroundGpu {
                 },
             ],
         });
-        self.loaded = Some((bind_group, liq.spec));
+        self.loaded = Some((bind_group, spec));
     }
 
     pub fn draw(&self, pass: &mut wgpu::RenderPass<'static>, copies: std::ops::Range<u32>) {

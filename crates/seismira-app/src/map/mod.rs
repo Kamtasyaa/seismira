@@ -11,13 +11,29 @@ pub use region_lines::RegionLines;
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
 use seismira_core::grid::{GridSpec, ShakeGrid};
 
-/// Sıvılaşma katmanı: kaplama ve aynı ızgaranın sarsıntı sonucu.
-pub type GroundData = (
-    Arc<seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid>,
-    Arc<ShakeGrid>,
-);
+pub use ground_gpu::GroundKind;
 
-/// Sıvılaşma karesinin belirme süresi (s; "Hareketi azalt"ta anında).
+/// Hücre başına alan oranı veren bir zemin yenilmesi sonucu.
+pub trait Coverage: Send + Sync {
+    fn coverage(&self) -> &[f32];
+}
+
+impl Coverage for seismira_core::groundfailure::liquefaction_grid::LiquefactionGrid {
+    fn coverage(&self) -> &[f32] {
+        &self.coverage
+    }
+}
+
+impl Coverage for seismira_core::groundfailure::landslide_grid::LandslideGrid {
+    fn coverage(&self) -> &[f32] {
+        &self.coverage
+    }
+}
+
+/// Zemin yenilmesi katmanı: kaplama ve aynı ızgaranın sarsıntı sonucu.
+pub type GroundData = (Arc<dyn Coverage>, Arc<ShakeGrid>);
+
+/// Zemin yenilmesi karesinin belirme süresi (s; "Hareketi azalt"ta anında).
 const GROUND_FADE_S: f32 = 1.5;
 use seismira_core::mapfile::MapFile;
 use seismira_core::mercator;
@@ -75,11 +91,12 @@ pub struct MapWidget {
     grid_spec: Option<GridSpec>,
     /// Bu karede ızgara gösterilecekse simülasyon zamanı.
     grid_time: Option<f64>,
-    /// GPU'ya yüklenmeyi bekleyen sıvılaşma katmanı (`Some(None)`: kaldır).
-    ground_pending: Option<Option<GroundData>>,
-    ground_spec: Option<GridSpec>,
+    /// GPU'ya yüklenmeyi bekleyen zemin yenilmesi katmanları
+    /// ([`GroundKind`] sırası; `Some(None)`: kaldır).
+    ground_pending: [Option<Option<GroundData>>; 2],
+    ground_spec: [Option<GridSpec>; 2],
     /// Bu karede gösterilecekse simülasyon zamanı ve "Hareketi azalt".
-    ground_time: Option<(f64, bool)>,
+    ground_time: [Option<(f64, bool)>; 2],
     /// GPU'ya yüklenmeyi bekleyen bölge sınırları (`Some(None)`: kaldır).
     lines_pending: Option<Option<Arc<RegionLines>>>,
     /// Yüklü sınırların bölge → köşe aralığı.
@@ -140,9 +157,9 @@ impl MapWidget {
             grid_pending: None,
             grid_spec: None,
             grid_time: None,
-            ground_pending: None,
-            ground_spec: None,
-            ground_time: None,
+            ground_pending: [None, None],
+            ground_spec: [None, None],
+            ground_time: [None, None],
             lines_pending: None,
             line_ranges: Default::default(),
             fill_ranges: Default::default(),
@@ -171,14 +188,14 @@ impl MapWidget {
         self.grid_time = t;
     }
 
-    /// Yeni sıvılaşma katmanı (ya da `None`: kaldır).
-    pub fn set_ground(&mut self, ground: Option<GroundData>) {
-        self.ground_pending = Some(ground);
+    /// Yeni zemin yenilmesi katmanı (ya da `None`: kaldır).
+    pub fn set_ground(&mut self, kind: GroundKind, ground: Option<GroundData>) {
+        self.ground_pending[kind as usize] = Some(ground);
     }
 
-    /// Bu karede sıvılaşma gösterilecekse simülasyon zamanı.
-    pub fn set_ground_time(&mut self, t: Option<f64>, reduce_motion: bool) {
-        self.ground_time = t.map(|t| (t, reduce_motion));
+    /// Bu karede katman gösterilecekse simülasyon zamanı.
+    pub fn set_ground_time(&mut self, kind: GroundKind, t: Option<f64>, reduce_motion: bool) {
+        self.ground_time[kind as usize] = t.map(|t| (t, reduce_motion));
     }
 
     /// Kaba harita yüklendi mi (ekranda bir şey var mı)?
@@ -239,22 +256,28 @@ impl MapWidget {
             }
             self.grid_spec = g.loaded.as_ref().map(|(_, s)| *s);
         }
-        if let Some(ground) = self.ground_pending.take() {
-            if resources.get::<ground_gpu::GroundGpu>().is_none() {
-                resources.insert(ground_gpu::GroundGpu::new(
+        for kind in GroundKind::ALL {
+            let Some(ground) = self.ground_pending[kind as usize].take() else {
+                continue;
+            };
+            if resources.get::<ground_gpu::GroundGpus>().is_none() {
+                resources.insert(ground_gpu::GroundGpus::new(
                     &rs.device,
                     rs.target_format,
                     msaa,
                 ));
             }
-            let g = resources
-                .get_mut::<ground_gpu::GroundGpu>()
-                .expect("az önce eklendi");
+            let g = &mut resources
+                .get_mut::<ground_gpu::GroundGpus>()
+                .expect("az önce eklendi")
+                .layers[kind as usize];
             match ground {
-                Some((liq, shake)) => g.upload(&rs.device, &rs.queue, &liq, &shake),
+                Some((cov, shake)) => {
+                    g.upload(&rs.device, &rs.queue, kind, cov.coverage(), &shake);
+                }
                 None => g.loaded = None,
             }
-            self.ground_spec = g.loaded.as_ref().map(|(_, s)| *s);
+            self.ground_spec[kind as usize] = g.loaded.as_ref().map(|(_, s)| *s);
         }
         if let Some(lines) = self.lines_pending.take() {
             if resources.get::<region_lines::RegionLinesGpu>().is_none() {
@@ -360,10 +383,11 @@ impl MapWidget {
             .grid_spec
             .zip(self.grid_time)
             .map(|(spec, t)| (self.grid_uniforms(rect, &spec, t), 2));
-        let ground = self
-            .ground_spec
-            .zip(self.ground_time)
-            .map(|(spec, (t, reduce))| self.ground_uniforms(rect, &spec, t, reduce));
+        let ground = GroundKind::ALL.map(|k| {
+            self.ground_spec[k as usize]
+                .zip(self.ground_time[k as usize])
+                .map(|(spec, (t, reduce))| self.ground_uniforms(rect, k, &spec, t, reduce))
+        });
         let (regions, fills) = self.region_draws(rect);
         MapPaint {
             ground,
@@ -458,6 +482,7 @@ impl MapWidget {
     fn ground_uniforms(
         &self,
         rect: Rect,
+        kind: GroundKind,
         spec: &GridSpec,
         t: f64,
         reduce_motion: bool,
@@ -466,7 +491,7 @@ impl MapWidget {
         // Ekranda bir hücrenin kenarı (piksel); shader blok düzeyini seçer.
         let cell_px = (spec.cell / 360.0 * self.view.scale) as f32;
         let mut colors = [[0.0; 4]; 6];
-        for (k, (_, c)) in crate::ground_style::CLASSES.iter().enumerate() {
+        for (k, (_, c)) in kind.palette().classes.iter().enumerate() {
             colors[k] = c.to_normalized_gamma_f32();
         }
         ground_gpu::GroundUniforms {

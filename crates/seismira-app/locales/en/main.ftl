@@ -8,6 +8,7 @@ menu-disclaimer = Educational notice
 menu-shake-grid = Shaking area
 menu-fault-trace = Fault trace at end of simulation
 menu-liquefaction = Liquefaction hazard (after shaking)
+menu-landslide = Landslide hazard (after shaking)
 menu-reduce-motion = Reduce motion
 menu-text-test = Text test
 menu-language = Language
@@ -82,6 +83,7 @@ traveltime-missing = Travel-time table not found (data/traveltime/ak135.ttt).
 # Intensity and cities (Phase 3)
 shindo-legend = Shindo (JMA)
 liquefaction-legend = Liquefaction: share of area affected (Zhu et al. 2017)
+landslide-legend = Landslides: share of area affected (Nowicki Jessee et al. 2018)
 percent = { $v }%
 city-p-arrived = P wave arrived: { $city }
 city-shindo = { $city }: Shindo { $shindo }
@@ -122,6 +124,7 @@ region-typical = Widespread: Shindo { $s } (at least 10% of the built-up area)
 region-arrivals = First P: T+{ $p }, first S: T+{ $s }
 region-lead = Early warning: { $s } s before the first S in the region
 region-liquefaction = Liquefaction: ~{ $km2 } km² of area affected (likely { $lo }–{ $hi })
+region-landslide = Landslides: ~{ $km2 } km² of area affected (likely { $lo }–{ $hi })
 region-blind = Early warning: blind zone (the alert comes after the first S)
 region-not-covered = Outside early-warning coverage (below Shindo 4)
 
