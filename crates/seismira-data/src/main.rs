@@ -9,6 +9,7 @@
 //! seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>
 //! seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>
 //! seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>
+//! seismira-data gem <gem klasörü> <admin1.sras> <çıktı.svul>
 //! seismira-data slope75 <gmted md75_grd> <vs30.sras> <çıktı.sras>
 //! seismira-data wtd <wtd_vs30grid.i16> <vs30.sras> <çıktı.sras>
 //! seismira-data liq-static <data/ground> <vs30.sras> <çıktı.sras> [--coastal]
@@ -26,6 +27,7 @@ mod bathy;
 mod city_sites;
 mod coast_points;
 mod exposure;
+mod gem;
 mod geotiff;
 mod ground_inputs;
 mod land_cover;
@@ -69,6 +71,9 @@ fn main() -> Result<()> {
         }
         [cmd, esrm20, regions, output] if cmd == "exposure" => {
             exposure::run(Path::new(esrm20), Path::new(regions), Path::new(output))
+        }
+        [cmd, gem, regions, output] if cmd == "gem" => {
+            gem::run(Path::new(gem), Path::new(regions), Path::new(output))
         }
         [cmd, dir, tifs @ ..] if cmd == "aig-check" => aig_check(Path::new(dir), tifs),
         [cmd, gmted, vs30, chelsa, rivers, output] if cmd == "ground-inputs" => ground_inputs::run(
@@ -207,6 +212,7 @@ fn main() -> Result<()> {
              seismira-data city-sites <şehirler.scty> <vs30.sras> <ghsl.tif> <çıktı.ssit>\n  \
              seismira-data regions <admin1.shp> <vs30.sras> <ghsl.tif> <çıktı.sras> <çıktı.sreg>\n  \
              seismira-data exposure <esrm20 klasörü> <admin1.sras> <çıktı.sexp>\n  \
+             seismira-data gem <gem klasörü> <admin1.sras> <çıktı.svul>\n  \
              seismira-data ground-inputs <gmted md30_grd> <vs30.sras> <chelsa bio12.tif> <ne_10m_rivers.shp> <çıktı.sras>\n  \
              seismira-data slope75 <gmted md75_grd> <vs30.sras> <çıktı.sras>\n  \
              seismira-data wtd <wtd_vs30grid.i16> <vs30.sras> <çıktı.sras>\n  \

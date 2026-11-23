@@ -189,7 +189,11 @@ region-damage-head = Estimated building damage (ESRM20, { $n } buildings in the 
 region-damage-heavy = Extensive damage or collapse: ~{ $n } buildings ({ $p }%; likely range { $lo }–{ $hi }%)
 region-damage-heavy-none = Extensive damage or collapse: not expected (fewer than 1 building)
 region-damage-moderate = Moderate damage: ~{ $n } buildings ({ $p }%)
-region-damage-nodata = No building data for this region (ESRM20 covers Europe and Türkiye only).
+region-damage-nodata = No building data for this region.
+region-damage-nodata-nogem = No building data for this region (ESRM20 covers Europe and Türkiye only; the GEM package for the rest of the world is not installed).
+region-loss-head = Estimated structural damage (GEM, value-weighted average of the region's buildings):
+region-loss-ratio = Mean damage ratio: { $p }% (likely range { $lo }–{ $hi }%)
+region-loss-none = Mean damage ratio: negligible
 tip-damage = Estimated extensive damage or collapse: { $p }% (likely range { $lo }–{ $hi }%)
 tip-damage-note = (using the region's building mix, not the city's own data)
 

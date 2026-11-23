@@ -189,7 +189,11 @@ region-damage-head = Tahmini bina hasarı (ESRM20, ilde { $n } bina):
 region-damage-heavy = Ağır hasar veya göçme: ~{ $n } bina (%{ $p }; olası %{ $lo }–{ $hi })
 region-damage-heavy-none = Ağır hasar veya göçme: beklenmiyor (1 binadan az)
 region-damage-moderate = Orta hasar: ~{ $n } bina (%{ $p })
-region-damage-nodata = Bu bölge için bina verisi yok (ESRM20 yalnızca Avrupa ve Türkiye).
+region-damage-nodata = Bu bölge için bina verisi yok.
+region-damage-nodata-nogem = Bu bölge için bina verisi yok (ESRM20 yalnızca Avrupa ve Türkiye; dünyanın geri kalanı için GEM paketi kurulu değil).
+region-loss-head = Tahmini yapısal hasar (GEM, bölgedeki binaların değer ağırlıklı ortalaması):
+region-loss-ratio = Ortalama hasar oranı: %{ $p } (olası %{ $lo }–{ $hi })
+region-loss-none = Ortalama hasar oranı: ihmal edilebilir
 tip-damage = Tahmini ağır hasar veya göçme: %{ $p } (olası %{ $lo }–{ $hi })
 tip-damage-note = (ilin bina dağılımıyla; şehrin kendi bina verisi değil)
 

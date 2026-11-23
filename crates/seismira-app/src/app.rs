@@ -382,6 +382,8 @@ pub struct SeismiraApp {
     slab: Option<Arc<Slab2>>,
     /// ESRM20 bina stoku ve kırılganlık (~0,3 MB, açılışta okunur).
     exposure: Option<Arc<seismira_core::exposure::Exposure>>,
+    /// GEM paketi (isteğe bağlı, CC BY-NC-SA; data/gem/gem.svul).
+    vuln: Option<Arc<seismira_core::damage::VulnCurves>>,
     /// Son hesabın tahmini bina hasarı.
     damage: Option<compute::DamageResults>,
     /// Zemin yenilmesi girdileri (`data/ground/`); yoksa katman gösterilmez.
@@ -477,6 +479,19 @@ impl SeismiraApp {
                 log::warn!("{}: {e} (bina hasarı gösterilmez)", exposure_path.display())
             })
             .ok();
+        let gem_path = paths::data_dir().join("gem").join("gem.svul");
+        let vuln = std::fs::File::open(&gem_path)
+            .and_then(|f| {
+                seismira_core::vulnerability::VulnModel::read(&mut std::io::BufReader::new(f))
+            })
+            .map(|m| Arc::new(seismira_core::damage::VulnCurves::new(&m)))
+            .inspect_err(|e| {
+                log::info!(
+                    "{}: {e} (GEM paketi yok; Avrupa dışı hasar gösterilmez)",
+                    gem_path.display()
+                )
+            })
+            .ok();
         let slab = Slab2::load(&paths::data_dir().join("slab2").join("slab2.sslb"))
             .map(Arc::new)
             .inspect_err(|e| log::warn!("Slab2 yok, dalma-batmada küresel model: {e}"))
@@ -516,6 +531,7 @@ impl SeismiraApp {
             vs30,
             slab,
             exposure,
+            vuln,
             damage: None,
             ground,
             ground_failure: Default::default(),
@@ -1005,7 +1021,11 @@ impl SeismiraApp {
                 if r.backarc {
                     lines.push((lang.t("tip-backarc"), text));
                 }
-                if let Some([m, lo, hi]) = self.damage.as_ref().and_then(|d| d.cities[i]) {
+                if let Some([m, lo, hi]) = self
+                    .damage
+                    .as_ref()
+                    .and_then(|d| d.cities.get(i).copied().flatten())
+                {
                     let heavy = |d: [f64; 4]| d[2] + d[3];
                     lines.push((
                         lang.t_args(
@@ -1241,10 +1261,35 @@ impl SeismiraApp {
                     ));
                 }
             }
-            _ if self.damage.is_some() && self.exposure.is_some() => {
-                lines.push((lang.t("region-damage-nodata"), weak));
-            }
-            _ => {}
+            _ => match self.damage.as_ref().and_then(|d| d.loss(id)) {
+                Some(l) if l.cost > 0.0 => {
+                    let pct = |x: f64| fmt_percent(lang, x);
+                    let [m, lo, hi] = l.ratio;
+                    lines.push((lang.t("region-loss-head"), weak));
+                    lines.push((
+                        if m < 0.0005 {
+                            lang.t("region-loss-none")
+                        } else {
+                            lang.t_args(
+                                "region-loss-ratio",
+                                &[("p", pct(m)), ("lo", pct(lo)), ("hi", pct(hi))],
+                            )
+                        },
+                        text,
+                    ));
+                }
+                _ if self.damage.is_some() => {
+                    lines.push((
+                        lang.t(if self.vuln.is_some() {
+                            "region-damage-nodata"
+                        } else {
+                            "region-damage-nodata-nogem"
+                        }),
+                        weak,
+                    ));
+                }
+                _ => {}
+            },
         }
         paint_card(ui, rect, at, lines, Some(s.max));
     }
@@ -1491,6 +1536,7 @@ impl SeismiraApp {
                 regions: self.regions.clone(),
                 slab: self.slab.clone(),
                 exposure: self.exposure.clone(),
+                vuln: self.vuln.clone(),
                 ground: self.ground.clone(),
                 tsunami: self.tsunami_data.clone(),
             };

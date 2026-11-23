@@ -125,6 +125,24 @@ fn region_near(
     Ok(0)
 }
 
+/// Bölge başına yerleşim hücresi sayısı (tüm raster, 512 satırlık şeritler
+/// hâlinde; ~22 MB / şerit).
+pub fn built_cells(map: &RegionMap<Vec<u8>>) -> Result<HashMap<u16, u32>> {
+    let g = map.grid();
+    let mut built: HashMap<u16, u32> = HashMap::new();
+    let band = 512u32;
+    for row0 in (0..g.height).step_by(band as usize) {
+        let h = band.min(g.height - row0);
+        for raw in map.window(0, i64::from(row0), g.width, h)? {
+            let id = raw & seismira_core::region::ID_MASK;
+            if id != 0 && raw & seismira_core::region::BUILT_BIT != 0 {
+                *built.entry(id).or_default() += 1;
+            }
+        }
+    }
+    Ok(built)
+}
+
 pub fn run(esrm20: &Path, regions: &Path, output: &Path) -> Result<()> {
     let infos = seismira_core::region::read_infos(&mut std::io::BufReader::new(
         std::fs::File::open(regions.with_extension("sreg"))?,
@@ -255,20 +273,7 @@ pub fn run(esrm20: &Path, regions: &Path, output: &Path) -> Result<()> {
         let code = code.map_or("?".into(), |c| String::from_utf8_lossy(&c).to_string());
         println!("{country} ({code}): {country_total:.0} bina");
     }
-    // Bölge başına yerleşim hücresi sayısı (tüm raster, 512 satırlık
-    // şeritler hâlinde; ~22 MB / şerit).
-    let g = map.grid();
-    let mut built: HashMap<u16, u32> = HashMap::new();
-    let band = 512u32;
-    for row0 in (0..g.height).step_by(band as usize) {
-        let h = band.min(g.height - row0);
-        for raw in map.window(0, i64::from(row0), g.width, h)? {
-            let id = raw & seismira_core::region::ID_MASK;
-            if id != 0 && raw & seismira_core::region::BUILT_BIT != 0 {
-                *built.entry(id).or_default() += 1;
-            }
-        }
-    }
+    let built = built_cells(&map)?;
     let no_built = stock.keys().filter(|id| !built.contains_key(id)).count();
     if no_built > 0 {
         println!(

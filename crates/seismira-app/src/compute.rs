@@ -268,6 +268,9 @@ pub struct CityResults {
 pub struct DamageResults {
     pub regions: Vec<seismira_core::damage::RegionDamage>,
     pub cities: Vec<Option<[seismira_core::exposure::Damage; 3]>>,
+    /// GEM ortalama kayıp oranı (Faz 9; ESRM20 stoku OLMAYAN bölgeler,
+    /// kimliğe göre sıralı).
+    pub losses: Vec<seismira_core::damage::RegionLoss>,
 }
 
 impl DamageResults {
@@ -279,6 +282,16 @@ impl DamageResults {
             .binary_search_by_key(&id, |r| r.id)
             .ok()
             .map(|i| &self.regions[i])
+    }
+
+    pub fn loss(
+        &self,
+        id: seismira_core::region::RegionId,
+    ) -> Option<&seismira_core::damage::RegionLoss> {
+        self.losses
+            .binary_search_by_key(&id, |r| r.id)
+            .ok()
+            .map(|i| &self.losses[i])
     }
 }
 
@@ -507,6 +520,8 @@ pub struct Datasets {
     pub regions: Option<Arc<Regions>>,
     pub slab: Option<Arc<Slab2>>,
     pub exposure: Option<Arc<Exposure>>,
+    /// GEM paketi (isteğe bağlı): bölge başına birleşik zafiyet eğrileri.
+    pub vuln: Option<Arc<seismira_core::damage::VulnCurves>>,
     pub ground: Option<Arc<Ground>>,
     pub tsunami: Option<Arc<crate::tsunami::TsunamiData>>,
 }
@@ -521,6 +536,7 @@ impl Job {
             regions,
             slab,
             exposure,
+            vuln,
             ground,
             tsunami,
         } = data;
@@ -596,7 +612,12 @@ impl Job {
                     shake_grid(
                         &scenario,
                         vs30.as_deref(),
-                        (regions.as_deref(), exposure.as_deref(), ground.as_deref()),
+                        (
+                            regions.as_deref(),
+                            exposure.as_deref(),
+                            vuln.as_deref(),
+                            ground.as_deref(),
+                        ),
                         (&cities, &sites_for_regions),
                         &flag,
                         &tx,
@@ -632,7 +653,12 @@ impl Drop for Job {
 fn shake_grid(
     scenario: &Scenario,
     vs30: Option<&Vs30>,
-    (regions, exposure, ground): (Option<&Regions>, Option<&Exposure>, Option<&Ground>),
+    (regions, exposure, vuln, ground): (
+        Option<&Regions>,
+        Option<&Exposure>,
+        Option<&seismira_core::damage::VulnCurves>,
+        Option<&Ground>,
+    ),
     (cities, sites): (&[City], &[SiteResult]),
     cancel: &AtomicBool,
     tx: &std::sync::mpsc::Sender<JobMsg>,
@@ -758,7 +784,9 @@ fn shake_grid(
             }
         }
     }
-    if let (Some(reg), Some(exp)) = (regions, exposure) {
+    if let Some(reg) = regions
+        && (exposure.is_some() || vuln.is_some())
+    {
         let started = std::time::Instant::now();
         let ids = match reg.map.window(domain.col0, domain.row0, domain.w, domain.h) {
             Ok(ids) => ids,
@@ -769,42 +797,69 @@ fn shake_grid(
         };
         // Hasar için ince adımın iki katı yeterli (bölge toplamı; her
         // örnek hücre adım² hücreyi temsil eder).
-        let Some(by_region) = seismira_core::damage::regions(
-            scenario,
-            exp,
-            &domain,
-            (step * 2).max(2),
-            &ids,
-            window.as_deref(),
-            cancel,
-        ) else {
-            return; // iptal
-        };
-        let city: Vec<_> = cities
-            .iter()
-            .zip(sites)
-            .map(|(c, r)| {
-                r.motion?;
-                let id = reg.map.id_at(c.lon, c.lat).ok().filter(|&id| id != 0)?;
-                seismira_core::damage::city_fractions(
+        let dstep = (step * 2).max(2);
+        let (mut by_region, mut city) = (Vec::new(), Vec::new());
+        if let Some(exp) = exposure {
+            let Some(r) = seismira_core::damage::regions(
+                scenario,
+                exp,
+                &domain,
+                dstep,
+                &ids,
+                window.as_deref(),
+                cancel,
+            ) else {
+                return; // iptal
+            };
+            by_region = r;
+            city = cities
+                .iter()
+                .zip(sites)
+                .map(|(c, r)| {
+                    r.motion?;
+                    let id = reg.map.id_at(c.lon, c.lat).ok().filter(|&id| id != 0)?;
+                    seismira_core::damage::city_fractions(
+                        scenario,
+                        exp,
+                        id,
+                        (c.lon, c.lat),
+                        r.vs30_used,
+                    )
+                })
+                .collect();
+        }
+        // GEM: ESRM20 stoku olan bölgeler atlanır (Avrupa ve Türkiye'de
+        // ESRM20 hasar durumları gösterilir).
+        let losses = match vuln {
+            Some(v) => {
+                let Some(l) = seismira_core::damage::loss_regions(
                     scenario,
-                    exp,
-                    id,
-                    (c.lon, c.lat),
-                    r.vs30_used,
-                )
-            })
-            .collect();
+                    v,
+                    &domain,
+                    dstep,
+                    &ids,
+                    window.as_deref(),
+                    cancel,
+                    |id| exposure.is_some_and(|e| e.region(id).is_some()),
+                ) else {
+                    return; // iptal
+                };
+                l
+            }
+            None => Vec::new(),
+        };
         log::info!(
-            "bina hasarı: {} bölge, {} şehir ({} ms)",
+            "bina hasarı: {} bölge ESRM20, {} şehir, {} bölge GEM ({} ms)",
             by_region.len(),
             city.iter().filter(|c| c.is_some()).count(),
+            losses.len(),
             started.elapsed().as_millis()
         );
         if tx
             .send(JobMsg::Damage(DamageResults {
                 regions: by_region,
                 cities: city,
+                losses,
             }))
             .is_ok()
         {

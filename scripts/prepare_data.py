@@ -4,6 +4,7 @@
 Kullanım (depo kökünden):
     python3 scripts/prepare_data.py            # temel veri
     python3 scripts/prepare_data.py --ground   # + sıvılaşma girdileri (ağır)
+    python3 scripts/prepare_data.py --gem      # + GEM paketi (CC BY-NC-SA)
 
 Adımlar:
 1. Yazı tipleri (CJK dahil) indirilir ve doğrulanır.
@@ -41,6 +42,11 @@ data/exposure/esrm20.sexp`.
    (scripts/gen_fan_wtd.py; docs/veri.md). Varsa liq_static genel modelle
    (yalnızca yerel kullanım), yoksa Zhu 2017 kıyı modeliyle (dağıtılabilir)
    üretilir.
+
+9. (`--gem`) GEM paketi (Faz 9; CC BY-NC-SA 4.0, ticari kullanım yok, AYRI
+   paket): scripts/fetch_gem.py (~96 MB) + `seismira-data gem` →
+   data/gem/gem.svul (2,6 MB, ~10 s). Avrupa dışı bölgelerde ortalama
+   yapısal hasar oranı için.
 
 Her adım tekrar çalıştırılabilir; var olan doğru dosyalar yeniden indirilmez.
 """
@@ -149,6 +155,16 @@ def main() -> int:
                 "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
                 "liq-static", str(ground.relative_to(ROOT)), str(vs30.relative_to(ROOT)),
                 str(liq.relative_to(ROOT)), *extra,
+            )
+    if "--gem" in sys.argv[1:]:
+        gem = ROOT / "data" / "gem" / "gem.svul"
+        if not gem.exists():
+            run(py, "scripts/fetch_gem.py")
+            gem.parent.mkdir(parents=True, exist_ok=True)
+            run(
+                "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+                "gem", "data/raw/gem", "data/regions/admin1.sras",
+                str(gem.relative_to(ROOT)),
             )
     print("Veri hazır.")
     return 0

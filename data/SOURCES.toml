@@ -152,6 +152,28 @@ snapshot = "efehr/esrm20 commit b2368bee1f992a0db9f4db69b42143c19f5486c7 (2025-0
 files = "data/exposure/esrm20.sexp (seismira-data exposure)"
 
 [[dataset]]
+id = "gem-exposure"
+name = "GEM Global Exposure Model v2026.0.0: Adm1 × bina sınıfı özetleri (bina sayısı, yeniden yapım değeri; 215 ülke)"
+url = "https://github.com/gem/global_exposure_model"
+license = "CC-BY-NC-SA-4.0"
+attribution = "Yepes-Estrada, C., Calderon, A., Costa, C., Crowley, H., Dabbeek, J., Hoyos, M., Martins, L., Paul, N., Rao, A., Silva, V. (2023). Global Building Exposure Model for Earthquake Risk Assessment. Earthquake Spectra, doi:10.1177/87552930231194048. Veri: Yepes-Estrada, C., Baiguera, M., Calderon, A., Caruso, M., Costa, C., Gonzalez, D., Nafeh, A.M.B., Rao, A., Silva, V. (2026). Global Exposure Model (2026.0.0), doi:10.5281/zenodo.8117363."
+modified = true            # Natural Earth Admin-1 bölgelerine eşlendi (ISO kodu, ad; eşlenemeyenler ülke içinde yerleşim hücresi oranında dağıtıldı), yerleşim türleri toplandı, sınıflar zafiyet fonksiyonlarına eşlendi
+license_checked = "2026-11-23"
+snapshot = "gem/global_exposure_model commit e2a74b9ff5c85ee8f1ab8bfd571f3662c28dea30; dosya özetleri data/raw/gem/MANIFEST.sha256 (scripts/fetch_gem.py)"
+files = "data/gem/gem.svul (seismira-data gem; AYRI PAKET, ticari kullanım yok, depoda değil)"
+
+[[dataset]]
+id = "gem-vulnerability"
+name = "GEM Global Vulnerability Model: yapısal zafiyet fonksiyonları (ülke başına, NRML 0.5)"
+url = "https://github.com/gem/global_vulnerability_model"
+license = "CC-BY-NC-SA-4.0"
+attribution = "Nafeh, A.M.B., Aljawhari, K., Silva, V. (2025). The 2025 Global Vulnerability Model of the GEM Foundation, doi:10.5281/zenodo.8391742. Aljawhari, K., Nafeh, A.M.B., Silva, V. (2026). A new global vulnerability model for regional seismic risk assessments: Part 1 – structural vulnerability. Bulletin of Earthquake Engineering, doi:10.1007/s10518-026-02443-7."
+modified = true            # yalnızca ortalama kayıp oranı (covLRs atıldı); aynı içerikli fonksiyonlar tekilleştirildi; bölge başına ağırlıklı birleştirme uygulamada
+license_checked = "2026-11-23"
+snapshot = "gem/global_vulnerability_model commit 5974372ac3f4a99f25d0649eb030fbe596f23b36; dosya özetleri data/raw/gem/MANIFEST.sha256 (scripts/fetch_gem.py)"
+files = "data/gem/gem.svul (seismira-data gem; AYRI PAKET)"
+
+[[dataset]]
 id = "usgs-slab2"
 name = "USGS Slab2: dalma-batma levha geometrisi (27 zon, levha yüzeyi derinliği)"
 url = "https://doi.org/10.5066/F7PV6JNV"

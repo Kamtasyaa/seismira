@@ -21,3 +21,6 @@
 
 # Faz 8 tsunami verisi (bathy 25 MB, kıyı 2 MB): scripts/prepare_data.py ile.
 /data/tsunami/
+
+# GEM paketi (CC BY-NC-SA 4.0; ayrı paket, ticari kullanım yok): scripts/prepare_data.py --gem.
+/data/gem/

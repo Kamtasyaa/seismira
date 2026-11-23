@@ -19,3 +19,4 @@ tiff = { version = "0.11.3", features = ["zstd"] }
 weezl = "0.1.12"
 zstd = "0.14.4"
 csv = "1"
+unicode-normalization = "0.1.26"

@@ -19,6 +19,7 @@ use crate::grid::Domain;
 use crate::region::{BUILT_BIT, ID_MASK, RegionId};
 use crate::shaking::Scenario;
 use crate::site::REFERENCE_VS30;
+use crate::vulnerability::{VulnFunction, VulnModel};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,9 +42,6 @@ impl RegionDamage {
         d[2] + d[3]
     }
 }
-
-/// Bölge başına birikim: (temsil edilen yerleşim payı, [medyan, −1τ, +1τ]).
-type Acc = HashMap<RegionId, (f64, [Damage; 3])>;
 
 /// Sahada kırılganlık şiddet ölçüleri: (ln medyan, φ, τ); `None` model dışı.
 pub type SiteIms = [Option<(f64, f64, f64)>; 4];
@@ -93,6 +91,84 @@ pub fn city_fractions(
     Some(damage_three(exposure, stock, &ims).map(|d| d.map(|x| x / n)))
 }
 
+/// Bölge → (temsil edilen yerleşim payı, ağırlıklı toplam).
+type Sums<const N: usize> = HashMap<RegionId, (f64, [f64; N])>;
+
+/// Alan içindeki yerleşim hücrelerini adım adım örnekler; her hücrenin
+/// bölgesi için `eval(bölge, şiddetler)` değerini, hücrenin bölgenin
+/// yerleşim hücreleri içindeki payıyla ağırlıklandırıp toplar. Dönen:
+/// bölge → (toplam pay, ağırlıklı toplam). `built(bölge)`: bölgenin
+/// yerleşim hücresi sayısı (stok yoksa `None`). İptal edilirse `None`.
+#[allow(clippy::too_many_arguments)]
+fn sample_regions<const N: usize>(
+    scenario: &Scenario,
+    domain: &Domain,
+    step: u32,
+    ids: &[RegionId],
+    vs30: Option<&[f32]>,
+    cancel: &AtomicBool,
+    built: impl Fn(RegionId) -> Option<u32> + Sync,
+    eval: impl Fn(RegionId, &SiteIms) -> [f64; N] + Sync,
+) -> Option<Sums<N>> {
+    let spec = domain.spec(step);
+    let weight_cells = f64::from(step) * f64::from(step);
+    let partial: Vec<Option<Sums<N>>> = (0..spec.height)
+        .into_par_iter()
+        .map(|row| {
+            if cancel.load(Ordering::Relaxed) {
+                return None;
+            }
+            let mut acc: Sums<N> = HashMap::new();
+            for col in 0..spec.width {
+                let bx = (col * step + step / 2).min(domain.w - 1) as usize;
+                let by = (row * step + step / 2).min(domain.h - 1) as usize;
+                let k = by * domain.w as usize + bx;
+                let raw = ids[k];
+                if raw & BUILT_BIT == 0 {
+                    continue;
+                }
+                let id = raw & ID_MASK;
+                let Some(cells) = built(id).filter(|&c| c > 0) else {
+                    continue;
+                };
+                let v = match vs30 {
+                    Some(win) if win[k].is_nan() => continue,
+                    Some(win) => f64::from(win[k]),
+                    None => REFERENCE_VS30,
+                };
+                let ims = site_ims(scenario, spec.center(col, row), v);
+                let share = weight_cells / f64::from(cells);
+                let e = acc.entry(id).or_insert((0.0, [0.0; N]));
+                e.0 += share;
+                if ims.iter().all(Option::is_none) {
+                    continue;
+                }
+                for (s, x) in e.1.iter_mut().zip(eval(id, &ims)) {
+                    *s += share * x;
+                }
+            }
+            Some(acc)
+        })
+        .collect();
+    let mut total: Sums<N> = HashMap::new();
+    for part in partial {
+        for (id, (share, d)) in part? {
+            let e = total.entry(id).or_insert((0.0, [0.0; N]));
+            e.0 += share;
+            for (s, x) in e.1.iter_mut().zip(d) {
+                *s += x;
+            }
+        }
+    }
+    // Örnekleme payların toplamını 1'in biraz üstüne çıkarabilir (adım²
+    // yaklaşımı); o durumda 1'e ölçeklenir.
+    for (share, d) in total.values_mut() {
+        let norm = 1.0 / share.max(1.0);
+        d.iter_mut().for_each(|x| *x *= norm);
+    }
+    Some(total)
+}
+
 /// Bölgeler: alan içindeki yerleşim hücrelerinden. `ids` bölge rasterının
 /// alan penceresi (ham değer), `vs30` aynı pencerede Vs30 (NaN: deniz;
 /// yoksa referans zemin). İptal edilirse `None`.
@@ -105,78 +181,124 @@ pub fn regions(
     vs30: Option<&[f32]>,
     cancel: &AtomicBool,
 ) -> Option<Vec<RegionDamage>> {
-    let spec = domain.spec(step);
-    let weight_cells = f64::from(step) * f64::from(step);
-    let partial: Vec<Option<Acc>> = (0..spec.height)
-        .into_par_iter()
-        .map(|row| {
-            if cancel.load(Ordering::Relaxed) {
-                return None;
-            }
-            let mut acc: Acc = HashMap::new();
-            for col in 0..spec.width {
-                let bx = (col * step + step / 2).min(domain.w - 1) as usize;
-                let by = (row * step + step / 2).min(domain.h - 1) as usize;
-                let k = by * domain.w as usize + bx;
-                let raw = ids[k];
-                if raw & BUILT_BIT == 0 {
-                    continue;
-                }
-                let id = raw & ID_MASK;
-                let Some(stock) = exposure.region(id) else {
-                    continue;
-                };
-                if stock.built_cells == 0 {
-                    continue;
-                }
-                let v = match vs30 {
-                    Some(win) if win[k].is_nan() => continue,
-                    Some(win) => f64::from(win[k]),
-                    None => REFERENCE_VS30,
-                };
-                let lonlat = spec.center(col, row);
-                let ims = site_ims(scenario, lonlat, v);
-                let share = weight_cells / f64::from(stock.built_cells);
-                let e = acc.entry(id).or_insert((0.0, [[0.0; N_DS]; 3]));
-                e.0 += share;
-                if ims.iter().all(Option::is_none) {
-                    continue;
-                }
-                for (sum, d) in e.1.iter_mut().zip(damage_three(exposure, stock, &ims)) {
-                    for (s, x) in sum.iter_mut().zip(d) {
-                        *s += share * x;
-                    }
+    let total = sample_regions::<{ 3 * N_DS }>(
+        scenario,
+        domain,
+        step,
+        ids,
+        vs30,
+        cancel,
+        |id| exposure.region(id).map(|s| s.built_cells),
+        |id, ims| {
+            let mut out = [0.0; 3 * N_DS];
+            if let Some(stock) = exposure.region(id) {
+                for (k, d) in damage_three(exposure, stock, ims).iter().enumerate() {
+                    out[k * N_DS..(k + 1) * N_DS].copy_from_slice(d);
                 }
             }
-            Some(acc)
-        })
-        .collect();
-    let mut total: Acc = HashMap::new();
-    for part in partial {
-        for (id, (share, d)) in part? {
-            let e = total.entry(id).or_insert((0.0, [[0.0; N_DS]; 3]));
-            e.0 += share;
-            for (sum, x) in e.1.iter_mut().zip(d) {
-                for (s, v) in sum.iter_mut().zip(x) {
-                    *s += v;
-                }
-            }
-        }
-    }
+            out
+        },
+    )?;
+    let part = |d: &[f64; 3 * N_DS], k: usize| -> Damage {
+        d[k * N_DS..(k + 1) * N_DS].try_into().unwrap_or_default()
+    };
     let mut out: Vec<RegionDamage> = total
         .into_iter()
-        .map(|(id, (share, [median, low, high]))| {
-            // Örnekleme payların toplamını 1'in biraz üstüne çıkarabilir
-            // (adım² yaklaşımı); o durumda 1'e ölçeklenir.
-            let norm = 1.0 / share.max(1.0);
-            let buildings = exposure.region(id).map_or(0.0, |s| s.buildings());
-            RegionDamage {
-                id,
-                buildings,
-                median: median.map(|x| x * norm),
-                low: low.map(|x| x * norm),
-                high: high.map(|x| x * norm),
+        .map(|(id, (_, d))| RegionDamage {
+            id,
+            buildings: exposure.region(id).map_or(0.0, |s| s.buildings()),
+            median: part(&d, 0),
+            low: part(&d, 1),
+            high: part(&d, 2),
+        })
+        .collect();
+    out.sort_by_key(|r| r.id);
+    Some(out)
+}
+
+/// Bir bölgenin ortalama yapısal kayıp oranı (GEM zafiyet modeli, Faz 9).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RegionLoss {
+    pub id: RegionId,
+    /// Bölgenin toplam yeniden yapım değeri (USD).
+    pub cost: f64,
+    /// Değer ağırlıklı ortalama kayıp oranı (0–1): medyan, −1τ, +1τ.
+    pub ratio: [f64; 3],
+}
+
+/// Bölge başına birleşik zafiyet eğrileri ([`VulnModel::combined`]),
+/// bölge kimliğine göre.
+pub struct VulnCurves {
+    curves: HashMap<RegionId, (u32, f64, [Option<VulnFunction>; 4])>,
+}
+
+impl VulnCurves {
+    pub fn new(model: &VulnModel) -> Self {
+        Self {
+            curves: model
+                .regions
+                .iter()
+                .map(|r| (r.id, (r.built_cells, r.cost(), model.combined(r))))
+                .collect(),
+        }
+    }
+
+    pub fn has(&self, id: RegionId) -> bool {
+        self.curves.contains_key(&id)
+    }
+
+    /// Sahada bölge karışımının beklenen kayıp oranı (medyan, −1τ, +1τ).
+    fn ratio(&self, id: RegionId, ims: &SiteIms) -> [f64; 3] {
+        let Some((_, _, curves)) = self.curves.get(&id) else {
+            return [0.0; 3];
+        };
+        [0.0, -1.0, 1.0].map(|k| {
+            curves
+                .iter()
+                .zip(ims)
+                .filter_map(|(c, im)| {
+                    let (c, (mu, phi, tau)) = (c.as_ref()?, (*im)?);
+                    Some(c.expected(mu + k * tau, phi))
+                })
+                .sum()
+        })
+    }
+}
+
+/// Bölgeler için ortalama kayıp oranı; [`regions`] ile aynı örnekleme.
+/// `skip(bölge)` doğruysa bölge atlanır (ör. ESRM20 stoku olan bölgeler).
+#[allow(clippy::too_many_arguments)]
+pub fn loss_regions(
+    scenario: &Scenario,
+    curves: &VulnCurves,
+    domain: &Domain,
+    step: u32,
+    ids: &[RegionId],
+    vs30: Option<&[f32]>,
+    cancel: &AtomicBool,
+    skip: impl Fn(RegionId) -> bool + Sync,
+) -> Option<Vec<RegionLoss>> {
+    let total = sample_regions::<3>(
+        scenario,
+        domain,
+        step,
+        ids,
+        vs30,
+        cancel,
+        |id| {
+            if skip(id) {
+                return None;
             }
+            curves.curves.get(&id).map(|c| c.0)
+        },
+        |id, ims| curves.ratio(id, ims),
+    )?;
+    let mut out: Vec<RegionLoss> = total
+        .into_iter()
+        .map(|(id, (_, ratio))| RegionLoss {
+            id,
+            cost: curves.curves.get(&id).map_or(0.0, |c| c.1),
+            ratio,
         })
         .collect();
     out.sort_by_key(|r| r.id);
@@ -270,5 +392,55 @@ mod tests {
         // İptal.
         cancel.store(true, Ordering::Relaxed);
         assert!(regions(&s, &e, &domain, 2, &ids, None, &cancel).is_none());
+    }
+
+    /// Kayıp oranı: tek sınıflı bölgede, doğrudan sınıf eğrisiyle aynı
+    /// mertebede; aralık medyanı kuşatır; atlanan bölge çıktıda yok.
+    #[test]
+    fn bolge_kayip_orani() {
+        let t = tt();
+        let mut q = Quake::new((30.0, 40.0));
+        q.mw = 7.0;
+        q.depth_km = 10.0;
+        q.fault = FaultType::StrikeSlip;
+        let s = Scenario::new(q, &t);
+        let base = Base::GLOBAL_30S;
+        let domain = Domain {
+            base,
+            col0: ((29.75 - base.west) / base.cell) as i64,
+            row0: ((base.north - 40.25) / base.cell) as i64,
+            w: 60,
+            h: 60,
+        };
+        let ids = vec![1 | BUILT_BIT; 60 * 60];
+        let model = VulnModel {
+            functions: vec![VulnFunction {
+                name: "T".into(),
+                imt: FragImt::Sa03,
+                iml: vec![0.05, 0.3, 1.0, 3.0],
+                mean_lr: vec![0.0, 0.05, 0.4, 0.9],
+            }],
+            regions: vec![crate::vulnerability::VulnRegion {
+                id: 1,
+                built_cells: 3600,
+                entries: vec![(0, 1.0e9, 1000.0)],
+            }],
+        };
+        let curves = VulnCurves::new(&model);
+        let cancel = AtomicBool::new(false);
+        let r = loss_regions(&s, &curves, &domain, 2, &ids, None, &cancel, |_| false).unwrap();
+        assert_eq!(r.len(), 1);
+        let [m, lo, hi] = r[0].ratio;
+        assert!(m > 0.01 && m < 0.9, "{m}");
+        assert!(lo < m && m < hi, "{:?}", r[0].ratio);
+        assert_eq!(r[0].cost, 1.0e9);
+        // Merkezde doğrudan sınıf eğrisi: bölge ortalaması bundan küçük
+        // (kenarlar daha zayıf sarsılır).
+        let ims = site_ims(&s, (30.0, 40.0), REFERENCE_VS30);
+        let (mu, phi, _) = ims[FragImt::Sa03 as usize].unwrap();
+        let center = model.functions[0].expected(mu, phi);
+        assert!(m < center && m > center * 0.2, "{m} / {center}");
+        let none = loss_regions(&s, &curves, &domain, 2, &ids, None, &cancel, |_| true).unwrap();
+        assert!(none.is_empty());
     }
 }

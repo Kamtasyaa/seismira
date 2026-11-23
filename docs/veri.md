@@ -24,7 +24,7 @@
 | Litoloji | GLiM (Hartmann & Moosdorf 2012), vektör | Vektör lisansı bulunamadı, izin istendi: yalnızca yerel (2026-11-22) |
 | Arazi örtüsü | ESA CCI Land Cover 2009 v2.0.7 (CEDA) | "Any user for any purpose" + atıf (CEDA koşul dosyası, 2026-11-22) |
 | Avrupa + Türkiye bina stoku, kırılganlık, site modeli | ESRM20 (risk.EFEHR) | CC BY 4.0 |
-| Diğer ülkeler bina stoku ve kırılganlık | GEM | CC BY-NC-SA 4.0, ticari YOK |
+| Diğer ülkeler bina stoku ve zafiyet | GEM Global Exposure Model v2026.0.0 (Adm1 özetleri) + Global Vulnerability Model (yapısal), GitHub, commit sabitli | CC BY-NC-SA 4.0, ticari YOK (LICENSE.txt, 2026-11-23); ayrı paket `data/gem/`, depoda değil |
 | İstanbul mahalle bazlı bina yaşı | İBB Açık Veri | İBB Açık Veri Lisansı |
 | Japonya bina yapım dönemi | e-Stat | CC BY uyumlu |
 | Japonya zemin ve heyelan | J-SHIS (NIED) | Kendi sözleşmesi, kontrol et |
@@ -39,7 +39,11 @@ Paketler:
   tablosu, ~1 km çözünürlükte küresel ızgaralar, alt örneklenmiş
   batimetri, ESRM20.
 - GEM paketi (ayrı indirme): lisansı farklı olduğu için uygulamayla
-  birlikte paketlenmez.
+  birlikte paketlenmez. Üretim: `python3 scripts/prepare_data.py --gem`
+  (scripts/fetch_gem.py ~96 MB ham, `seismira-data gem` → data/gem/gem.svul,
+  2,6 MB). Bölge kimlikleri Natural Earth'ten (kamu malı); ODbL verisiyle
+  birleştirilmez. Uygulama dosyayı bulursa Avrupa dışı bölge kartlarında
+  ortalama hasar oranı gösterir, bulamazsa "GEM paketi kurulu değil" der.
 - Bölge paketleri (ayrı indirme): yüksek çözünürlüklü ızgaralar,
   kıyı ve ulusal veriler (Türkiye, Japonya, ABD, Meksika...).
 - Barındırma önerisi: GitHub Releases veya Zenodo; checksum zorunlu.

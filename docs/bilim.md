@@ -223,6 +223,35 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   - Kart gösterimi (kullanıcı kararı 2026-11-20): bina sayısı + yüzde;
     sayılar 2 anlamlı basamağa yuvarlanır.
 
+- UYGULAMA (Faz 9, 2026-11-23; `seismira-core/src/vulnerability.rs`,
+  `damage.rs::loss_regions`, `seismira-data/src/gem.rs`): Avrupa ve Türkiye
+  DIŞI için GEM paketi (CC BY-NC-SA 4.0, ayrı paket, `data/gem/gem.svul`).
+  - Veri: GEM Global Exposure Model v2026.0.0 özetleri
+    (`Exposure_Summary_Adm1_Taxonomy.csv`: Adm1 × bina sınıfı; 215 ülke) ve
+    GEM Global Vulnerability Model (ülke başına
+    `vulnerability_structural.xml`, NRML 0.5; PGA / SA 0,3 / 0,6 / 1,0 s).
+    Ayrıntılı (alt il) GEM verisi lisans başvurusu ister; kullanılmadı.
+  - Çıktı hasar durumu DEĞİL, ortalama yapısal KAYIP ORANI (yeniden yapım
+    değerine oran, 0–1): zafiyet fonksiyonu ortalaması, OpenQuake
+    enterpolasyonuyla (üstten kırp, alttan 0, IML'de doğrusal). Kayıp
+    oranının kendi değişkenliği (covLRs) kullanılmaz.
+  - Bölge oranı: sınıfların yeniden yapım değeri (`BLDG_REPL_COST_USD`,
+    yapısal + yapısal olmayan) ağırlıklı ortalaması. VARSAYIM: yapısal pay
+    sınıflar arasında çok değişmez (yalnızca ABD'de ayrı veriliyor:
+    0,10–0,61). Sınıf eğrileri bölge başına ölçü başına tek parçalı doğrusal
+    eğride birleştirilir (kesin; hücre başına 4 eğri).
+  - Örnekleme ve belirsizlik ESRM20 ile aynı: yerleşim hücreleri, φ ile
+    log-normal integral (201 nokta, ±5σ), olası aralık ±1τ.
+  - Bölge eşlemesi: ISO 3166-2 → kod değişiklikleri tablosu → ülke içinde
+    ad → kalan birimler ülkenin stoksuz bölgelerine yerleşim hücresi
+    oranında (küresel değerin %13'ü, büyük kısmı Avrupa; Japonya, ABD,
+    Meksika, Şili birebir). Sınıf → fonksiyon: ülke eşleme tablosu; ABD ve
+    Kanada'da Hazus sınıf adı (RES3A–F → RES3). Fonksiyonu bulunamayan
+    değer %0,5 (Türkiye 764 milyar USD, Kanada 457 milyar USD: zafiyet
+    dosyasında olmayan sınıflar; Türkiye zaten ESRM20 kullanır).
+  - Sonuç: Kumamoto 2016 benzeri (Mw 7,0) Kumamoto ili %0,8 (olası
+    0,4–1,5); doğrulama Faz 9'un sonraki adımında.
+
 ### 7.9 Sıvılaşma ve heyelan
 
 - Sıvılaşma: Zhu vd. (2017). Girdiler: PGV, Vs30, yağış, kıyıya
