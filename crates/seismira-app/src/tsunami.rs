@@ -196,6 +196,64 @@ pub struct TsunamiResult {
     pub assessment: trigger::Assessment,
     /// Kategorisi olan kıyı noktaları (varış sırasıyla).
     pub coast: Vec<CoastNote>,
+    /// Kıyı şeridi parçaları (`coast` indeksleri): haritada noktalar yerine
+    /// kesintisiz bant çizilir ([`coast_links`]).
+    pub links: Vec<(u32, u32)>,
+}
+
+/// Bant parçası en uzun bu kadar olabilir (km): nokta aralığı ~10 km
+/// (kutu seyreltmesi, komşular 5–20 km); daha uzun boşluk açık kalır.
+pub const LINK_KM: f64 = 2.2 * coast::SPACING_KM;
+
+/// Kıyı noktalarını şerit parçalarına bağlar: her nokta en yakın iki
+/// komşusuna (≤ [`LINK_KM`]). Noktalar kıyı boyunca sıralı olmadığından
+/// (kutu seyreltmesi) sıra yerine komşuluk kullanılır; kıyı boyunca iki
+/// komşu çoğunlukla en yakın ikisidir. Dar körfezde karşı kıyıya bağlanma
+/// olabilir (görsel; hesaba etkisi yok).
+pub fn coast_links(coast: &[CoastNote]) -> Vec<(u32, u32)> {
+    const CELL: f64 = 0.25; // derece; ≥ LINK_KM enlemde (27,8 km)
+    let nx = (360.0 / CELL) as i64;
+    // Boylam kovası 360°'de sarmal (180° meridyeni).
+    let key = |lon: f64, lat: f64| {
+        (
+            ((lon / CELL).floor() as i64).rem_euclid(nx),
+            (lat / CELL).floor() as i64,
+        )
+    };
+    let mut buckets: std::collections::HashMap<(i64, i64), Vec<u32>> = Default::default();
+    for (i, c) in coast.iter().enumerate() {
+        buckets.entry(key(c.lon, c.lat)).or_default().push(i as u32);
+    }
+    let mut out = std::collections::BTreeSet::new();
+    for (i, c) in coast.iter().enumerate() {
+        let (kx, ky) = key(c.lon, c.lat);
+        // Boylam kovası enlemle daralır: LINK_KM'yi kapsayacak kadar komşu.
+        let span = (LINK_KM / (111.2 * CELL * c.lat.to_radians().cos().max(0.05))).ceil() as i64;
+        let mut near: Vec<(f64, u32)> = Vec::new();
+        for dy in -1..=1 {
+            for dx in -span..=span {
+                let Some(list) = buckets.get(&((kx + dx).rem_euclid(nx), ky + dy)) else {
+                    continue;
+                };
+                for &j in list {
+                    if j as usize == i || near.iter().any(|n| n.1 == j) {
+                        continue;
+                    }
+                    let o = &coast[j as usize];
+                    let d = seismira_core::geo::distance_km((c.lon, c.lat), (o.lon, o.lat));
+                    if d <= LINK_KM {
+                        near.push((d, j));
+                    }
+                }
+            }
+        }
+        near.sort_by(|a, b| a.0.total_cmp(&b.0));
+        for &(_, j) in near.iter().take(2) {
+            let i = i as u32;
+            out.insert((i.min(j), i.max(j)));
+        }
+    }
+    out.into_iter().collect()
 }
 
 /// Bölgesel pencere yarıçapı (derece): PTWC tehdit yarıçapını kapsar.
@@ -309,9 +367,11 @@ pub fn run(
         })
         .collect();
     coast.sort_by(|a, b| a.eta_s.total_cmp(&b.eta_s));
+    let links = coast_links(&coast);
     Some(TsunamiResult {
         assessment: regional.assessment,
         coast,
+        links,
     })
 }
 
@@ -357,6 +417,38 @@ pub fn by_region(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn note(lon: f64, lat: f64) -> CoastNote {
+        CoastNote {
+            lon,
+            lat,
+            category: Category::Advisory,
+            height: None,
+            eta_s: 0.0,
+            place: None,
+        }
+    }
+
+    #[test]
+    fn kiyi_seridi_komsulari_baglar() {
+        // Doğu–batı kıyı, ~9 km aralık (karışık sırada) + 40 km ötede tek
+        // nokta + 180° meridyeninin iki yanı.
+        let mut c: Vec<CoastNote> = [3, 0, 2, 1, 4]
+            .iter()
+            .map(|&k| note(30.0 + 0.1 * f64::from(k), 40.0))
+            .collect();
+        c.push(note(31.0, 40.0));
+        c.push(note(179.95, 0.0));
+        c.push(note(-179.95, 0.0));
+        let l = coast_links(&c);
+        let has = |a: u32, b: u32| l.contains(&(a.min(b), a.max(b)));
+        // Kıyı sırası: 1 (30.0), 3 (30.1), 2 (30.2), 0 (30.3), 4 (30.4).
+        assert!(has(1, 3) && has(3, 2) && has(2, 0) && has(0, 4));
+        assert!(!l.iter().any(|&(a, b)| a == 5 || b == 5), "{l:?}");
+        assert!(has(6, 7));
+        // Her nokta en çok 2 komşu seçer; seçilen olarak 4'e kadar çıkabilir.
+        assert!(l.len() <= 2 * c.len());
+    }
 
     #[test]
     fn jma_kategorileri() {

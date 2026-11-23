@@ -462,10 +462,16 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   tahmini (JMA'nın "kıyıda tsunami yüksekliği" değil, tırmanma; kaba
   tahmin olarak etiketli). Uzak alanda (PTWC tehdit bölgesi, yükseklik
   yok) ve doğrultu atımlıda: sarı.
-- Haritada kıyı noktaları (~10 km arayla) kategori renginde nokta, koyu
-  kenarlı; 1 Hz yumuşak yanıp söner (ground_style::pulse), "Hareketi
-  azalt"ta sabit. Fareyle noktaya gelince ipucu: yer (şehir, il), kategori,
-  tahmini yükseklik ya da "yükseklik tahmin edilmedi", ilk dalga anı.
+- Haritada kıyı ŞERİDİ (kullanıcı kararı 2026-11-23: noktalar yerine
+  yekpare bant): kıyı noktaları (~10 km arayla) her biri en yakın iki
+  komşusuna (≤ 22 km) kalın çizgiyle bağlanır (`tsunami::coast_links`,
+  sonuç gelince bir kez); koyu kenarlı, kategori renginde, iki farklı
+  kategorili nokta arasında renk parçanın ortasında değişir. Noktalar
+  kıyı boyunca sıralı olmadığından dar körfezlerde karşı kıyıya bağlanma
+  görülebilir; 22 km'den uzun boşluk açık kalır. 1 Hz yumuşak yanıp söner
+  (ground_style::pulse), "Hareketi azalt"ta sabit. Fareyle şeride
+  gelince en yakın noktanın ipucu: yer (şehir, il), kategori, tahmini
+  yükseklik ya da "yükseklik tahmin edilmedi", ilk dalga anı.
 - Açıklama sol altta: üç kategori + "yükseklikler kaba tahmindir".
 - Bildirimler: 180 s'de kategori başına il listesi ("Büyük tsunami
   uyarısı: Iwate, Miyagi, …"), referans videodaki gibi en yüksek 6 yerin

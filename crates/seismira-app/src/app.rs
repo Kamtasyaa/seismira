@@ -1305,9 +1305,11 @@ impl SeismiraApp {
         Some(sim.end_time().max(tsu))
     }
 
-    /// Tsunami kıyı noktaları, ipucu ve açıklama (Bölüm 2.7): uyarı anından
+    /// Tsunami kıyı şeridi, ipucu ve açıklama (Bölüm 2.7): uyarı anından
     /// (depremden ~3 dk sonra) itibaren, JMA renkleriyle, 1 Hz yumuşak
-    /// yanıp söner ("Hareketi azalt"ta sabit).
+    /// yanıp söner ("Hareketi azalt"ta sabit). Komşu kıyı noktaları kalın
+    /// bir bantla birleştirilir (kullanıcı isteği, 2026-11-23); iki farklı
+    /// kategorili nokta arasında renk parçanın ortasında değişir.
     fn draw_tsunami(&self, ui: &egui::Ui, rect: egui::Rect) {
         use crate::tsunami::{Category, ISSUE_S};
         let Some(ts) = &self.tsunami else {
@@ -1323,17 +1325,61 @@ impl SeismiraApp {
             .input(|i| i.pointer.hover_pos())
             .filter(|p| rect.contains(*p));
         let mut best: Option<(f32, &crate::tsunami::CoastNote)> = None;
-        // Düşük kategoriler önce: yüksekler üstte kalsın.
+        const OUTER: f32 = 7.0;
+        const INNER: f32 = 4.0;
+        let shadow = Color32::from_black_alpha((150.0 * alpha) as u8);
+        let ll = |i: u32| {
+            let c = &ts.coast[i as usize];
+            (c.lon, c.lat)
+        };
+        // Parçalar (ekran uçları, iki ucun kategorisi), görünen kopyalarda.
+        let segs: Vec<([egui::Pos2; 2], Category, Category)> = ts
+            .links
+            .iter()
+            .flat_map(|&(a, b)| {
+                let (ca, cb) = (ts.coast[a as usize].category, ts.coast[b as usize].category);
+                self.map
+                    .segment_positions(rect, ll(a), ll(b))
+                    .into_iter()
+                    .map(move |s| (s, ca, cb))
+            })
+            .collect();
+        let points: Vec<(egui::Pos2, &crate::tsunami::CoastNote)> = ts
+            .coast
+            .iter()
+            .flat_map(|c| {
+                self.map
+                    .screen_positions(rect, (c.lon, c.lat))
+                    .into_iter()
+                    .map(move |p| (p, c))
+            })
+            .collect();
+        // Önce koyu kenar (bütün bant), sonra renkler; düşük kategoriler
+        // önce, yüksekler üstte kalsın. Uçlardaki daireler eklemleri
+        // yuvarlatır ve bağlantısız noktaları da gösterir.
+        for (s, _, _) in &segs {
+            painter.line_segment(*s, Stroke::new(OUTER, shadow));
+        }
+        for (p, _) in &points {
+            painter.circle_filled(*p, OUTER / 2.0, shadow);
+        }
         for cat in [Category::Advisory, Category::Warning, Category::Major] {
-            for c in ts.coast.iter().filter(|c| c.category == cat) {
-                for p in self.map.screen_positions(rect, (c.lon, c.lat)) {
-                    painter.circle_filled(p, 4.5, Color32::from_black_alpha((150.0 * alpha) as u8));
-                    painter.circle_filled(p, 3.2, cat.color().gamma_multiply(alpha));
-                    if let Some(h) = hover {
-                        let d = h.distance(p);
-                        if d < 8.0 && best.is_none_or(|(bd, _)| d < bd) {
-                            best = Some((d, c));
-                        }
+            let stroke = Stroke::new(INNER, cat.color().gamma_multiply(alpha));
+            for &([p, q], ca, cb) in &segs {
+                let m = p.lerp(q, 0.5);
+                if ca == cat {
+                    painter.line_segment([p, if cb == cat { q } else { m }], stroke);
+                }
+                if cb == cat && ca != cat {
+                    painter.line_segment([m, q], stroke);
+                }
+            }
+            for &(p, c) in points.iter().filter(|(_, c)| c.category == cat) {
+                painter.circle_filled(p, INNER / 2.0, stroke.color);
+                if let Some(h) = hover {
+                    let d = h.distance(p);
+                    if d < 8.0 && best.is_none_or(|(bd, _)| d < bd) {
+                        best = Some((d, c));
                     }
                 }
             }
@@ -1379,7 +1425,9 @@ impl SeismiraApp {
         for ((color, _), g) in rows.iter().zip(galleys) {
             let x = bg.left() + 6.0;
             if let Some(c) = color {
-                painter.circle_filled(egui::pos2(x + 6.0, y + 8.0), 5.0, *c);
+                let (a, b) = (egui::pos2(x, y + 8.0), egui::pos2(x + 12.0, y + 8.0));
+                painter.line_segment([a, b], Stroke::new(OUTER, Color32::from_black_alpha(150)));
+                painter.line_segment([a, b], Stroke::new(INNER, *c));
             }
             painter.galley(egui::pos2(x + 18.0, y), g, Color32::WHITE);
             y += 17.0;

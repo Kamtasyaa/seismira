@@ -469,6 +469,25 @@ impl MapWidget {
             .collect()
     }
 
+    /// Kısa bir (boylam, enlem) parçasının görünen dünya kopyalarındaki ekran
+    /// uçları. 180° meridyenini kesen parça kısa yoldan çizilir (x sürekli).
+    pub fn segment_positions(&self, rect: Rect, a: (f64, f64), b: (f64, f64)) -> Vec<[Pos2; 2]> {
+        let (xa, ya) = mercator::to_unit(a.0, a.1);
+        let (xb, yb) = mercator::to_unit(b.0, b.1);
+        let xb = xb + (xa - xb).round();
+        let (first, n) = self.view.copies(rect);
+        (first..first + n as i32)
+            .map(|k| {
+                let dx = f64::from(k);
+                [
+                    self.view.world_to_screen(rect, [xa + dx, ya]),
+                    self.view.world_to_screen(rect, [xb + dx, yb]),
+                ]
+            })
+            .filter(|[p, q]| Rect::from_two_pos(*p, *q).intersects(rect))
+            .collect()
+    }
+
     /// Zemin yenilmesi kareleri (Bölüm 2.6): içi boş kırmızı çerçeve ve
     /// köşesinde tür harfi. `boxes`: (batı, kuzey, doğu, güney) derece,
     /// opaklık 0–1, harf, harf sağ köşede mi.
