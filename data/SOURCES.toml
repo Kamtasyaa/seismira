@@ -99,7 +99,9 @@ license_checked = "2026-11-20"
 snapshot = "PSHAB_Electronic_Supplement.zip sha256 c83bcfae6effd15ff3afcc09c9cf543a2189ecf2961d4ef3d3d2b4273e57f521"
 files = "crates/seismira-core/src/gmpe/psbah20_regional.csv"
 
-
+[[dataset]]
+id = "usgs-shakemap-izmit1999"
+validation_only = true     # uygulamayla gelmez; Veri Kaynakları sayfasında gösterilmez
 name = "USGS ShakeMap, 1999 İzmit (usp0009d4z): istasyon listesi, kırılma, bilgi (yalnızca doğrulama)"
 url = "https://earthquake.usgs.gov/earthquakes/eventpage/usp0009d4z"
 license = "Public Domain (USGS)"
@@ -110,6 +112,7 @@ files = "data/validation/izmit1999/*"
 
 [[dataset]]
 id = "usgs-shakemap-puebla2017"
+validation_only = true     # uygulamayla gelmez; Veri Kaynakları sayfasında gösterilmez
 name = "USGS ShakeMap, 2017 Puebla (us2000ar20, atlas): istasyon listesi (yalnızca doğrulama)"
 url = "https://earthquake.usgs.gov/earthquakes/eventpage/us2000ar20"
 license = "Public Domain (USGS)"
@@ -121,6 +124,7 @@ files = "data/validation/puebla2017/stationlist.json"
 
 [[dataset]]
 id = "usgs-shakemap-tohoku2011"
+validation_only = true     # uygulamayla gelmez; Veri Kaynakları sayfasında gösterilmez
 name = "USGS ShakeMap, 2011 Tōhoku (official20110311054624120_30, atlas): istasyon listesi (yalnızca doğrulama; 4 MB, depoda değil)"
 url = "https://earthquake.usgs.gov/product/shakemap/official20110311054624120_30/atlas/1594161746661/download/stationlist.json"
 license = "Public Domain (USGS)"
@@ -132,6 +136,7 @@ files = "data/raw/validation/tohoku2011/ (depoda değil)"
 
 [[dataset]]
 id = "sbb-kahramanmaras-2023"
+validation_only = true     # uygulamayla gelmez; Veri Kaynakları sayfasında gösterilmez
 name = "SBB 2023 Kahramanmaraş ve Hatay Depremleri Raporu: il bazında hasar tespiti ve bina sayıları (yalnızca doğrulama)"
 url = "https://www.sbb.gov.tr/wp-content/uploads/2023/03/2023-Kahramanmaras-ve-Hatay-Depremleri-Raporu.pdf"
 license = "Kamu kurumu raporu; yalnızca birkaç sayı (Tablo 11, 12, 20) kaynak gösterilerek alındı"
@@ -245,6 +250,7 @@ files = "data/ground/wtd.sras (yalnızca yerel; scripts/gen_fan_wtd.py + seismir
 
 [[dataset]]
 id = "usgs-groundfailure-kahramanmaras2023"
+validation_only = true     # uygulamayla gelmez; Veri Kaynakları sayfasında gösterilmez
 name = "USGS Ground Failure ürünü, us6000jllz sürüm 14 (Zhu 2017 genel model) ve ShakeMap v17 grid.xml (yalnızca doğrulama)"
 url = "https://earthquake.usgs.gov/earthquakes/eventpage/us6000jllz/ground-failure"
 license = "Public Domain (USGS)"
@@ -288,3 +294,23 @@ license_checked = "2026-11-23"
 snapshot = "ETOPO_2022_v1_60s_N90W180_surface.tif sha256 9d27d4b8ea8e76977e2988bca667d7c8fa68b927355feffcddd6b4875a7fd08e"
 files = "data/tsunami/bathy.sras, data/tsunami/coast.bin (depoda değil; scripts/prepare_data.py)"
 
+[[dataset]]
+id = "usgs-shakemap-kumamoto2016"
+validation_only = true     # uygulamayla gelmez; Veri Kaynakları sayfasında gösterilmez
+name = "USGS ShakeMap, 2016 Kumamoto (us20005iis, atlas): istasyon listesi, kırılma, bilgi (yalnızca doğrulama)"
+url = "https://earthquake.usgs.gov/earthquakes/eventpage/us20005iis"
+license = "Public Domain (USGS)"
+attribution = "U.S. Geological Survey, ShakeMap (atlas). İstasyon verisi: NIED K-NET/KiK-net."
+modified = false
+license_checked = "2026-11-23"
+files = "data/validation/kumamoto2016/*"
+
+[[dataset]]
+id = "usgs-scenarios"
+name = "Hazır senaryolar: USGS ComCat olay parametreleri ve ShakeMap kırılma modelleri (8 deprem)"
+url = "https://earthquake.usgs.gov/earthquakes/search/"
+license = "Public Domain (USGS)"
+attribution = "U.S. Geological Survey, ANSS Comprehensive Earthquake Catalog (ComCat) ve ShakeMap kırılma modelleri; her modelin yayımlanmış kaynağı data/scenarios/scenarios.json içinde."
+modified = true            # kırılma modelleri tek dikdörtgen düzleme indirgendi (scripts/gen_scenarios.py)
+license_checked = "2026-11-23"
+files = "data/scenarios/scenarios.json (scripts/gen_scenarios.py)"

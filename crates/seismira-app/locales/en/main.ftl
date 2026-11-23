@@ -19,6 +19,14 @@ quality-ultra = Ultra (2048 cells, damage at full resolution)
 quality-note = Resolution of the shaking grid and damage estimate. Computed in the background; an open simulation is recomputed.
 menu-text-test = Text test
 menu-language = Language
+menu-help = Help
+menu-sources = Data sources and licenses
+sources-title = Data Sources and Licenses
+sources-intro = Seismira is free software licensed under GPL-3.0-or-later. Data shipped with the application is distributed under its own license; attributions are listed below. "Modified": the data was processed (format, resolution, derivation) before use.
+sources-license = License:
+sources-modified = · modified
+sources-not-distributed = · not in the distributed package (local builds only)
+sources-missing = The data sources file (data/SOURCES.toml) could not be read.
 
 panel-settings = Earthquake settings
 button-start = Start

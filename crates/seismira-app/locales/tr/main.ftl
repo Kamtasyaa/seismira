@@ -19,6 +19,14 @@ quality-ultra = Ultra (2048 hücre, hasar tam çözünürlükte)
 quality-note = Sarsıntı ızgarasının ve hasar hesabının çözünürlüğü. Hesap arka planda yapılır; açık simülasyon yeniden hesaplanır.
 menu-text-test = Yazı testi
 menu-language = Dil
+menu-help = Yardım
+menu-sources = Veri kaynakları ve lisanslar
+sources-title = Veri Kaynakları ve Lisanslar
+sources-intro = Seismira GPL-3.0-or-later lisanslı özgür yazılımdır. Uygulamayla gelen veriler kendi lisanslarıyla dağıtılır; atıflar aşağıdadır. "Değiştirildi": veri işlenerek (biçim, çözünürlük, türetme) kullanıldı.
+sources-license = Lisans:
+sources-modified = · değiştirildi
+sources-not-distributed = · dağıtılan pakette yok (yalnızca yerel derleme)
+sources-missing = Veri kaynakları dosyası (data/SOURCES.toml) okunamadı.
 
 panel-settings = Deprem ayarları
 button-start = Başlat

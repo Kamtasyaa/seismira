@@ -13,6 +13,7 @@ mod panel;
 mod paths;
 mod scenarios;
 mod shindo_style;
+mod sources;
 mod text_test;
 mod theme;
 mod timeline;

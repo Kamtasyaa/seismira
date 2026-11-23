@@ -202,7 +202,15 @@ Uygulama notları:
 - Köşede ölçek açıklaması (Shindo renkleri JMA paletinden; tsunami
   sarı/kırmızı/mor).
 - Şehirler nüfusa ve yakınlaştırmaya göre gösterilir.
-- "Veri Kaynakları ve Lisanslar" sayfası (zorunlu).
+- "Veri Kaynakları ve Lisanslar" sayfası (zorunlu). UYGULANDI (Faz 10
+  adım 4, 2026-11-23): Yardım → "Veri kaynakları ve lisanslar" penceresi,
+  data/SOURCES.toml'dan (uygulama klasöründe gelir) üretilir: ad, lisans,
+  "değiştirildi", "dağıtılan pakette yok" (distributed = false), atıf
+  (seçilebilir), bağlantı. `validation_only = true` kayıtlar (yalnızca
+  doğrulama verisi) gösterilmez. Giriş metninde kodun lisansı
+  (GPL-3.0-or-later). EKSİK: kayıt adları ve atıflar dosyada Türkçe /
+  özgün dilde; İngilizce arayüzde de öyle görünür (ileride `name_en`).
+  Geliştirme: `SEISMIRA_SOURCES=1` pencereyi açık başlatır.
 - Kalite ayarı: Düşük / Orta / Yüksek / Ultra (ızgara çözünürlüğü
   değişir; akıcılık hiçbir ayarda bozulmaz). UYGULANDI (Faz 10 adım 3,
   2026-11-23): Görünüm → Kalite (kaydedilir; varsayılan Yüksek). İnce

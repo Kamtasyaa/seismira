@@ -349,6 +349,9 @@ pub struct SeismiraApp {
     lang: Lang,
     assets: PathBuf,
     show_text_test: bool,
+    /// "Veri Kaynakları ve Lisanslar" penceresi.
+    show_sources: bool,
+    sources: Result<Vec<crate::sources::Source>, String>,
     /// Eğitim uyarısı. Kapatılabilir ama her açılışta yeniden görünür
     /// (bilerek kaydedilmez); Görünüm menüsünden geri açılır.
     show_disclaimer: bool,
@@ -509,6 +512,9 @@ impl SeismiraApp {
             lang,
             assets,
             show_text_test: false,
+            show_sources: std::env::var("SEISMIRA_SOURCES").is_ok_and(|v| v == "1"),
+            sources: crate::sources::load(&paths::data_dir().join("SOURCES.toml"))
+                .inspect_err(|e| log::error!("veri kaynakları okunamadı: {e}")),
             show_disclaimer: true,
             show_grid: true,
             reduce_motion: cc
@@ -678,6 +684,11 @@ impl SeismiraApp {
             ui.menu_button(t("menu-language"), |ui| {
                 for lang in Lang::ALL {
                     ui.radio_value(&mut new_lang, lang, lang.endonym());
+                }
+            });
+            ui.menu_button(t("menu-help"), |ui| {
+                if ui.button(t("menu-sources")).clicked() {
+                    self.show_sources = true;
                 }
             });
         });
@@ -2228,6 +2239,14 @@ impl eframe::App for SeismiraApp {
                     });
             });
         self.show_text_test = open;
+
+        let mut open = self.show_sources;
+        egui::Window::new(t("sources-title"))
+            .open(&mut open)
+            .default_pos([300.0, 60.0])
+            .default_size([620.0, 640.0])
+            .show(ui.ctx(), |ui| crate::sources::ui(ui, lang, &self.sources));
+        self.show_sources = open;
 
         #[cfg(feature = "screenshot")]
         // Arka plan hesabı (ızgara, bölgeler) bitmeden görüntü alınmasın.
