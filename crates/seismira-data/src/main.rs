@@ -39,6 +39,7 @@ mod slope75;
 mod tsunami_eta;
 mod tsunami_scenario;
 mod validate_damage;
+mod validate_gem;
 mod validate_landslide;
 mod validate_liquefaction;
 mod validate_tsunami;
@@ -66,6 +67,7 @@ fn main() -> Result<()> {
             Path::new(ghsl),
             Path::new(output),
         ),
+        [cmd, slab] if cmd == "validate-gem" => validate_gem::run(Path::new(slab)),
         [cmd, sbb, dwellings] if cmd == "validate-damage" => {
             validate_damage::run(Path::new(sbb), Path::new(dwellings))
         }
@@ -223,6 +225,7 @@ fn main() -> Result<()> {
              seismira-data coast-points <bathy.sras> <cities15000.scty> <çıktı.bin>\n  \
              seismira-data tsunami-eta <bathy.sras> <boylam,enlem> <k> <boylam,enlem>...\n  \
              seismira-data tsunami-scenario <boylam,enlem> <Mw> <derinlik> <doğrultu> <eğim> <kayma açısı> <crust|interface|intraslab> <yarıçap°> <k>\n  \
+             seismira-data validate-gem <slab2.sslb>\n  \
              seismira-data validate-tsunami <ncei_runups.json> <boylam,enlem> <Mw> <derinlik> <doğrultu> <eğim> <kayma açısı> <ortam>\n  \
              seismira-data ls-static <data/ground> <vs30.sras> <çıktı.sras>\n  \
              seismira-data land-cover <ESACCI-LC-...-2009-v2.0.7.tif> <vs30.sras> <çıktı.sras>\n  \

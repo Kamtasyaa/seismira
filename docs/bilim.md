@@ -250,7 +250,8 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     değer %0,5 (Türkiye 764 milyar USD, Kanada 457 milyar USD: zafiyet
     dosyasında olmayan sınıflar; Türkiye zaten ESRM20 kullanır).
   - Sonuç: Kumamoto 2016 benzeri (Mw 7,0) Kumamoto ili %0,8 (olası
-    0,4–1,5); doğrulama Faz 9'un sonraki adımında.
+    0,4–1,5); doğrulama: docs/dogrulama.md Faz 9 (Kumamoto ×0,13–0,66,
+    Meksika birkaç kat fazla; ayar yok).
 
 ### 7.9 Sıvılaşma ve heyelan
 

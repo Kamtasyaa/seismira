@@ -502,3 +502,54 @@ d = 78 m) en yüksekte ×2: Riquelme'nin geçerlilik alanı (dalma-batma) dış�
 Nokta bazında model ×1,6–5 fazla: formül EN YÜKSEK tırmanmayı verir; tek
 bir noktadaki tırmanma bunun altında kalır (beklenen).
 
+
+## Faz 9: GEM ortalama kayıp oranı, Kumamoto 2016, Ridgecrest 2019, Puebla 2017 (2026-11-23)
+
+- Komut: `seismira-data validate-gem data/slab2/slab2.sslb` (2 s; GEM paketi
+  `data/gem/gem.svul` gerekir, CI'da yok). Zincir uygulamayla aynı (bizim fay,
+  Vs30, bölge rasterı, `damage::loss_regions`; dizilerde oranlar
+  1 − (1 − r₁)(1 − r₂) ile birleşir). Olaylar USGS ComCat, Mww düğüm düzlemi:
+  Kumamoto us20005hzn (Mw 6,2; 210/81/164) + us20005iis (Mw 7,0; 224/66/−151),
+  Ridgecrest ci38443183 (Mw 6,4; 226/82/1) + ci38457511 (Mw 7,1; 321/84/−171),
+  Puebla us2000ar20 (Mw 7,1, levha içi; 299/44/−82).
+- Gözlem, Kumamoto: Kumamoto Valiliği 第253報 (2017-08-10) konut hasarı
+  全壊 8 648 / 半壊 34 186 / 一部破損 153 557 bina. Sınıf → kayıp oranı:
+  Kabine Ofisi hasar tespit yönergesi (府政防第518号; 全壊 ≥ %50, 半壊
+  %20–50, 2016'da 一部破損 < %20). Alt sınır 0,5·全壊 + 0,2·半壊, üst sınır
+  1·全壊 + 0,5·半壊 + 0,2·一部; payda GEM konut bina sayısı (563 634).
+- Gözlem, Meksika: resmî eyalet tablosu BULUNAMADI; yalnızca haber
+  kaynaklı, tarihe göre değişen konut sayıları (Expansión 2017-10-05 Edomex
+  7 565 etkilenen / 1 800 tam kayıp; Puebla ilk sayım ~12 500 etkilenen;
+  CDMX 5 765 (2 273 tam) ile 12 000–22 000 arası). Payda GEM konut
+  (DWELLINGS). Bunlar KABA büyüklük kontrolüdür, ölçüt değildir.
+
+| Bölge | model % (olası ±1τ) | gözlenen % | model / gözlenen |
+|---|---|---|---|
+| Kumamoto ili (JP-43) | 1,32 (0,70–2,38) | 2,0–10,0 | ×0,13–0,66 |
+| Ōita, Nagasaki, Fukuoka… | ≤ 0,01 | (küçük) | — |
+| California (US-CA) | 0,02 (0,01–0,03) | — | — |
+| Morelos | 5,7 (1,7–15) | — | — |
+| Puebla | 1,9 (0,6–5,5) | etkilenen ~0,6 | kayıp oranında ×3+ fazla |
+| Ciudad de México | 1,1 (0,3–3,9) | etkilenen 0,2–0,7 | kayıp oranında ×1,6+ fazla |
+| Edo. de México | 0,21 (0,05–0,85) | etkilenen 0,14, tam kayıp 0,03 | ×1,5–14 fazla |
+
+Değerlendirme ve SAPMALAR (kullanıcıya bildirildi, 2026-11-23):
+1. Kumamoto: model gözlenen aralığın ALTINDA (×0,13–0,66); +1τ ancak alt
+   sınıra değiyor. Olası nedenler: (a) GEM YAPISAL zafiyet fonksiyonu, Japon
+   "損害割合" ise çatı, duvar kaplaması gibi yapısal olmayan kısımları da
+   sayar; (b) Japon tespiti cömert (yardım hakkı için başvuru), 一部破損
+   çok hafif hasarı da içerir (alt sınır buna duyarsız); (c) 全壊/半壊
+   sayıları bina değil başvuru bazlı olabilir (çift sayım); (d) bizim
+   sarsıntımız (Kumamoto'nun ayrı şiddet doğrulaması henüz yok).
+2. Meksika: model eyalet düzeyinde birkaç kat FAZLA görünüyor, ama gözlem
+   sayıları zayıf. Sıralama tutuyor (Morelos > Puebla > CDMX > Edomex,
+   haberlerde de en çok etkilenen Morelos ve Puebla).
+3. Ridgecrest: Adm1 = eyalet olduğu için anlamlı karşılaştırma yok; model
+   California geneline ihmal edilebilir oran veriyor (beklenen; seyrek
+   nüfuslu bölge).
+4. Ayar YAPILMADI. GEM çıktısı kartta "ortalama hasar oranı" olarak kalır;
+   büyüklük mertebesi doğru, faktör 2–5 belirsizlik var. İyileştirme
+   adayları: yapısal olmayan zafiyet (GEM'de varsa
+   `vulnerability_nonstructural`), Meksika için CENAPRED "Impacto
+   socioeconómico" 2017 raporu (sonraki oturumda indirilecek), Kumamoto
+   şiddet doğrulaması (NIED K-NET / JMA).
