@@ -100,7 +100,8 @@ impl CityLayer {
     ) -> Drawn {
         let painter = ui.painter_at(rect);
         let label_font = FontId::proportional(12.0);
-        let text = ui.visuals().text_color().gamma_multiply(0.85);
+        // Kara üstünde ≥ 4,5:1 (metin gri 175: 6,9:1; Faz 10 adım 6).
+        let text = ui.visuals().text_color();
         let dot = Color32::from_gray(200);
         let min_pop = Self::min_population(map.scale());
         let inside = rect.shrink(2.0);

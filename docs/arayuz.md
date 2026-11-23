@@ -36,6 +36,35 @@
 - Renk tek bilgi taşıyıcı olmaz: Shindo kutusunda rakam, tsunami
   kategorisinde etiket bulunur.
 
+#### Erişilebilirlik denetimi (Faz 10 adım 6, 2026-11-23)
+
+Ölçüt: WCAG 2.2 AA (metin ≥ 4,5:1, grafik öğe ≥ 3:1; göreli parlaklık
+formülüyle hesaplandı, egui 0.37 koyu tema değerleri kaynağından).
+
+| Öğe | Önce | Sonra | Değişiklik |
+|---|---|---|---|
+| Panel metni | 5,2 | 8,0 | egui gri 140 → 175 (theme.rs) |
+| Soluk metin (panel / pencere / açıklama) | 2,6–2,8 | 4,6–5,4 | %60 alfa → gri 135 |
+| Şehir adı / kara | 3,7 | 6,9 | ×0,85 kaldırıldı |
+| Shindo 2 kutu yazısı | 2,6 (beyaz) | 8,2 (siyah) | yazı rengi en yüksek kontrastla (shindo_style::text_on) |
+| Shindo 6-, MMI IX kutu yazısı | 3,8 / 4,0 | 5,6 / 5,3 | aynı kural |
+| Koyu kutular / kara (Shindo 3, 6+, 7, MMI X) | 1,4–2,3 | açık kenar | kenar rengi dolgunun kara kontrastına göre |
+
+- Değişmeyenler (uygun bulundu): eğitim uyarısı 9,3; engel / uyarı
+  metinleri 6,4 / 9,3; bağlantı 5,8; tsunami renkleri kara üstünde ≥ 3,5;
+  yanıp sönme her yerde 1 Hz kosinüs (bölge, zemin kareleri, tsunami) ve
+  "Hareketi azalt" üçünü de sabitler.
+- Renk tek taşıyıcı: tsunami şeridinin kalınlığı kategoriye göre (dikkat
+  3, uyarı 4,5, büyük uyarı 6 point; açıklamada da). Shindo / MMI
+  kutularında etiket; zemin karelerinde S / H harfi.
+- Klavye: merkez üssü enlem / boylam kutularıyla girilebilir (fare
+  gerekmez); menüler egui + AccessKit (eframe `accesskit` özelliği açık).
+  Harita gezinmesi fare / dokunmatik ister (bilinen sınır).
+- Yazı boyutu: eframe Ctrl + / Ctrl − ile yakınlaştırma (varsayılan açık).
+- Test: `shindo_style::tests::kutu_yazilari_okunur` (tüm Shindo ve MMI
+  kutularında ≥ 4,5:1).
+- Ekran görüntüsüyle kontrol: YAPILMADI (ekran kilitliydi), sonra.
+
 
 ## 6. Kullanıcı girdileri (sağ panel)
 

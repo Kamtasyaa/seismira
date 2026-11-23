@@ -23,7 +23,7 @@ use view::MapView;
 mod colors {
     use eframe::egui::Color32;
     pub const OCEAN: Color32 = crate::theme::MAP_BG;
-    pub const LAND: Color32 = Color32::from_rgb(0x1F, 0x26, 0x31);
+    pub const LAND: Color32 = crate::theme::MAP_LAND;
     pub const ADMIN0: Color32 = Color32::from_rgb(0x55, 0x61, 0x73);
     pub const ADMIN1: Color32 = Color32::from_rgb(0x33, 0x3D, 0x4B);
     pub const EPICENTER: Color32 = Color32::from_rgb(0xFF, 0x4D, 0x4D);

@@ -1401,8 +1401,14 @@ impl SeismiraApp {
             .input(|i| i.pointer.hover_pos())
             .filter(|p| rect.contains(*p));
         let mut best: Option<(f32, &crate::tsunami::CoastNote)> = None;
-        const OUTER: f32 = 7.0;
-        const INNER: f32 = 4.0;
+        // Kalınlık kategoriye göre (renk tek bilgi taşıyıcı olmasın;
+        // Faz 10 adım 6): dikkat 3, uyarı 4,5, büyük uyarı 6 point.
+        let inner = |c: Category| match c {
+            Category::Advisory => 3.0,
+            Category::Warning => 4.5,
+            Category::Major => 6.0,
+        };
+        const OUTER: f32 = 9.0;
         let shadow = Color32::from_black_alpha((150.0 * alpha) as u8);
         let ll = |i: u32| {
             let c = &ts.coast[i as usize];
@@ -1440,7 +1446,7 @@ impl SeismiraApp {
             painter.circle_filled(*p, OUTER / 2.0, shadow);
         }
         for cat in [Category::Advisory, Category::Warning, Category::Major] {
-            let stroke = Stroke::new(INNER, cat.color().gamma_multiply(alpha));
+            let stroke = Stroke::new(inner(cat), cat.color().gamma_multiply(alpha));
             for &([p, q], ca, cb) in &segs {
                 let m = p.lerp(q, 0.5);
                 if ca == cat {
@@ -1451,7 +1457,7 @@ impl SeismiraApp {
                 }
             }
             for &(p, c) in points.iter().filter(|(_, c)| c.category == cat) {
-                painter.circle_filled(p, INNER / 2.0, stroke.color);
+                painter.circle_filled(p, inner(cat) / 2.0, stroke.color);
                 if let Some(h) = hover {
                     let d = h.distance(p);
                     if d < 8.0 && best.is_none_or(|(bd, _)| d < bd) {
@@ -1462,20 +1468,11 @@ impl SeismiraApp {
         }
         // Açıklama: sol altta.
         let font = FontId::proportional(12.0);
-        let rows: Vec<(Option<Color32>, String)> = vec![
+        let rows: Vec<(Option<Category>, String)> = vec![
             (None, lang.t("tsunami-legend-title")),
-            (
-                Some(Category::Major.color()),
-                lang.t("tsunami-legend-major"),
-            ),
-            (
-                Some(Category::Warning.color()),
-                lang.t("tsunami-legend-warning"),
-            ),
-            (
-                Some(Category::Advisory.color()),
-                lang.t("tsunami-legend-advisory"),
-            ),
+            (Some(Category::Major), lang.t("tsunami-legend-major")),
+            (Some(Category::Warning), lang.t("tsunami-legend-warning")),
+            (Some(Category::Advisory), lang.t("tsunami-legend-advisory")),
             (None, lang.t("tsunami-legend-note")),
         ];
         let galleys: Vec<_> = rows
@@ -1503,7 +1500,7 @@ impl SeismiraApp {
             if let Some(c) = color {
                 let (a, b) = (egui::pos2(x, y + 8.0), egui::pos2(x + 12.0, y + 8.0));
                 painter.line_segment([a, b], Stroke::new(OUTER, Color32::from_black_alpha(150)));
-                painter.line_segment([a, b], Stroke::new(INNER, *c));
+                painter.line_segment([a, b], Stroke::new(inner(*c), c.color()));
             }
             painter.galley(egui::pos2(x + 18.0, y), g, Color32::WHITE);
             y += 17.0;

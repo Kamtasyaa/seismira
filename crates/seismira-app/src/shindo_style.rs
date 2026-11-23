@@ -22,15 +22,43 @@ pub fn color(s: Shindo) -> Color32 {
     }
 }
 
-/// Verilen zemin rengi üzerinde okunur yazı rengi: açık zeminde siyah,
-/// koyu zeminde beyaz.
+/// WCAG 2.x göreli parlaklık (sRGB).
+fn luminance(c: Color32) -> f32 {
+    let lin = |v: u8| {
+        let v = f32::from(v) / 255.0;
+        if v <= 0.04045 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * lin(c.r()) + 0.7152 * lin(c.g()) + 0.0722 * lin(c.b())
+}
+
+/// İki rengin WCAG kontrast oranı (1–21).
+pub fn contrast(a: Color32, b: Color32) -> f32 {
+    let (la, lb) = (luminance(a), luminance(b));
+    (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
+}
+
+/// Verilen zemin rengi üzerinde okunur yazı rengi: siyah ya da beyazdan
+/// kontrastı yüksek olanı (Faz 10 adım 6; önceki parlaklık eşiği Shindo 2
+/// kutusunda beyaz seçip 2,6:1 veriyordu, siyah 8,2:1).
 pub fn text_on(c: Color32) -> Color32 {
-    // Algısal parlaklık (ITU-R BT.601 ağırlıkları).
-    let l = 0.299 * f32::from(c.r()) + 0.587 * f32::from(c.g()) + 0.114 * f32::from(c.b());
-    if l > 150.0 {
+    if contrast(Color32::BLACK, c) >= contrast(Color32::WHITE, c) {
         Color32::BLACK
     } else {
         Color32::WHITE
+    }
+}
+
+/// Kutu kenarı: koyu zemin (harita karası) üzerinde 3:1'i tutmayan koyu
+/// dolgularda açık kenar, diğerlerinde koyu kenar (WCAG 1.4.11).
+fn box_outline(fill: Color32) -> Color32 {
+    if contrast(fill, crate::theme::MAP_LAND) < 3.0 {
+        Color32::from_white_alpha(170)
+    } else {
+        Color32::from_black_alpha(180)
     }
 }
 
@@ -53,7 +81,7 @@ pub fn draw_labeled_box(painter: &egui::Painter, center: Pos2, fill: Color32, la
     painter.rect_stroke(
         rect,
         3.0,
-        Stroke::new(1.0, Color32::from_black_alpha(180)),
+        Stroke::new(1.0, box_outline(fill)),
         egui::StrokeKind::Outside,
     );
     painter.text(
@@ -64,4 +92,23 @@ pub fn draw_labeled_box(painter: &egui::Painter, center: Pos2, fill: Color32, la
         text_on(fill),
     );
     rect
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use seismira_core::intensity::Shindo;
+
+    /// Tüm Shindo ve MMI kutularında yazı en az 4,5:1 (WCAG AA).
+    #[test]
+    fn kutu_yazilari_okunur() {
+        let mut fills: Vec<Color32> = Shindo::ALL[1..].iter().map(|s| color(*s)).collect();
+        fills.extend((2..=10).filter_map(crate::mmi_style::color));
+        for f in fills {
+            let c = contrast(text_on(f), f);
+            assert!(c >= 4.5, "{f:?}: {c}");
+        }
+        // Bilinen değer: siyah / beyaz = 21.
+        assert!((contrast(Color32::BLACK, Color32::WHITE) - 21.0).abs() < 0.01);
+    }
 }
