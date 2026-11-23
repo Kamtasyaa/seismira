@@ -10,8 +10,8 @@
 //! Olay parametreleri: USGS ComCat (merkez üssü, derinlik, Mww düğüm düzlemi;
 //! fay izine uyan düzlem), 2026-11-23 sorgulandı.
 //!
-//! Gözlem (yalnızca Kumamoto; Ridgecrest ve Puebla için yalnızca model
-//! yazdırılır, kaynak bulununca eklenecek):
+//! Gözlem: Kumamoto (aşağıda) ve Puebla 2017 eyaletleri (CENAPRED 2018,
+//! [`observed_counts`]); Ridgecrest için yalnızca model yazdırılır:
 //! - Kumamoto ili konut hasarı, Kumamoto Valiliği Kriz Yönetimi ve Afet
 //!   Önleme Dairesi, "平成28年熊本地震等に係る被害状況について 第253報"
 //!   (2017-08-10): tam yıkık (全壊) 8 648, yarı (半壊) 34 186, kısmi
@@ -115,14 +115,48 @@ fn sequences() -> Vec<Sequence> {
     ]
 }
 
-/// Kumamoto ili gözlenen kayıp oranı aralığı (yukarıdaki kaynaklar).
-fn kumamoto_observed() -> (f64, f64) {
-    let (zenkai, hankai, ichibu) = (8_648.0, 34_186.0, 153_557.0);
-    let stock = 563_634.0;
-    (
-        (0.5 * zenkai + 0.2 * hankai) / stock,
-        (zenkai + 0.5 * hankai + 0.2 * ichibu) / stock,
-    )
+/// Gözlenen hasar sayıları: (tam, kısmi, hafif, payda). Sınıf → kayıp oranı
+/// aralığı Kumamoto'daki Japon tespit eşiklerinden (tam ≥ %50, kısmi
+/// %20–50, hafif < %20): alt = 0,5·tam + 0,2·kısmi, üst = tam + 0,5·kısmi +
+/// 0,2·hafif. Meksika'da sınıfların yüzde tanımı yok; VARSAYIM aynı bantlar
+/// (FONDEN destek tutarları kısmi / tam = 28 000 / 120 000 ≈ 0,23 ile
+/// uyumlu; CENAPRED 2018, metin).
+fn observed_counts(iso: &str) -> Option<(f64, f64, f64, f64)> {
+    Some(match iso {
+        // Kumamoto Valiliği 第253報 (2017-08-10): 全壊 / 半壊 / 一部破損 bina;
+        // payda GEM konut BİNA sayısı (JP-43).
+        "JP-43" => (8_648.0, 34_186.0, 153_557.0, 563_634.0),
+        // CENAPRED (2018), "Impacto socioeconómico de los principales
+        // desastres ocurridos en México 2017", 19 Eylül depremi, konut
+        // (vivienda); payda GEM konut (DWELLINGS).
+        // Morelos: Tablo 3.108 (SEDATU), kısmi 9 697, tam 6 104.
+        "MX-MOR" => (6_104.0, 9_697.0, 0.0, 824_111.0),
+        // Puebla: Tablo 3.135 (FONDEN), kısmi 22 707, tam 5 638.
+        "MX-PUE" => (5_638.0, 22_707.0, 0.0, 2_204_238.0),
+        // Edo. de México: Tablo 3.151 (SEDATU), tam 2 494 + taşınma 208,
+        // kısmi 2 109, hafif 1 249.
+        "MX-MEX" => (2_702.0, 2_109.0, 1_249.0, 5_525_475.0),
+        // Guerrero (19 Eylül, 19 belediye): 3 928 hasarlı; kısmi 1 443, tam
+        // 2 047, kalan 438 hafif sayıldı (metin).
+        "MX-GRO" => (2_047.0, 1_443.0, 438.0, 1_231_314.0),
+        // Tlaxcala: 34 konut, 23 kısmi, 11 hafif (metin).
+        "MX-TLA" => (0.0, 23.0, 11.0, 436_069.0),
+        // Ciudad de México: Tablo 3.71 (Plataforma CDMX, Haziran 2018),
+        // BİNA (inmueble): kırmızı (yıkım) 529 → tam, yeşil (onarılabilir
+        // yapısal) 10 531 → kısmi, sarı (hafif) 3 752. Payda GEM konut BİNA
+        // sayısı (345 336; GEM'in CDMX bina sayısı düşük olabilir).
+        "MX-DIF" => (529.0, 10_531.0, 3_752.0, 345_336.0),
+        _ => return None,
+    })
+}
+
+/// Gözlenen kayıp oranı aralığı (yukarıdaki kural).
+fn observed(iso: &str) -> Option<(f64, f64)> {
+    let (total, partial, minor, n) = observed_counts(iso)?;
+    Some((
+        (0.5 * total + 0.2 * partial) / n,
+        (total + 0.5 * partial + 0.2 * minor) / n,
+    ))
 }
 
 pub fn run(slab_path: &Path) -> Result<()> {
@@ -175,8 +209,10 @@ pub fn run(slab_path: &Path) -> Result<()> {
             println!("{name}: {} bölge ({} ms)", l.len(), t.elapsed().as_millis());
             per_event.push(l.into_iter().map(|r| (r.id, r.ratio)).collect());
         }
-        println!("\n| Bölge | model ortalama kayıp oranı % (olası) | gözlenen % |");
-        println!("|---|---|---|");
+        println!(
+            "\n| Bölge | model ortalama kayıp oranı % (olası) | gözlenen % | model / gözlenen |"
+        );
+        println!("|---|---|---|---|");
         for iso in seq.regions {
             let id = *iso_to_id
                 .get(iso)
@@ -190,15 +226,15 @@ pub fn run(slab_path: &Path) -> Result<()> {
                 }
             }
             let [m, lo, hi] = keep.map(|k| (1.0 - k) * 100.0);
-            let obs = match *iso {
-                "JP-43" => {
-                    let (a, b) = kumamoto_observed();
-                    format!("{:.1}–{:.1}", a * 100.0, b * 100.0)
-                }
-                _ => "—".into(),
+            let (obs, ratio) = match observed(iso) {
+                Some((a, b)) => (
+                    format!("{:.3}–{:.3}", a * 100.0, b * 100.0),
+                    format!("×{:.1}–{:.1}", m / (b * 100.0), m / (a * 100.0)),
+                ),
+                None => ("—".into(), "—".into()),
             };
             let name = &infos[id as usize - 1].name_en;
-            println!("| {iso} {name} | {m:.2} ({lo:.2}–{hi:.2}) | {obs} |");
+            println!("| {iso} {name} | {m:.2} ({lo:.2}–{hi:.2}) | {obs} | {ratio} |");
         }
     }
     Ok(())

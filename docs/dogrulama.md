@@ -613,3 +613,40 @@ Kumamoto sapmasının nedenini ayırmak için iki kontrol yapıldı.
    CENAPRED "Impacto socioeconómico 2017" raporu (cenapred.gob.mx ve
    cenapred.unam.mx, 415-IMPACTO_SOCIOECONOMICO_2017.PDF) betiğe 403
    veriyor; kullanıcıdan tarayıcıyla indirmesi istendi. Ayar YAPILMADI.
+
+### Ek: Meksika gözlemi CENAPRED raporuyla (2026-11-23)
+
+Kaynak: CENAPRED (2018), "Impacto socioeconómico de los principales
+desastres ocurridos en la República Mexicana en 2017" (608 s.; CENAPRED
+sitesi betiğe ve tarayıcıya 403 verdi, kullanıcı Internet Archive
+kopyasını indirdi: web.archive.org/web/20251011110709/https://www.cenapred.unam.mx/es/Publicaciones/archivos/415-IMPACTO_SOCIOECONOMICO_2017.PDF;
+yerelde data/raw/validation/puebla2017/, sha256 83ff9e4bf66fe53f…). 19 Eylül
+depremi konut hasarı: Morelos Tablo 3.108 (SEDATU; kısmi 9 697, tam
+6 104), Puebla Tablo 3.135 (FONDEN; 22 707 / 5 638), Edo. de México
+Tablo 3.151 (SEDATU; tam 2 494 + taşınma 208, kısmi 2 109, hafif 1 249),
+Guerrero metin (3 928; kısmi 1 443, tam 2 047), Tlaxcala metin (34),
+Ciudad de México Tablo 3.71 (BİNA: kırmızı 529, yeşil 10 531, sarı 3 752).
+Sınıf → kayıp oranı: Kumamoto'daki bantlar (VARSAYIM; FONDEN destek
+tutarı kısmi / tam = 28 000 / 120 000 ≈ 0,23 ile uyumlu). Payda GEM konut
+(CDMX'te GEM bina). Komut `seismira-data validate-gem` (gözlem kodda).
+
+| Bölge | model % (olası) | gözlenen % | model / gözlenen |
+|---|---|---|---|
+| Kumamoto | 2,68 (1,60–4,42) | 1,98–10,0 | ×0,3–1,4 |
+| Ciudad de México (bina) | 1,51 (0,59–4,03) | 0,69–1,90 | ×0,8–2,2 |
+| Guerrero | 0,32 (0,10–0,97) | 0,11–0,23 | ×1,4–3,0 |
+| Puebla | 2,20 (0,76–5,74) | 0,33–0,77 | ×2,9–6,6 |
+| Morelos | 6,03 (2,05–15,4) | 0,61–1,33 | ×4,5–10 |
+| Edo. de México | 0,39 (0,14–1,11) | 0,03–0,07 | ×5,4–12 |
+| Tlaxcala | 0,86 (0,30–2,66) | ~0,002 | ×~300 |
+
+SAPMA (kullanıcıya bildirildi, 2026-11-23): Meksika'nın orta eyaletlerinde
+model resmî sayılara göre ×3–10 FAZLA (−1τ bile Morelos'ta gözlenenin
+üstünde); CDMX ve Kumamoto aralıkta. Olası nedenler: (1) FONDEN / SEDATU
+sayıları yalnızca afet ilan edilen belediyeler ve desteğe başvuran
+konutlar (eksik sayım; Tlaxcala'da 34 konut bunu düşündürüyor); (2) GEM
+Meksika zafiyet eğrileri (ağırlıkla donatılı / çerçeveli yığma) bu
+deprem için fazla kırılgan olabilir; (3) sarsıntı: Puebla UNAM
+istasyonlarında sapma yok (C +0,00), ama CDMX dışında yakın alan
+istasyonu az. Ayar YAPILMADI; bölge kartındaki GEM oranı "büyüklük
+mertebesi" olarak okunmalı.
