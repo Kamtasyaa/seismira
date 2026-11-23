@@ -452,6 +452,27 @@ tüm hücrelerle 485,8 / 120,8, yani USGS'in ölçüsü PGA ≥ %10 g'ye uyuyor)
 SAPMA (kullanıcıya bildirildi, 2026-11-23): uçtan uca heyelan toplamı
 USGS'in ~0,7 katı (zemin katmanları tek başına 0,9).
 
+### GLiM 0,5° (CC BY 3.0) ile heyelan, vektör GLiM'in yerine (2026-11-23)
+
+Amaç: vektör GLiM'in dağıtım izni gelmezse heyelan katmanını dağıtılabilir
+yapmak. `scripts/gen_glim05.py` (PANGAEA 788537, 0,5°, en yakın komşu;
+kıyıda denize düşen 0,5° hücreler en yakın sınıflı hücreyle doldurulur) +
+`seismira-data lith`; diğer zemin katmanları aynı. Ölçü yukarıdaki adım 1
+ile aynı (ShakeMap sarsıntısı, PGA ≥ %10 g):
+
+| Litoloji | K.maraş oran | K.maraş korelasyon | Noto oran | Noto korelasyon |
+|---|---|---|---|---|
+| vektör GLiM (30″; izin bekliyor) | 0,90 | 0,936 | 0,88 | 0,945 |
+| 0,5°, dolgusuz | 1,07 | 0,898 | 0,58 | 0,730 |
+| **0,5°, kıyı dolgulu** | **1,09** | **0,904** | **0,96** | **0,952** |
+
+Sonuç: dolgulu 0,5° sürüm iki depremde vektör sürümle aynı düzeyde
+(toplamda USGS'in %4–9 içinde, korelasyon 0,90–0,95). Eğim ve sarsıntı
+baskın; litoloji 55 km'lik ölçekte çoğunlukla aynı. Sınır: yalnızca iki
+deprem; küçük ölçekli litoloji değişimi (ör. dar alüvyon vadileri) kaba
+sürümde kaybolur. Dağıtılan pakete alınması kullanıcı kararına bağlı
+(ls_static ~365 MB, paket hedefi ~500 MB).
+
 ## Faz 8: tsunami doğrulaması, Tōhoku 2011, Noto 2024, Maule 2010 (2026-11-23)
 
 Gözlemler: NOAA NCEI / WDS Global Historical Tsunami Database (HazEL API,

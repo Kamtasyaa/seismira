@@ -561,9 +561,9 @@ fn compare_shakemap(
 /// yazar. Argümanlar: `<stationlist.json> boylam enlem derinlik Mw doğrultu
 /// eğim fay(SS|RS|NS) [hiposantr_doğrultu_konumu] [--vs30 <dosya.sras>]
 /// [--setting crust|interface|intraslab] [--slab <slab2.sslb>]
-/// [--csv <istasyonlar.csv>]`.
+/// [--csv <istasyonlar.csv>]`; ya da konum argümanları yerine
+/// `--scenario <kimlik>` (hazır senaryo).
 fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
-    use seismira_core::intensity::jma_from_pgv_vector;
     use seismira_core::quake::{FaultType, Quake, Setting};
 
     let mut args = args.to_vec();
@@ -600,7 +600,17 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         Some(s) => bail!("ortam: {s} (crust|interface|intraslab)"),
     };
     let csv = flag("--csv")?;
+    let scenario = flag("--scenario")?;
     let args = args.as_slice();
+    if let Some(id) = scenario {
+        // Hazır senaryo (data/scenarios/scenarios.json): uygulamanın kullandığı
+        // depremin aynısı (elle kırılma boyutu ve odak konumu dahil).
+        if !args.is_empty() {
+            bail!("--scenario ile konum argümanları verilmez");
+        }
+        let q = scenario_quake(&id)?;
+        return report_shakemap(stations, &q, vs30_map.as_ref(), slab.as_ref(), csv);
+    }
     let (base, along) = match args {
         [b @ .., a] if args.len() == 8 => (b, Some(a.parse::<f64>()?)),
         b => (b, None),
@@ -626,6 +636,51 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
     if let Some(a) = along {
         q.hypo_along = a;
     }
+    report_shakemap(stations, &q, vs30_map.as_ref(), slab.as_ref(), csv)
+}
+
+/// Hazır senaryonun depremi (uygulamadaki `scenarios::parse` ile aynı alanlar).
+fn scenario_quake(id: &str) -> Result<seismira_core::quake::Quake> {
+    use seismira_core::quake::{FaultType, Quake, Setting};
+    let path = Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../data/scenarios/scenarios.json"
+    ));
+    let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+    let s = v["scenarios"]
+        .as_array()
+        .context("scenarios")?
+        .iter()
+        .find(|s| s["id"] == id)
+        .with_context(|| format!("senaryo yok: {id}"))?;
+    let num = |k: &str| s[k].as_f64().with_context(|| k.to_string());
+    let mut q = Quake::new((num("lon")?, num("lat")?));
+    q.mw = num("mw")?;
+    q.depth_km = num("depth_km")?;
+    q.setting = match s["setting"].as_str() {
+        Some("interface") => Setting::Interface,
+        Some("intraslab") => Setting::Intraslab,
+        _ => Setting::ShallowCrust,
+    };
+    q.strike = num("strike")?;
+    q.dip = num("dip")?;
+    q.rake = num("rake")?;
+    q.fault = FaultType::from_rake(q.rake);
+    q.hypo_along = num("hypo_along")?;
+    q.hypo_down = num("hypo_down")?;
+    q.rupture_km = Some([num("length_km")?, num("width_km")?]);
+    Ok(q)
+}
+
+fn report_shakemap(
+    stations: &Path,
+    q: &seismira_core::quake::Quake,
+    vs30_map: Option<&seismira_core::site::Vs30Map<Vec<u8>>>,
+    slab: Option<&seismira_core::slab::Slab2>,
+    csv: Option<String>,
+) -> Result<()> {
+    use seismira_core::intensity::jma_from_pgv_vector;
+    let q = *q;
     let Compared {
         fault: ours,
         rows,
@@ -635,14 +690,14 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         vs_src,
         slab_zone,
         region,
-    } = compare_shakemap(stations, &q, vs30_map.as_ref(), slab.as_ref())?;
+    } = compare_shakemap(stations, &q, vs30_map, slab)?;
 
     let to_i = |ln_pgv: f64| jma_from_pgv_vector(ln_pgv.exp());
     println!(
         "fay (bizim): L = {:.0} km, W = {:.0} km, Ztor = {:.1} km, hiposantr doğrultu konumu {:.2}",
         ours.length, ours.width, ours.ztor, q.hypo_along
     );
-    if setting != Setting::ShallowCrust {
+    if q.setting != seismira_core::quake::Setting::ShallowCrust {
         println!(
             "Parker vd. (2020), bölge {} (Slab2 zonu: {})",
             region.key(),
