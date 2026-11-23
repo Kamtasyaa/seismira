@@ -675,3 +675,25 @@ A satırı (ShakeMap mesafeleri) da −0,24, yani sapmanın çoğu GMPE'nin bu
 olaydaki olaylar arası teriminden (ShakeMap'in kendi biası da negatif).
 Kumamoto ve Puebla için ShakeMap kırılma modeli kısa (26 / 23 km); daha
 uzun yayımlanmış modeller var, değiştirilmedi.
+
+## Platform denemeleri (v0.1.0)
+
+### macOS x86_64 (2026-11-23, kullanıcı)
+
+- Makine: kendini "16 inç MacBook Pro, 10. nesil Intel" olarak tanıtıyor.
+  Gerçek 16 inç MacBook Pro (2019) 9. nesil Intel ve AMD GPU ile geldiği
+  için bu bir Hackintosh. Ekran kartı WhateverXe ile çalışıyor (Intel
+  Xe-LP için WhateverGreen'den türetilmiş Lilu eklentisi; Apple'ın Xe
+  sürücüsü olmadığından uyarlanmış sürücü paketi kurar,
+  https://github.com/b00t0x/WhateverXe/wiki). Kullanıcıya göre başka
+  uygulamalarda da pencere bozulmaları oluyor.
+- 2. çalıştırma: tüm hesaplar log'da sorunsuz (şehirler, ızgara, tsunami,
+  sıvılaşma, heyelan, hasar); görüntü normal.
+- 1. çalıştırma (kayıtlı pencere durumu yokken, pencere elle büyütüldü):
+  harita sağ paneli örttü, panel pencere dışına taştı. Fare hareketi ve
+  yeniden boyutlandırmadan sonra da düzelmedi. Yeniden üretilemedi.
+  Panel yerleşim kodu (egui 0.37) boyutları doğru sınırlıyor; sorunun
+  Metal yüzeyi ile pencere boyutu uyumsuzluğundan (GPU sürücüsü / yama)
+  kaynaklandığı düşünülüyor. Kodda değişiklik yapılmadı. Gerçek bir
+  Mac'te görülürse yeniden ele alınacak.
+- Windows: henüz denenmedi.

@@ -22,6 +22,14 @@ açılışta uyarı verir:
 - Linux: Terminalde "./seismira". Vulkan sürücüsü gerekir; eski
   donanımda OpenGL için: WGPU_BACKEND=gl ./seismira
 
+SORUN BİLDİRME
+--------------
+Her açılışta bir log dosyası yazılır (bir sonraki açılışta yenilenir):
+- Windows: %APPDATA%\seismira\data\seismira.log
+- macOS:   ~/Library/Application Support/seismira/seismira.log
+- Linux:   ~/.local/share/seismira/seismira.log
+Sorun bildirirken bu dosyayı ve bir ekran görüntüsünü ekleyin.
+
 LİSANSLAR
 ---------
 Kod: GPL-3.0-or-later (LICENSE). Veriler kendi lisanslarıyla gelir;
@@ -55,6 +63,14 @@ system warns on first launch:
       xattr -dr com.apple.quarantine .
 - Linux: run "./seismira" in a terminal. A Vulkan driver is required;
   for OpenGL on older hardware: WGPU_BACKEND=gl ./seismira
+
+REPORTING PROBLEMS
+------------------
+Every launch writes a log file (replaced on the next launch):
+- Windows: %APPDATA%\seismira\data\seismira.log
+- macOS:   ~/Library/Application Support/seismira/seismira.log
+- Linux:   ~/.local/share/seismira/seismira.log
+Attach this file and a screenshot when reporting a problem.
 
 LICENSES
 --------

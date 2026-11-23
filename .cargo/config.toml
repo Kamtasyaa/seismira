@@ -1,0 +1,5 @@
+# Windows: C çalışma kitaplığı (vcruntime140.dll) exe'ye statik gömülür.
+# Yoksa temiz bir Windows'ta "VCRUNTIME140.dll bulunamadı" hatası çıkar
+# (Visual C++ Redistributable kurulu değilse). 2026-11-23.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
