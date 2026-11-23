@@ -244,33 +244,37 @@ pub fn ui(
         .num_columns(2)
         .spacing([10.0, 8.0])
         .show(ui, |ui| {
-            ui.label(t("lat"));
+            let l = ui.label(t("lat")).id;
             if ui
                 .add(number(lang, &mut q.epicenter.1, -90.0..=90.0, 3, 0.01))
+                .labelled_by(l)
                 .changed()
             {
                 draft.has_epicenter = true;
             }
             ui.end_row();
-            ui.label(t("lon"));
+            let l = ui.label(t("lon")).id;
             if ui
                 .add(number(lang, &mut q.epicenter.0, -180.0..=180.0, 3, 0.01))
+                .labelled_by(l)
                 .changed()
             {
                 draft.has_epicenter = true;
             }
             ui.end_row();
 
-            ui.label(t("mw"));
+            let l = ui.label(t("mw")).id;
             // Kutunun aralığı geçerlilikten geniş: aralık dışı değer
             // girilebilir ama açıkça uyarılır ve engellenir.
-            ui.add(number(lang, &mut q.mw, 3.0..=9.9, 1, 0.02));
+            ui.add(number(lang, &mut q.mw, 3.0..=9.9, 1, 0.02))
+                .labelled_by(l);
             ui.end_row();
-            ui.label(t("depth"));
-            ui.add(number(lang, &mut q.depth_km, 0.0..=800.0, 0, 0.5));
+            let l = ui.label(t("depth")).id;
+            ui.add(number(lang, &mut q.depth_km, 0.0..=800.0, 0, 0.5))
+                .labelled_by(l);
             ui.end_row();
 
-            ui.label(t("setting"));
+            let l = ui.label(t("setting")).id;
             egui::ComboBox::from_id_salt("setting")
                 .selected_text(t(setting_key(q.setting)))
                 .show_ui(ui, |ui| {
@@ -281,10 +285,12 @@ pub fn ui(
                     ] {
                         ui.selectable_value(&mut q.setting, s, t(setting_key(s)));
                     }
-                });
+                })
+                .response
+                .labelled_by(l);
             ui.end_row();
 
-            ui.label(t("fault"));
+            let l_fault = ui.label(t("fault")).id;
             let mut fault = q.fault;
             egui::ComboBox::from_id_salt("fault")
                 .selected_text(t(fault_key(fault)))
@@ -292,7 +298,9 @@ pub fn ui(
                     for f in [FaultType::StrikeSlip, FaultType::Normal, FaultType::Reverse] {
                         ui.selectable_value(&mut fault, f, t(fault_key(f)));
                     }
-                });
+                })
+                .response
+                .labelled_by(l_fault);
             if fault != q.fault {
                 q.fault = fault;
                 (q.dip, q.rake) = fault.default_dip_rake();
@@ -322,20 +330,24 @@ pub fn ui(
                 .num_columns(2)
                 .spacing([10.0, 8.0])
                 .show(ui, |ui| {
-                    ui.label(t("strike"));
-                    let r = ui.add(number(lang, &mut q.strike, 0.0..=360.0, 0, 1.0));
+                    let l = ui.label(t("strike")).id;
+                    let r = ui
+                        .add(number(lang, &mut q.strike, 0.0..=360.0, 0, 1.0))
+                        .labelled_by(l);
                     if r.changed() {
                         q.strike = q.strike.rem_euclid(360.0);
                     }
                     ui.end_row();
-                    ui.label(t("dip"));
-                    ui.add(number(lang, &mut q.dip, 0.0..=90.0, 0, 0.5));
+                    let l = ui.label(t("dip")).id;
+                    ui.add(number(lang, &mut q.dip, 0.0..=90.0, 0, 0.5))
+                        .labelled_by(l);
                     ui.end_row();
-                    ui.label(t("rake"));
+                    let l = ui.label(t("rake")).id;
                     // Hesap fay tipini kullanır; açı değişince tip ona uyar
                     // (CY14 tanımı), eğim olduğu gibi kalır.
                     if ui
                         .add(number(lang, &mut q.rake, -180.0..=180.0, 0, 1.0))
+                        .labelled_by(l)
                         .changed()
                     {
                         q.fault = FaultType::from_rake(q.rake);
@@ -351,7 +363,7 @@ pub fn ui(
                 .num_columns(2)
                 .spacing([10.0, 8.0])
                 .show(ui, |ui| {
-                    ui.label(t("hypo-along"));
+                    let l = ui.label(t("hypo-along")).id;
                     let mut pct = q.hypo_along * 100.0;
                     if ui
                         .add(
@@ -364,12 +376,13 @@ pub fn ui(
                                 .clamping(egui::SliderClamping::Edits)
                                 .suffix(" %"),
                         )
+                        .labelled_by(l)
                         .changed()
                     {
                         q.hypo_along = pct / 100.0;
                     }
                     ui.end_row();
-                    ui.label(t("hypo-down"));
+                    let l = ui.label(t("hypo-down")).id;
                     let mut pct = q.hypo_down * 100.0;
                     if ui
                         .add(
@@ -382,6 +395,7 @@ pub fn ui(
                                 .clamping(egui::SliderClamping::Edits)
                                 .suffix(" %"),
                         )
+                        .labelled_by(l)
                         .changed()
                     {
                         q.hypo_down = pct / 100.0;
@@ -389,9 +403,9 @@ pub fn ui(
                     ui.end_row();
                     // Kırılma boyutu: otomatik (WC94) ya da elle. Elle'ye
                     // geçince o anki otomatik değerlerle başlar.
-                    ui.label(t("rupture-manual"));
+                    let l = ui.label(t("rupture-manual")).id;
                     let mut manual = q.rupture_km.is_some();
-                    if ui.checkbox(&mut manual, "").changed() {
+                    if ui.checkbox(&mut manual, "").labelled_by(l).changed() {
                         q.rupture_km = manual.then(|| {
                             let auto = Fault::from_quake(&Quake {
                                 rupture_km: None,
@@ -403,11 +417,13 @@ pub fn ui(
                     ui.end_row();
                     if let Some([l, w]) = &mut q.rupture_km {
                         let (max_l, max_w) = seismira_core::quake::limits::RUPTURE_MAX_KM;
-                        ui.label(t("rupture-length"));
-                        ui.add(number(lang, l, 1.0..=max_l, 0, 1.0).suffix(" km"));
+                        let id = ui.label(t("rupture-length")).id;
+                        ui.add(number(lang, l, 1.0..=max_l, 0, 1.0).suffix(" km"))
+                            .labelled_by(id);
                         ui.end_row();
-                        ui.label(t("rupture-width"));
-                        ui.add(number(lang, w, 1.0..=max_w, 0, 0.5).suffix(" km"));
+                        let id = ui.label(t("rupture-width")).id;
+                        ui.add(number(lang, w, 1.0..=max_w, 0, 0.5).suffix(" km"))
+                            .labelled_by(id);
                         ui.end_row();
                     }
                 });
@@ -486,7 +502,6 @@ mod preset_tests {
                 preset: Some(p.id.clone()),
             };
             let mut h = egui_kittest::Harness::builder()
-                .with_accessibility_check(false)
                 .with_context_setup(|ctx| {
                     crate::fonts::install(ctx, &crate::paths::assets_dir(), Lang::Tr);
                 })
