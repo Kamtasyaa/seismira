@@ -52,23 +52,24 @@ sonuçlar gerçek depremlerle karşılaştırılır (`docs/dogrulama.md`).
 Every formula comes from its published source with unit tests; results
 are validated against real earthquakes (`docs/dogrulama.md`).
 
-Durum: Faz 10 (kalite, senaryolar, erişilebilirlik, paketleme). İlk
-indirilebilir sürüm hazırlanıyor.
-Status: phase 10 (quality, scenarios, accessibility, packaging). The
-first downloadable release is being prepared.
+Durum: ilk sürüm **v0.1.0** yayımlandı (2026-11-23). Geliştirme sürüyor.
+Status: first release **v0.1.0** is out (2026-11-23). Development
+continues.
 
 ## İndirme / Download
 
-Hazır paketler (Windows, macOS, Linux) [Sürümler / Releases](https://github.com/Kamtasyaa/seismira/releases)
-sayfasından indirilecek. Arşivi açıp `seismira` dosyasını çalıştırmanız
+Hazır paketler (Windows, macOS Apple Silicon / Intel, Linux):
+[Sürümler / Releases](https://github.com/Kamtasyaa/seismira/releases/latest)
+(her biri ~690 MB, açılınca ~730 MB). Arşivi açıp `seismira` dosyasını çalıştırmanız
 yeterli; ayrıntılar arşivdeki `KURULUM.txt` dosyasında.
 
 Uygulama **imzasızdır** (kod imzalama ücretli): Windows'ta "Ek bilgi →
 Yine de çalıştır", macOS'ta Sistem Ayarları → Gizlilik ve Güvenlik →
 "Yine de Aç".
 
-Prebuilt packages for Windows, macOS and Linux will be on the Releases
-page. The app is **unsigned**: on Windows choose "More info → Run
+Prebuilt packages for Windows, macOS and Linux are on the
+[Releases](https://github.com/Kamtasyaa/seismira/releases/latest) page
+(~690 MB each). The app is **unsigned**: on Windows choose "More info → Run
 anyway"; on macOS use System Settings → Privacy & Security → "Open
 Anyway". See `KURULUM.txt` in the archive.
 
