@@ -356,3 +356,24 @@ Lisans kuralları:
   bakan 830 248 hücreden ~10 km arayla 96 661 nokta, her birinde derinlik ve
   en yakın şehir (cities15000). Türkiye 787, Japonya 2128 nokta.
 
+
+## Dağıtım paketi (Faz 10 adım 7, 2026-11-23)
+
+- Kod imzalama YOK (kullanıcı kararı: ücretli). İlk açılış uyarısı için
+  packaging/KURULUM.txt (TR/EN): Windows "Yine de çalıştır", macOS
+  Gizlilik ve Güvenlik → "Yine de Aç" ya da `xattr -dr com.apple.quarantine`.
+- Veri paketi: `python3 scripts/package_data.py <sürüm>` →
+  dist/seismira-data-<sürüm>.tar.zst. Açık liste (betikte, her dosyanın
+  SOURCES.toml kimliğiyle). v0.1.0: 17 dosya, 347 MB, arşiv 336 MB, sha256
+  36d922ea…732f. Girmeyenler: heyelan (ls_static: GLiM izni yok), Fan WTD
+  ve onunla üretilmiş sıvılaşma (izin bekleniyor; pakette sıvılaşma KIYI
+  modeli, `liq-static --coastal`, 75 s), GEM (ayrı, CC BY-NC-SA),
+  doğrulama / test / ham veri.
+- Sürüm iş akışı: .github/workflows/release.yml ("v*" etiketi ya da elle).
+  İkililer: linux-x86_64 (ubuntu-22.04, glibc 2.35), windows-x86_64,
+  macos-arm64, macos-x86_64. Paketleme işi veri paketini `data-v0.1.0`
+  sürümünün ekinden indirir, SHA256 + MANIFEST ile doğrular, assets
+  (fetch_fonts.py ile CJK dahil) + LICENSE + KURULUM.txt ekler; Linux
+  tar.gz, diğerleri zip; TASLAK sürüm oluşturur.
+- BEKLEYEN (kullanıcı): veri paketinin `data-v0.1.0` sürümüne yüklenmesi
+  (336 MB, herkese açık depo) ve ilk sürüm etiketi.

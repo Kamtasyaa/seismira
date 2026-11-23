@@ -26,3 +26,6 @@
 /data/gem/
 
 __pycache__/
+
+# Paketleme çıktısı (scripts/package_data.py, sürüm arşivleri).
+/dist/

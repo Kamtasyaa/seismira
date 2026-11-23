@@ -1,0 +1,110 @@
+name: Sürüm paketleri
+
+# Üç platform için dağıtım arşivleri (Faz 10 adım 7, docs/arayuz.md).
+# Tetikleme: "v*" etiketi itilince ya da elle (Actions → Run workflow).
+# Sonuç TASLAK sürümdür; yayımlamak elle yapılır.
+#
+# Veri paketi (scripts/package_data.py) depoda değil: bir kez yerelde
+# üretilip ayrı bir sürüme ek olarak yüklenir ve burada SHA256 ile
+# doğrulanır. Veri değişince yeni paket yüklenir ve aşağıdaki iki değer
+# güncellenir.
+#
+# Uygulama İMZASIZ (kullanıcı kararı 2026-11-23: kod imzalama ücretli);
+# ilk açılış uyarısı için packaging/KURULUM.txt.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Sürüm etiketi (ör. v0.1.0)"
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+  DATA_TAG: data-v0.1.0
+  DATA_FILE: seismira-data-v0.1.0.tar.zst
+  DATA_SHA256: 36d922ea60f5f57fa681fa3f736f4106edc9b02118a697dcb035f797da9f732f
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Derle (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Eski glibc (2.35): yeni dağıtımlarda da çalışsın.
+          - { name: linux-x86_64, os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, exe: seismira }
+          - { name: windows-x86_64, os: windows-latest, target: x86_64-pc-windows-msvc, exe: seismira.exe }
+          - { name: macos-arm64, os: macos-latest, target: aarch64-apple-darwin, exe: seismira }
+          - { name: macos-x86_64, os: macos-latest, target: x86_64-apple-darwin, exe: seismira }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+      - run: cargo build --release --locked -p seismira-app --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bin-${{ matrix.name }}
+          path: target/${{ matrix.target }}/release/${{ matrix.exe }}
+          if-no-files-found: error
+
+  package:
+    name: Paketle ve taslak sürüm
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Yazı tipleri (CJK dahil, SHA256 doğrulamalı)
+        run: python3 scripts/fetch_fonts.py
+      - name: Veri paketi
+        run: |
+          gh release download "$DATA_TAG" --pattern "$DATA_FILE" --dir dist
+          echo "$DATA_SHA256  dist/$DATA_FILE" | sha256sum --check
+          mkdir -p dist/common
+          tar --zstd -xf "dist/$DATA_FILE" -C dist/common
+          (cd dist/common && sha256sum --check --quiet data/MANIFEST.sha256)
+          cp -r assets dist/common/
+          cp LICENSE packaging/KURULUM.txt dist/common/
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: bin-*
+          path: dist/bin
+      - name: Arşivler
+        run: |
+          cd dist
+          for d in bin/bin-*; do
+            name="${d#bin/bin-}"
+            pkg="seismira-$TAG-$name"
+            mkdir -p "$pkg"
+            cp -r common/. "$pkg/"
+            cp "$d"/* "$pkg/"
+            chmod +x "$pkg/seismira" 2>/dev/null || true
+            case "$name" in
+              linux-*) tar -czf "$pkg.tar.gz" "$pkg" ;;
+              *) zip -qr "$pkg.zip" "$pkg" ;;
+            esac
+            rm -rf "$pkg"
+          done
+          sha256sum seismira-*.tar.gz seismira-*.zip > SHA256SUMS.txt
+          ls -la
+      - name: Taslak sürüm
+        run: |
+          gh release create "$TAG" --draft --title "Seismira $TAG" \
+            --notes "İmzasız derleme; kurulum ve ilk açılış uyarısı için arşivdeki KURULUM.txt. Unsigned build; see KURULUM.txt in the archive." \
+            dist/seismira-*.tar.gz dist/seismira-*.zip dist/SHA256SUMS.txt

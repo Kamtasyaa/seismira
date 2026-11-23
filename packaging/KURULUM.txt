@@ -1,0 +1,66 @@
+Seismira — deprem simülatörü (eğitim amaçlı)
+=============================================
+
+Bu bir eğitim simülasyonudur. Gerçek deprem bilgisi için AFAD, Kandilli,
+JMA veya USGS gibi resmi kurumları takip edin.
+
+KURULUM
+-------
+Arşivi bir klasöre açın. "seismira" (Windows'ta "seismira.exe") dosyası,
+"data" ve "assets" klasörleriyle AYNI klasörde kalmalıdır. İnternet
+gerekmez.
+
+Uygulama İMZASIZDIR (kod imzalama ücretlidir). İşletim sistemi ilk
+açılışta uyarı verir:
+
+- Windows: "Windows bilgisayarınızı korudu" penceresinde "Ek bilgi" →
+  "Yine de çalıştır".
+- macOS: "açılamıyor / geliştirici doğrulanamıyor" uyarısından sonra
+  Sistem Ayarları → Gizlilik ve Güvenlik → en altta "Yine de Aç". Ya da
+  Terminal'de, açtığınız klasörde:
+      xattr -dr com.apple.quarantine .
+- Linux: Terminalde "./seismira". Vulkan sürücüsü gerekir; eski
+  donanımda OpenGL için: WGPU_BACKEND=gl ./seismira
+
+LİSANSLAR
+---------
+Kod: GPL-3.0-or-later (LICENSE). Veriler kendi lisanslarıyla gelir;
+listesi ve atıflar uygulamada Yardım → "Veri kaynakları ve lisanslar"
+penceresinde ve data/SOURCES.toml dosyasındadır. Bu pakette heyelan
+katmanı ve GEM hasar verisi YOKTUR (lisans / ayrı paket).
+
+Kaynak kod: https://github.com/Kamtasyaa/seismira
+
+
+Seismira — earthquake simulator (for education)
+===============================================
+
+This is an educational simulation. For real earthquake information
+follow official agencies such as AFAD, Kandilli, JMA or USGS.
+
+INSTALL
+-------
+Extract the archive into a folder. Keep "seismira" ("seismira.exe" on
+Windows) in the SAME folder as the "data" and "assets" folders. No
+internet connection is needed.
+
+The application is UNSIGNED (code signing costs money). The operating
+system warns on first launch:
+
+- Windows: in "Windows protected your PC" click "More info" →
+  "Run anyway".
+- macOS: after the "cannot be opened / developer cannot be verified"
+  warning, open System Settings → Privacy & Security → "Open Anyway" at
+  the bottom. Or, in Terminal inside the extracted folder:
+      xattr -dr com.apple.quarantine .
+- Linux: run "./seismira" in a terminal. A Vulkan driver is required;
+  for OpenGL on older hardware: WGPU_BACKEND=gl ./seismira
+
+LICENSES
+--------
+Code: GPL-3.0-or-later (LICENSE). Data ships under its own licenses; the
+list and attributions are in the app under Help → "Data sources and
+licenses" and in data/SOURCES.toml. This package does NOT include the
+landslide layer or GEM damage data (license / separate package).
+
+Source code: https://github.com/Kamtasyaa/seismira
