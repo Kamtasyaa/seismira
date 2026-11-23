@@ -210,7 +210,7 @@ pub fn ui(
         let label = selected.map_or_else(|| t("scenario-custom"), |p| lang.t(&p.name_key()));
         let mut chosen = None;
         ui.horizontal(|ui| {
-            ui.label(t("scenario"));
+            let label_id = ui.label(t("scenario")).id;
             egui::ComboBox::from_id_salt("scenario")
                 .selected_text(label)
                 .width(ui.available_width())
@@ -221,7 +221,9 @@ pub fn ui(
                             chosen = Some(p);
                         }
                     }
-                });
+                })
+                .response
+                .labelled_by(label_id);
         });
         if let Some(p) = chosen {
             draft.quake = p.quake;
@@ -355,6 +357,11 @@ pub fn ui(
                         .add(
                             egui::Slider::new(&mut pct, 0.0..=100.0)
                                 .integer()
+                                // Yalnızca kullanıcı oynatınca yuvarla: varsayılan
+                                // (Always) mevcut değeri her karede tam sayıya
+                                // yazıp "değişti" sayıyordu; hazır senaryo
+                                // (ör. %44,9) "Özel"e düşüyordu (2026-11-23).
+                                .clamping(egui::SliderClamping::Edits)
                                 .suffix(" %"),
                         )
                         .changed()
@@ -368,6 +375,11 @@ pub fn ui(
                         .add(
                             egui::Slider::new(&mut pct, 0.0..=100.0)
                                 .integer()
+                                // Yalnızca kullanıcı oynatınca yuvarla: varsayılan
+                                // (Always) mevcut değeri her karede tam sayıya
+                                // yazıp "değişti" sayıyordu; hazır senaryo
+                                // (ör. %44,9) "Özel"e düşüyordu (2026-11-23).
+                                .clamping(egui::SliderClamping::Edits)
                                 .suffix(" %"),
                         )
                         .changed()
@@ -451,4 +463,90 @@ pub fn ui(
     ui.add_space(8.0);
     ui.label(RichText::new(t("ranges-note")).small().weak());
     action
+}
+
+#[cfg(test)]
+mod preset_tests {
+    use super::*;
+    use egui_kittest::kittest::Queryable;
+
+    /// Hazır senaryo seçildikten sonraki karelerde hiçbir widget depremi
+    /// kendiliğinden değiştirmemeli (aksi hâlde seçim "Özel"e düşer).
+    #[test]
+    fn senaryo_secimi_kareler_boyunca_korunur() {
+        let path = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/scenarios/scenarios.json"
+        ));
+        let presets = crate::scenarios::load(path).unwrap();
+        for p in &presets {
+            let draft = Draft {
+                quake: p.quake,
+                has_epicenter: true,
+                preset: Some(p.id.clone()),
+            };
+            let mut h = egui_kittest::Harness::builder()
+                .with_accessibility_check(false)
+                .with_context_setup(|ctx| {
+                    crate::fonts::install(ctx, &crate::paths::assets_dir(), Lang::Tr);
+                })
+                .build_ui_state(
+                    |ui, draft: &mut Draft| {
+                        let issues = seismira_core::quake::validate(&draft.quake);
+                        super::ui(ui, Lang::Tr, draft, &presets, None, &issues, true, false);
+                    },
+                    draft,
+                );
+            h.run();
+            h.get_by_label("İleri seviye").click();
+            for _ in 0..3 {
+                h.step();
+            }
+            let draft = h.state();
+            assert_eq!(draft.quake, p.quake, "{}: deprem değişti", p.id);
+            assert_eq!(draft.preset.as_deref(), Some(p.id.as_str()), "{}", p.id);
+        }
+    }
+
+    /// Gerçek tıklama: liste açılır, senaryo seçilir, birkaç kare sonra
+    /// seçim ve değerler korunur.
+    #[test]
+    fn senaryo_tiklamayla_secilir() {
+        let path = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/scenarios/scenarios.json"
+        ));
+        let presets = crate::scenarios::load(path).unwrap();
+        let mut h = egui_kittest::Harness::builder()
+            .with_accessibility_check(false)
+            .with_size([420.0, 900.0])
+            .with_context_setup(|ctx| {
+                crate::fonts::install(ctx, &crate::paths::assets_dir(), Lang::Tr);
+            })
+            .build_ui_state(
+                |ui, draft: &mut Draft| {
+                    let issues = seismira_core::quake::validate(&draft.quake);
+                    super::ui(ui, Lang::Tr, draft, &presets, None, &issues, true, false);
+                },
+                Draft::default(),
+            );
+        h.run();
+        h.get_by_label("İleri seviye").click();
+        h.run();
+        h.get_by_label("Hazır senaryo").click();
+        h.run();
+        h.get_by_label("2010 Maule (Şili), Mw 8,8").click();
+        for _ in 0..5 {
+            h.step();
+        }
+        let maule = presets.iter().find(|p| p.id == "maule2010").unwrap();
+        let d = h.state();
+        assert_eq!(
+            d.preset.as_deref(),
+            Some("maule2010"),
+            "seçim düştü: {:?}",
+            d.quake
+        );
+        assert_eq!(d.quake, maule.quake);
+    }
 }

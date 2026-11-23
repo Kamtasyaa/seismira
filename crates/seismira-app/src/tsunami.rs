@@ -176,7 +176,10 @@ impl TsunamiResult {
             e.category = e.category.max(c.category);
         }
         let mut v: Vec<RegionArrival> = by.into_values().collect();
-        v.sort_by(|a, b| a.t.total_cmp(&b.t));
+        // Eşit varışta ada göre: HashMap sırası her çağrıda değişir ve
+        // bildirim metni her karede yeniden kurulduğu için liste titriyordu
+        // (2026-11-23, kullanıcı ekran kaydı).
+        v.sort_by(|a, b| a.t.total_cmp(&b.t).then_with(|| a.region.cmp(&b.region)));
         v
     }
 }
@@ -426,6 +429,35 @@ mod tests {
             height: None,
             eta_s: 0.0,
             place: None,
+        }
+    }
+
+    #[test]
+    fn il_varislari_sirasi_kararli() {
+        let mut coast: Vec<CoastNote> = ["Maule", "Biobío", "Ñuble", "Araucanía", "Valparaíso"]
+            .iter()
+            .map(|r| CoastNote {
+                place: Some(("x".into(), (*r).into())),
+                eta_s: 600.0,
+                ..note(0.0, 0.0)
+            })
+            .collect();
+        coast[0].eta_s = 300.0;
+        let r = TsunamiResult {
+            assessment: trigger::Assessment::Threat { radius_km: None },
+            coast,
+            links: Vec::new(),
+        };
+        let names = |r: &TsunamiResult| -> Vec<String> {
+            r.region_arrivals().into_iter().map(|a| a.region).collect()
+        };
+        let first = names(&r);
+        assert_eq!(
+            first,
+            ["Maule", "Araucanía", "Biobío", "Valparaíso", "Ñuble"]
+        );
+        for _ in 0..20 {
+            assert_eq!(names(&r), first);
         }
     }
 

@@ -756,6 +756,8 @@ impl SeismiraApp {
             } else {
                 self.draft.quake.epicenter = c;
                 self.draft.has_epicenter = true;
+                // Merkez üssü değişti: artık hazır senaryo değil.
+                self.draft.preset = None;
                 self.cancel_sim();
             }
         }
