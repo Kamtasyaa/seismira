@@ -711,6 +711,7 @@ impl Drop for Job {
 
 /// Sarsıntı ızgarası: Vs30 penceresi bir kez okunur, önce kaba sonra ince
 /// geçiş gönderilir. Referans makinede Mw 8 için ince geçiş ~0,2 s.
+#[allow(clippy::too_many_arguments)]
 fn shake_grid(
     scenario: &Scenario,
     vs30: Option<&Vs30>,
