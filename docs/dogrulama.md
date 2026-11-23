@@ -574,7 +574,8 @@ Kumamoto sapmasının nedenini ayırmak için iki kontrol yapıldı.
    az; kayıp farkının küçük bir kısmı.
 2. Yapısal olmayan kayıp (neden a): GEM `vulnerability_nonstructural.xml`
    eğrileri bina eğrisine katıldı (docs/bilim.md 7.8; şimdilik yalnızca
-   Japonya ve Meksika dosyaları indirildi, diğer ülkeler sonraki oturumda).
+   Japonya ve Meksika dosyaları indirildi; aynı gün 215 ülkenin tümü
+   indirildi, gem.svul 8 MB, eşi olmayan sınıf 0).
 
    | Bölge | yalnızca yapısal % | bina (yapısal + yapısal olmayan) % | gözlenen % |
    |---|---|---|---|
@@ -583,9 +584,11 @@ Kumamoto sapmasının nedenini ayırmak için iki kontrol yapıldı.
    | Puebla | 1,94 | 2,20 (0,76–5,74) | etkilenen ~0,6 |
    | Ciudad de México | 1,14 | 1,51 (0,59–4,03) | etkilenen 0,2–0,7 |
    | Edo. de México | 0,21 | 0,39 (0,14–1,11) | etkilenen 0,14 |
-   | California | 0,02 | 0,02 (yapısal olmayan dosyası henüz yok) | — |
+   | California | 0,02 | 0,04 (0,02–0,07) | — |
 
    Kumamoto artık gözlenen aralığın İÇİNDE (alt sınıra yakın). Meksika'da
    yapısal olmayan eğri yapısala yakın olduğundan değişim küçük; model
-   haber kaynaklı sayılara göre hâlâ birkaç kat fazla (gözlem zayıf,
-   CENAPRED raporuyla yeniden bakılacak). Ayar YAPILMADI.
+   haber kaynaklı sayılara göre hâlâ birkaç kat fazla (gözlem zayıf).
+   CENAPRED "Impacto socioeconómico 2017" raporu (cenapred.gob.mx ve
+   cenapred.unam.mx, 415-IMPACTO_SOCIOECONOMICO_2017.PDF) betiğe 403
+   veriyor; kullanıcıdan tarayıcıyla indirmesi istendi. Ayar YAPILMADI.

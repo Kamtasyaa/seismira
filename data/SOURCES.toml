@@ -190,11 +190,11 @@ id = "usgs-global-vs30-2026"
 name = "The U.S. Geological Survey Global Vs30 Mosaic (medyan + log standart sapma, 30″)"
 url = "https://doi.org/10.5066/P1NV6UNM"
 license = "CC0-1.0"
-attribution = "U.S. Geological Survey, 2026, The U.S. Geological Survey Global Vs30 Mosaic: U.S. Geological Survey data release, doi:10.5066/P1NV6UNM. Yöntem: Heath, D.C., Wald, D.J., Worden, C.B., Thompson, E.M., Smoczyk, G.M. (2020). A Global Hybrid VS30 Map with a Topographic Slope-Based Default and Regional Map Insets. Earthquake Spectra 36(3), 1570-1584."
+attribution = "U.S. Geological Survey, 2026, The U.S. Geological Survey Global Vs30 Mosaic: U.S. Geological Survey data release, doi:10.5066/P1NV6UNM. Yöntem: Heath, D.C., Wald, D.J., Worden, C.B., Thompson, E.M., Smoczyk, G.M. (2020). A Global Hybrid VS30 Map with a Topographic Slope-Based Default and Regional Map Insets. Earthquake Spectra 36(3), 1570-1584. Japonya bölgesi: J-SHIS 表層地盤データ (NIED, 地震ハザードステーション, https://www.j-shis.bosai.go.jp/); 松岡昌志・若松加寿江 (2008) 地形・地盤分類250mメッシュマップ全国版に基づく地盤のゆれやすさデータ, 産業技術総合研究所; 若松加寿江・松岡昌志 (2013) 全国統一基準による地形・地盤分類250mメッシュマップの構築とその利用, 地震工学会誌 18, 35-38."
 modified = true            # u8 kuantalama (log/doğrusal), 2°×2° döşeme, zstd sıkıştırma, özel değer kodları
 license_checked = "2026-11-14"
 snapshot = "version.json map_version 1.0, generated 2025-08-20; vs30_mosaic_median_30c.tif sha256 00bd29b764f91cd085433e0c2ac07fd0c3607fe5ba5e3ebe98ae3afc08ee8cb3; vs30_mosaic_sd_30c.tif sha256 4e752c232ff0af65d2619683c7a3d16bd2c7191575b2768c0460c271290a4392; version.json sha256 1c22b760b6764169b53ecacca730e052af4daa7daeb98b396301c28a5fda005a"
-note = "ScienceBase betik indirmelerini engelliyor (403); dosyalar tarayıcıdan indirilip data/raw/vs30/ altına konur."
+note = "ScienceBase betik indirmelerini engelliyor (403); dosyalar tarayıcıdan indirilip data/raw/vs30/ altına konur. Japonya iç haritası J-SHIS'ten (usgs/earthquake-global_vs30 Japan/Makefile: Z-V2-JAPAN-AMP-VS400_M250); J-SHIS利用規約 第5条1項 işlenmiş ürünün serbest dağıtımına izin verir, 第4条 atıf ister (2026-11-23 okundu)."
 files = "data/vs30/vs30.sras (seismira-data vs30; scripts/prepare_data.py)"
 
 [[dataset]]

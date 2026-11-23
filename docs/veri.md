@@ -27,7 +27,7 @@
 | Diğer ülkeler bina stoku ve zafiyet | GEM Global Exposure Model v2026.0.0 (Adm1 özetleri) + Global Vulnerability Model (yapısal), GitHub, commit sabitli | CC BY-NC-SA 4.0, ticari YOK (LICENSE.txt, 2026-11-23); ayrı paket `data/gem/`, depoda değil |
 | İstanbul mahalle bazlı bina yaşı | İBB Açık Veri | İBB Açık Veri Lisansı |
 | Japonya bina yapım dönemi | e-Stat | CC BY uyumlu |
-| Japonya zemin ve heyelan | J-SHIS (NIED) | Kendi sözleşmesi, kontrol et |
+| Japonya zemin ve heyelan | J-SHIS (NIED) | Kendi sözleşmesi (J-SHIS利用規約); işlenmiş ürün dağıtılabilir, atıf şart (2026-11-23) |
 | ABD bina envanteri | FEMA Hazus / USACE NSI | Ücretsiz; lisans metnini kontrol et |
 | Meksika konut verisi | INEGI | Kaynak göstererek serbest |
 | Yazı tipleri | Noto | SIL OFL |
@@ -40,8 +40,8 @@ Paketler:
   batimetri, ESRM20.
 - GEM paketi (ayrı indirme): lisansı farklı olduğu için uygulamayla
   birlikte paketlenmez. Üretim: `python3 scripts/prepare_data.py --gem`
-  (scripts/fetch_gem.py ~96 MB ham, `seismira-data gem` → data/gem/gem.svul,
-  2,6 MB). Bölge kimlikleri Natural Earth'ten (kamu malı); ODbL verisiyle
+  (scripts/fetch_gem.py ~125 MB ham (yapısal + yapısal olmayan), `seismira-data gem` → data/gem/gem.svul,
+  8 MB). Bölge kimlikleri Natural Earth'ten (kamu malı); ODbL verisiyle
   birleştirilmez. Uygulama dosyayı bulursa Avrupa dışı bölge kartlarında
   ortalama hasar oranı gösterir, bulamazsa "GEM paketi kurulu değil" der.
 - Bölge paketleri (ayrı indirme): yüksek çözünürlüklü ızgaralar,
@@ -94,6 +94,25 @@ Lisans kuralları:
   eklenirken bütçe yeniden değerlendirilir.
 - Yedek: apps.usgs.gov/shakemap_geodata/vs30/global_vs30.grd (2020
   tabanlı, 610 MB, betikle inebiliyor, SD katmanı yok). Kullanılmıyor.
+
+## J-SHIS (Japonya zemini), Faz 9 kararı (2026-11-23)
+
+- USGS Vs30 mozaiği Japonya için ZATEN J-SHIS kullanıyor: usgs/
+  earthquake-global_vs30 deposu, `Japan/Makefile` (J-SHIS
+  `Z-V2-JAPAN-AMP-VS400_M250` şekil dosyası, 250 m, 128–149° D,
+  31–46° K; README: "The map of Japan is downloaded from
+  http://www.j-shis.bosai.go.jp/"). Bu yüzden J-SHIS ayrıca eklenmedi.
+  Daha yeni V3 (若松・松岡 2013) ile fark 30″ çözünürlükte küçük olur;
+  gerekirse Faz 11.
+- Lisans: J-SHIS利用規約 (https://www.j-shis.bosai.go.jp/agreement), açık
+  lisans DEĞİL. 第5条1項: veri düzenlenip işlenebilir, ürün serbestçe
+  dağıtılabilir; 第5条2項: verinin olduğu gibi (biçim dönüştürülmüş dahil)
+  kopyasının dağıtımı yasak; ürün SATILACAKSA j-shis@bosai.go.jp'ye
+  başvurulur. 第4条: atıf (表層地盤データ記述ファイル規約'ndaki kaynaklar).
+  Bizim vs30.sras'ımız mozaikten yeniden örneklenmiş, kuantalanmış bir
+  üründür (işlenmiş); atıf data/SOURCES.toml'a eklendi.
+- Kumamoto şiddet doğrulaması (docs/dogrulama.md Faz 9) Vs30 kaynaklı
+  sistematik sapma göstermedi (C − B = −0,02 ΔI).
 
 ## ESRM20 site modeli ve şehir zemini (2026-11-14)
 
