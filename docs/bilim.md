@@ -231,7 +231,18 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     GEM Global Vulnerability Model (ülke başına
     `vulnerability_structural.xml`, NRML 0.5; PGA / SA 0,3 / 0,6 / 1,0 s).
     Ayrıntılı (alt il) GEM verisi lisans başvurusu ister; kullanılmadı.
-  - Çıktı hasar durumu DEĞİL, ortalama yapısal KAYIP ORANI (yeniden yapım
+  - Bina eğrisi (2026-11-23): her sınıf için LR = s·LR_yapısal +
+    (1 − s)·LR_yapısal olmayan (`vulnerability_nonstructural.xml`, aynı
+    sınıf adı ve IMT; iki eğrinin düğüm birleşiminde, `gem` komutunda).
+    s = yeniden yapım değerinde yapısal pay, GEM ABD stokundan kullanım
+    başına (RES 0,215, COM 0,214, IND 0,157; Hazus maliyet ayrımı); diğer
+    ülkeler için VEKİL (VARSAYIM; ABD'de sınıflar arasında 0,14–0,24).
+    Eşi olmayan sınıf ve yapısal olmayan dosyası indirilmemiş ülke yalnızca
+    yapısal eğriyle kalır. İçerik (contents) kaybı dahil değil.
+    Gerekçe: Japonya'da yapısal olmayan kayıp orta şiddette yapısalın 2–13
+    katı (PGA 0,3–0,5 g); Kumamoto doğrulaması yalnızca yapısalla ×0,13–0,66
+    düşük kalıyordu.
+  - Çıktı hasar durumu DEĞİL, ortalama bina KAYIP ORANI (yeniden yapım
     değerine oran, 0–1): zafiyet fonksiyonu ortalaması, OpenQuake
     enterpolasyonuyla (üstten kırp, alttan 0, IML'de doğrusal). Kayıp
     oranının kendi değişkenliği (covLRs) kullanılmaz.
@@ -249,9 +260,8 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     Kanada'da Hazus sınıf adı (RES3A–F → RES3). Fonksiyonu bulunamayan
     değer %0,5 (Türkiye 764 milyar USD, Kanada 457 milyar USD: zafiyet
     dosyasında olmayan sınıflar; Türkiye zaten ESRM20 kullanır).
-  - Sonuç: Kumamoto 2016 benzeri (Mw 7,0) Kumamoto ili %0,8 (olası
-    0,4–1,5); doğrulama: docs/dogrulama.md Faz 9 (Kumamoto ×0,13–0,66,
-    Meksika birkaç kat fazla; ayar yok).
+  - Sonuç: 2016 Kumamoto dizisi (Mw 6,2 + 7,0) Kumamoto ili %2,7 (olası
+    1,6–4,4), gözlenen %2,0–10,0; doğrulama: docs/dogrulama.md Faz 9.
 
 ### 7.9 Sıvılaşma ve heyelan
 

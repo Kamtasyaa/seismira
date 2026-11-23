@@ -21,12 +21,14 @@ Sürümler SABİTLENMİŞTİR (commit'ler aşağıda). İlk indirmede SHA256 öz
 data/raw/gem/MANIFEST.sha256 dosyasına yazılır; sonraki çalıştırmalar
 dosyaları bu listeye göre doğrular.
 
-İndirilenler (data/raw/gem/, depoya girmez; ~100 MB):
+İndirilenler (data/raw/gem/, depoya girmez; ~125 MB):
 - exposure/World/summaries/Exposure_Summary_Adm1_Taxonomy.csv (Adm1 ×
   sınıf; bina sayısı, yeniden yapım değeri)
 - exposure/World/summaries/Vulnerability_mapping_country.csv (sınıf →
   zafiyet fonksiyonu, ağırlık)
-- vulnerability/<bölge>/<ülke>/vulnerability_structural.xml (215 ülke)
+- vulnerability/<bölge>/<ülke>/vulnerability_structural.xml ve
+  vulnerability_nonstructural.xml (215 ülke; yapısal olmayan ~26 MB,
+  2026-11-23'te eklendi)
 - her iki deponun LICENSE.txt, README.md dosyaları
 
 Çalıştırma (depo kökünden): python3 scripts/fetch_gem.py
@@ -73,7 +75,8 @@ def vulnerability_files() -> list[str]:
     paths = [
         t["path"]
         for t in tree["tree"]
-        if t["type"] == "blob" and t["path"].endswith("/vulnerability_structural.xml")
+        if t["type"] == "blob"
+        and t["path"].endswith(("/vulnerability_structural.xml", "/vulnerability_nonstructural.xml"))
     ]
     return ["LICENSE.txt", "README.md"] + sorted(paths)
 
@@ -96,6 +99,10 @@ def main() -> int:
             known[p] = h
     if known:
         wanted = sorted(known)
+        # Eski manifest (yalnızca yapısal): yapısal olmayan dosyalar eklenir.
+        if not any(p.endswith("vulnerability_nonstructural.xml") for p in known):
+            extra = [f"vulnerability/{p}" for p in vulnerability_files()]
+            wanted = sorted(set(wanted) | set(extra))
     else:
         wanted = [f"exposure/{p}" for p in EXPOSURE_FILES]
         wanted += [f"vulnerability/{p}" for p in vulnerability_files()]
@@ -108,11 +115,11 @@ def main() -> int:
             key, sub = p.split("/", 1)
             dst.write_bytes(download(key, sub))
         h = hashlib.sha256(dst.read_bytes()).hexdigest()
-        if known and known[p] != h:
+        if p in known and known[p] != h:
             print(f"SHA256 uyuşmuyor: {p}", file=sys.stderr)
             return 1
         lines.append(f"{h}  {p}")
-    if not known:
+    if len(lines) != len(known):
         MANIFEST.write_text("\n".join(lines) + "\n")
         print(f"{MANIFEST.relative_to(ROOT)} yazıldı ({len(lines)} dosya)")
     else:

@@ -553,3 +553,39 @@ Değerlendirme ve SAPMALAR (kullanıcıya bildirildi, 2026-11-23):
    `vulnerability_nonstructural`), Meksika için CENAPRED "Impacto
    socioeconómico" 2017 raporu (sonraki oturumda indirilecek), Kumamoto
    şiddet doğrulaması (NIED K-NET / JMA).
+
+### Ek (aynı gün): yapısal olmayan kayıp ve Kumamoto şiddeti
+
+Kumamoto sapmasının nedenini ayırmak için iki kontrol yapıldı.
+
+1. Şiddet (neden d): USGS ShakeMap atlas istasyon listesi
+   (`data/validation/kumamoto2016/`, 346 NIED K-NET/KiK-net istasyonu, iki
+   yatay kanal), ana şok Mw 7,0, 224/66, SS:
+   `seismira-data validate-shakemap data/validation/kumamoto2016/stationlist.json 130.7543 32.7906 10 7.0 224 66 SS --vs30 data/vs30/vs30.sras`
+
+   | Karşılaştırma | n | ort. ln(göz/tah) | std ln | ort. ΔI | \|ΔI\| < 1 |
+   |---|---|---|---|---|---|
+   | A: ShakeMap mesafeleri | 305 | −0,01 | 0,52 | −0,01 | %98 |
+   | B: bizim geometri | 305 | −0,06 | 0,55 | −0,04 | %97 |
+   | C: bizim geometri + bizim Vs30 | 305 | −0,08 | 0,55 | −0,06 | %97 |
+
+   Ölçütler sağlandı. Yakın alanda model düşük: Rrup 0–25 km ΔI +0,30 (11
+   istasyon), 25–50 km +0,13 (C). Hasarın yoğunlaştığı yerde PGV ~×1,2–1,4
+   az; kayıp farkının küçük bir kısmı.
+2. Yapısal olmayan kayıp (neden a): GEM `vulnerability_nonstructural.xml`
+   eğrileri bina eğrisine katıldı (docs/bilim.md 7.8; şimdilik yalnızca
+   Japonya ve Meksika dosyaları indirildi, diğer ülkeler sonraki oturumda).
+
+   | Bölge | yalnızca yapısal % | bina (yapısal + yapısal olmayan) % | gözlenen % |
+   |---|---|---|---|
+   | Kumamoto ili | 1,32 (0,70–2,38) | 2,68 (1,60–4,42) | 2,0–10,0 |
+   | Morelos | 5,72 | 6,03 (2,05–15,35) | — |
+   | Puebla | 1,94 | 2,20 (0,76–5,74) | etkilenen ~0,6 |
+   | Ciudad de México | 1,14 | 1,51 (0,59–4,03) | etkilenen 0,2–0,7 |
+   | Edo. de México | 0,21 | 0,39 (0,14–1,11) | etkilenen 0,14 |
+   | California | 0,02 | 0,02 (yapısal olmayan dosyası henüz yok) | — |
+
+   Kumamoto artık gözlenen aralığın İÇİNDE (alt sınıra yakın). Meksika'da
+   yapısal olmayan eğri yapısala yakın olduğundan değişim küçük; model
+   haber kaynaklı sayılara göre hâlâ birkaç kat fazla (gözlem zayıf,
+   CENAPRED raporuyla yeniden bakılacak). Ayar YAPILMADI.

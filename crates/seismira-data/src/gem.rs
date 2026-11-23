@@ -25,6 +25,9 @@
 //!   kez yazılmışsa ağırlıklar toplanıp 1'e ölçeklenir). ABD, Kanada ve
 //!   ABD topraklarında eşleme yok; `TAXONOMY_HAZUS` doğrudan fonksiyon
 //!   adıdır. Hazus RES3A–F alt sınıflarının fonksiyonu yoksa RES3 kullanılır.
+//! - Bina eğrisi: ülke klasöründe `vulnerability_nonstructural.xml` varsa
+//!   her sınıf için LR = s·yapısal + (1 − s)·yapısal olmayan ([`combine`],
+//!   s: [`StructuralShare`]); yoksa yalnızca yapısal.
 //! - Aynı içerikli fonksiyonlar (ülkeler arası) tek kayda indirilir.
 
 use anyhow::{Context, Result, bail};
@@ -106,6 +109,89 @@ pub fn read_vulnerability(xml: &str) -> Result<Vec<VulnFunction>> {
         });
     }
     Ok(out)
+}
+
+/// Yeniden yapım değerinde yapısal bileşenlerin payı, kullanım türüne göre.
+///
+/// Kaynak: GEM stok özetinde `COST_STRUCTURAL_USD` yalnızca ABD ve
+/// topraklarında dolu (Hazus maliyet ayrımı); diğer ülkeler için bu
+/// kullanım ortalamaları VEKİL olarak alınır (VARSAYIM; ABD'de sınıflar
+/// arasında 0,14–0,24, docs/bilim.md 7.8).
+struct StructuralShare {
+    res: f64,
+    com: f64,
+    ind: f64,
+}
+
+impl StructuralShare {
+    fn from_csv(path: &Path) -> Result<Self> {
+        let mut rdr = csv::Reader::from_path(path)?;
+        let h = rdr.headers()?.clone();
+        let col = |n: &str| h.iter().position(|x| x == n).context(n.to_string());
+        let (co, cs, cb) = (
+            col("OCCUPANCY")?,
+            col("COST_STRUCTURAL_USD")?,
+            col("BLDG_REPL_COST_USD")?,
+        );
+        let mut sum: HashMap<String, (f64, f64)> = HashMap::new();
+        for rec in rdr.records() {
+            let rec = rec?;
+            if rec[cs].is_empty() {
+                continue;
+            }
+            let e = sum.entry(rec[co].to_string()).or_default();
+            e.0 += rec[cs].parse::<f64>()?;
+            e.1 += rec[cb].parse::<f64>()?;
+        }
+        let get = |k: &str| -> Result<f64> {
+            let (s, b) = sum
+                .get(k)
+                .with_context(|| format!("{k}: yapısal değer yok"))?;
+            Ok(s / b)
+        };
+        Ok(Self {
+            res: get("RES")?,
+            com: get("COM")?,
+            ind: get("IND")?,
+        })
+    }
+
+    /// Fonksiyon adının son parçası kullanım türüdür ("…/RES", "…/COM4").
+    fn of(&self, name: &str) -> f64 {
+        let occ = name.rsplit('/').next().unwrap_or("");
+        if occ.starts_with("RES") {
+            self.res
+        } else if occ.starts_with("IND") {
+            self.ind
+        } else {
+            self.com
+        }
+    }
+}
+
+/// Bina (yapısal + yapısal olmayan) kayıp oranı eğrisi:
+/// LR = s·LR_yapısal + (1 − s)·LR_yapısal olmayan, iki eğrinin düğüm
+/// birleşiminde (her eğri OpenQuake kuralıyla değerlendirilir). Düğümler
+/// arasında doğrusal olduğundan kesin; tek fark, bir eğrinin ilk düğümünün
+/// altındaki sıfırdan sıçramanın komşu düğümler arasında rampaya dönmesi
+/// (ilk düğümde LR ~1e-8, ihmal edilebilir).
+fn combine(s_fn: &VulnFunction, ns_fn: &VulnFunction, share: f64) -> VulnFunction {
+    let mut iml: Vec<f32> = s_fn.iml.iter().chain(&ns_fn.iml).copied().collect();
+    iml.sort_by(f32::total_cmp);
+    iml.dedup();
+    let mean_lr = iml
+        .iter()
+        .map(|&x| {
+            let x = f64::from(x);
+            (share * s_fn.loss_ratio(x) + (1.0 - share) * ns_fn.loss_ratio(x)) as f32
+        })
+        .collect();
+    VulnFunction {
+        name: s_fn.name.clone(),
+        imt: s_fn.imt,
+        iml,
+        mean_lr,
+    }
 }
 
 /// Fonksiyon içeriği anahtarı (tekilleştirme için).
@@ -230,6 +316,12 @@ pub fn run(gem: &Path, regions: &Path, output: &Path) -> Result<()> {
     let built = crate::exposure::built_cells(&map)?;
     let reg = Regions::new(&infos, &built);
     let summaries = gem.join("exposure/World/summaries");
+    let shares = StructuralShare::from_csv(&summaries.join("Exposure_Summary_Adm1_Taxonomy.csv"))?;
+    println!(
+        "yapısal pay (GEM ABD stoku): RES {:.3}, COM {:.3}, IND {:.3}",
+        shares.res, shares.com, shares.ind
+    );
+    let (mut ns_combined, mut ns_missing) = (0usize, 0usize);
 
     // Zafiyet klasörleri: normalize ad → yol.
     let mut folders: HashMap<String, PathBuf> = HashMap::new();
@@ -319,7 +411,30 @@ pub fn run(gem: &Path, regions: &Path, output: &Path) -> Result<()> {
             let mut names = HashMap::new();
             if let Some(dir) = folders.get(&key) {
                 let xml = std::fs::read_to_string(dir.join("vulnerability_structural.xml"))?;
-                for f in read_vulnerability(&xml).with_context(|| dir.display().to_string())? {
+                let structural =
+                    read_vulnerability(&xml).with_context(|| dir.display().to_string())?;
+                let ns_path = dir.join("vulnerability_nonstructural.xml");
+                let nonstructural: HashMap<String, VulnFunction> = if ns_path.exists() {
+                    read_vulnerability(&std::fs::read_to_string(&ns_path)?)
+                        .with_context(|| ns_path.display().to_string())?
+                        .into_iter()
+                        .map(|f| (f.name.clone(), f))
+                        .collect()
+                } else {
+                    println!("  {id0}: yapısal olmayan zafiyet dosyası yok, yalnızca yapısal");
+                    HashMap::new()
+                };
+                for f in structural {
+                    let f = match nonstructural.get(&f.name) {
+                        Some(ns) if ns.imt == f.imt => {
+                            ns_combined += 1;
+                            combine(&f, ns, shares.of(&f.name))
+                        }
+                        _ => {
+                            ns_missing += 1;
+                            f
+                        }
+                    };
                     let idx = match by_content.get(&content_key(&f)) {
                         Some(&i) => i,
                         None => {
@@ -434,6 +549,10 @@ pub fn run(gem: &Path, regions: &Path, output: &Path) -> Result<()> {
     let mut w = std::io::BufWriter::new(std::fs::File::create(output)?);
     model.write(&mut w)?;
     drop(w);
+    println!(
+        "bina eğrisi (yapısal + yapısal olmayan): {ns_combined} fonksiyon; \
+         yalnızca yapısal (eşi yok): {ns_missing}"
+    );
     for (c, v) in &unmapped_by {
         println!(
             "  {c}: fonksiyonu bulunamayan sınıf {:.1} milyar USD",
@@ -465,6 +584,37 @@ mod tests {
         assert_eq!(norm("Ciudad de México"), "ciudaddemexico");
         assert_eq!(norm("Khorāsān-e Raẕavī"), "khorasanerazavi");
         assert_eq!(norm("Talo'fo'fo"), "talofofo");
+    }
+
+    #[test]
+    fn bina_egrisi_agirlikli_toplam() {
+        let s = VulnFunction {
+            name: "X/H:1/RES".into(),
+            imt: FragImt::Pga,
+            iml: vec![0.2, 1.0],
+            mean_lr: vec![0.0, 0.8],
+        };
+        let ns = VulnFunction {
+            name: "X/H:1/RES".into(),
+            imt: FragImt::Pga,
+            iml: vec![0.1, 0.6, 1.0],
+            mean_lr: vec![0.1, 0.5, 1.0],
+        };
+        let c = combine(&s, &ns, 0.25);
+        assert_eq!(c.iml, vec![0.1, 0.2, 0.6, 1.0]);
+        for x in [0.15, 0.2, 0.4, 0.6, 0.8, 1.0, 2.0] {
+            let want = 0.25 * s.loss_ratio(x) + 0.75 * ns.loss_ratio(x);
+            assert!((c.loss_ratio(x) - want).abs() < 1e-6, "{x}");
+        }
+        assert_eq!(c.loss_ratio(0.05), 0.0);
+        let sh = StructuralShare {
+            res: 0.2,
+            com: 0.3,
+            ind: 0.15,
+        };
+        assert_eq!(sh.of("C1H/HC/RES3"), 0.2);
+        assert_eq!(sh.of("CR/LFINF/H:2/IND"), 0.15);
+        assert_eq!(sh.of("C1H/HC/COM4"), 0.3);
     }
 
     #[test]
