@@ -86,7 +86,16 @@ Ana ayarlar:
 
 Görünüm:
 - Şiddet ölçeği: Shindo / MMI / ikisi birlikte (Faz 10'a ertelendi,
-  2026-11-20; MMI şimdilik şehir kartında)
+  2026-11-20; MMI şimdilik şehir kartında). UYGULANDI (Faz 10 adım 5,
+  2026-11-23): Görünüm → Şiddet ölçeği: JMA Shindo (varsayılan) / MMI
+  (kaydedilir). MMI seçilince harita ızgarası, şehir kutuları (Roma
+  rakamı) ve sağ alttaki ölçek MMI olur: hücre / şehir değeri Worden vd.
+  (2012), büyük bileşen PGV'den (mesafe katsayısı 0); renkler USGS
+  ShakeMap ArcGIS servisi katman "mi" (crates/seismira-app/src/mmi_style.rs).
+  I gösterilmez, II–III aynı renk. Kademeli yükselme Shindo ile aynı anda
+  tamamlanır. Bölge dolgusu, uyarılar ve bildirimler HER ZAMAN Shindo
+  (erken uyarı JMA ölçütü); açıklama başlığı bunu söyler. "İkisi birlikte"
+  YAPILMADI (kutular iki kat yer kaplar). Geliştirme: `SEISMIRA_SCALE=mmi`.
 - Katmanlar: bölge sınırı vurgusu, sıvılaşma, heyelan, tsunami
 - Simülasyon sonunda fay izini göster (varsayılan: kapalı). UYGULANDI
   (Faz 5, 2026-11-20): Görünüm menüsünde, kaydedilir; zaman çizgisinin

@@ -22,9 +22,9 @@ pub fn color(s: Shindo) -> Color32 {
     }
 }
 
-/// Kutu üzerindeki rakamın rengi: açık zeminde siyah, koyu zeminde beyaz.
-pub fn text_color(s: Shindo) -> Color32 {
-    let c = color(s);
+/// Verilen zemin rengi üzerinde okunur yazı rengi: açık zeminde siyah,
+/// koyu zeminde beyaz.
+pub fn text_on(c: Color32) -> Color32 {
     // Algısal parlaklık (ITU-R BT.601 ağırlıkları).
     let l = 0.299 * f32::from(c.r()) + 0.587 * f32::from(c.g()) + 0.114 * f32::from(c.b());
     if l > 150.0 {
@@ -36,10 +36,20 @@ pub fn text_color(s: Shindo) -> Color32 {
 
 pub const BOX_SIZE: egui::Vec2 = vec2(20.0, 18.0);
 
+/// Etikete göre kutu boyutu (MMI "VIII" Shindo "5-"den geniş).
+pub fn box_size(label: &str) -> egui::Vec2 {
+    vec2(BOX_SIZE.x.max(8.0 + 7.0 * label.len() as f32), BOX_SIZE.y)
+}
+
 /// Merkezi `center` olan Shindo kutusu.
 pub fn draw_box(painter: &egui::Painter, center: Pos2, s: Shindo) -> Rect {
-    let rect = Rect::from_center_size(center, BOX_SIZE);
-    painter.rect_filled(rect, 3.0, color(s));
+    draw_labeled_box(painter, center, color(s), s.label())
+}
+
+/// Merkezi `center` olan renkli etiket kutusu (Shindo ya da MMI).
+pub fn draw_labeled_box(painter: &egui::Painter, center: Pos2, fill: Color32, label: &str) -> Rect {
+    let rect = Rect::from_center_size(center, box_size(label));
+    painter.rect_filled(rect, 3.0, fill);
     painter.rect_stroke(
         rect,
         3.0,
@@ -49,9 +59,9 @@ pub fn draw_box(painter: &egui::Painter, center: Pos2, s: Shindo) -> Rect {
     painter.text(
         rect.center(),
         Align2::CENTER_CENTER,
-        s.label(),
+        label,
         FontId::proportional(12.5),
-        text_color(s),
+        text_on(fill),
     );
     rect
 }

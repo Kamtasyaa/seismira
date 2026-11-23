@@ -111,7 +111,17 @@ impl GridGpu {
     }
 
     /// Izgarayı dokuya yükler (öncekinin yerine).
-    pub fn upload(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, grid: &ShakeGrid) {
+    /// `scale`: Shindo ya da MMI (+ Mw). MMI'da doku sınıfı MMI − 1
+    /// (Worden vd. 2012, hücrenin büyük bileşen PGV'sinden; mesafe katsayısı
+    /// sıfır olduğundan Rrup gerekmez) ve bir sınıf yükselme süresi, son
+    /// sınıfa Shindo ile aynı anda varacak şekilde ölçeklenir.
+    pub fn upload(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        grid: &ShakeGrid,
+        (scale, mw): (crate::mmi_style::Scale, f64),
+    ) {
         let (w, h) = (grid.spec.width, grid.spec.height);
         let max = device.limits().max_texture_dimension_2d;
         if w > max || h > max {
@@ -124,11 +134,29 @@ impl GridGpu {
             .iter()
             .zip(&grid.t_s)
             .zip(&grid.rise)
-            .map(|((&c, &t), &rise)| {
+            .zip(&grid.pgv)
+            .map(|(((&c, &t), &rise), &pgv)| {
                 if c == NO_DATA {
-                    [-1.0, f32::INFINITY, 1.0, 0.0]
-                } else {
-                    [f32::from(c), t, rise, 0.0]
+                    return [-1.0, f32::INFINITY, 1.0, 0.0];
+                }
+                match scale {
+                    crate::mmi_style::Scale::Shindo => [f32::from(c), t, rise, 0.0],
+                    crate::mmi_style::Scale::Mmi => {
+                        if !pgv.is_finite() || pgv <= 0.0 {
+                            return [-1.0, f32::INFINITY, 1.0, 0.0];
+                        }
+                        // Rrup: C6 = 0 (bkz. seismira_core::mmi), değer etkisiz.
+                        let mmi = seismira_core::mmi::mmi_from_pgv_larger(f64::from(pgv), mw, 10.0);
+                        let idx = f32::from(crate::mmi_style::class(mmi) - 1);
+                        // Shindo c sınıfa c adımda (1'den başlayıp) varır;
+                        // MMI idx'e aynı sürede varsın.
+                        let rise = if idx >= 1.0 && c >= 1 {
+                            rise * f32::from(c) / idx
+                        } else {
+                            rise
+                        };
+                        [idx, t, rise, 0.0]
+                    }
                 }
             })
             .collect();

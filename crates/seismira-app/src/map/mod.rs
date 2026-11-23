@@ -62,6 +62,10 @@ pub struct MapWidget {
     gpu_ready: bool,
     /// GPU'ya yüklenmeyi bekleyen sarsıntı ızgarası (`Some(None)`: kaldır).
     grid_pending: Option<Option<Arc<ShakeGrid>>>,
+    /// Son verilen ızgara (ölçek değişince yeniden yüklemek için).
+    grid_current: Option<Arc<ShakeGrid>>,
+    /// Şiddet ölçeği ve (MMI için) Mw.
+    scale: (crate::mmi_style::Scale, f64),
     /// Yüklü ızgaranın geometrisi.
     grid_spec: Option<GridSpec>,
     /// Bu karede ızgara gösterilecekse simülasyon zamanı.
@@ -124,6 +128,8 @@ impl MapWidget {
             errors: Vec::new(),
             gpu_ready: false,
             grid_pending: None,
+            grid_current: None,
+            scale: (crate::mmi_style::Scale::Shindo, 0.0),
             grid_spec: None,
             grid_time: None,
             lines_pending: None,
@@ -146,7 +152,19 @@ impl MapWidget {
     /// Yeni sarsıntı ızgarası (ya da `None`: kaldır). Bir sonraki karede
     /// GPU'ya yüklenir.
     pub fn set_grid(&mut self, grid: Option<Arc<ShakeGrid>>) {
+        self.grid_current.clone_from(&grid);
         self.grid_pending = Some(grid);
+    }
+
+    /// Izgaranın gösterileceği şiddet ölçeği; MMI için depremin Mw'si
+    /// (Worden vd. 2012 büyüklük terimi). Değişince ızgara yeniden yüklenir.
+    pub fn set_intensity_scale(&mut self, scale: crate::mmi_style::Scale, mw: f64) {
+        if self.scale != (scale, mw) {
+            self.scale = (scale, mw);
+            if self.grid_current.is_some() {
+                self.grid_pending = Some(self.grid_current.clone());
+            }
+        }
     }
 
     /// Bu karede ızgara gösterilecekse simülasyon zamanı.
@@ -207,7 +225,7 @@ impl MapWidget {
                 .get_mut::<grid_gpu::GridGpu>()
                 .expect("az önce eklendi");
             match grid {
-                Some(grid) => g.upload(&rs.device, &rs.queue, &grid),
+                Some(grid) => g.upload(&rs.device, &rs.queue, &grid, self.scale),
                 None => g.loaded = None,
             }
             self.grid_spec = g.loaded.as_ref().map(|(_, s)| *s);
@@ -417,8 +435,20 @@ impl MapWidget {
         let (x1, y1) = mercator::to_unit(spec.west, south);
         let x1 = x1 + (east - spec.west) / 360.0;
         let mut colors = [[0.0; 4]; 10];
-        for (k, s) in Shindo::ALL.iter().enumerate() {
-            colors[k] = crate::shindo_style::color(*s).to_normalized_gamma_f32();
+        match self.scale.0 {
+            crate::mmi_style::Scale::Shindo => {
+                for (k, s) in Shindo::ALL.iter().enumerate() {
+                    colors[k] = crate::shindo_style::color(*s).to_normalized_gamma_f32();
+                }
+            }
+            // Doku sınıfı = MMI − 1 (I → 0, çizilmez).
+            crate::mmi_style::Scale::Mmi => {
+                for (k, c) in colors.iter_mut().enumerate() {
+                    if let Some(col) = crate::mmi_style::color(k as u8 + 1) {
+                        *c = col.to_normalized_gamma_f32();
+                    }
+                }
+            }
         }
         grid_gpu::GridUniforms {
             scale: [

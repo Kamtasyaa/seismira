@@ -9,6 +9,7 @@ mod fonts;
 mod ground_style;
 mod i18n;
 mod map;
+mod mmi_style;
 mod panel;
 mod paths;
 mod scenarios;

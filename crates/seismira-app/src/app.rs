@@ -31,6 +31,7 @@ const STORAGE_GROUND_FAILURE: &str = "ground_failure";
 const STORAGE_LANDSLIDE: &str = "landslide";
 const STORAGE_TSUNAMI: &str = "tsunami";
 const STORAGE_QUALITY: &str = "quality";
+const STORAGE_SCALE: &str = "intensity_scale";
 
 /// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
 const BLINK_HZ: f64 = 1.0;
@@ -364,6 +365,8 @@ pub struct SeismiraApp {
     show_fault_trace: bool,
     /// Kalite ayarı (Görünüm menüsü; kaydedilir).
     quality: compute::Quality,
+    /// Haritadaki şiddet ölçeği (Görünüm menüsü; kaydedilir).
+    scale: crate::mmi_style::Scale,
     /// Sıvılaşma katmanı (Bölüm 2.6; varsayılan açık, Görünüm menüsü,
     /// kaydedilir).
     show_ground: bool,
@@ -530,6 +533,11 @@ impl SeismiraApp {
                 .and_then(|s| s.get_string(STORAGE_QUALITY))
                 .and_then(|v| compute::Quality::from_code(&v))
                 .unwrap_or_default(),
+            scale: cc
+                .storage
+                .and_then(|s| s.get_string(STORAGE_SCALE))
+                .and_then(|v| crate::mmi_style::Scale::from_code(&v))
+                .unwrap_or_default(),
             show_ground: cc
                 .storage
                 .and_then(|s| s.get_string(STORAGE_GROUND_FAILURE))
@@ -585,6 +593,13 @@ impl SeismiraApp {
             .and_then(|v| compute::Quality::from_code(&v))
         {
             self.quality = q;
+        }
+        // `SEISMIRA_SCALE=shindo|mmi`: haritadaki şiddet ölçeği.
+        if let Some(s) = std::env::var("SEISMIRA_SCALE")
+            .ok()
+            .and_then(|v| crate::mmi_style::Scale::from_code(&v))
+        {
+            self.scale = s;
         }
         let Some(v) = std::env::var("SEISMIRA_DEMO").ok().map(|s| {
             s.split(',')
@@ -666,6 +681,12 @@ impl SeismiraApp {
                     ui.checkbox(&mut self.show_tsunami, t("menu-tsunami"));
                 }
                 ui.checkbox(&mut self.reduce_motion, t("menu-reduce-motion"));
+                ui.menu_button(t("menu-scale"), |ui| {
+                    use crate::mmi_style::Scale;
+                    ui.radio_value(&mut self.scale, Scale::Shindo, t("scale-shindo"));
+                    ui.radio_value(&mut self.scale, Scale::Mmi, t("scale-mmi"));
+                    ui.label(RichText::new(t("scale-note")).small().weak());
+                });
                 ui.menu_button(t("menu-quality"), |ui| {
                     let before = self.quality;
                     for q in compute::Quality::ALL {
@@ -723,6 +744,8 @@ impl SeismiraApp {
                 .filter(|_| self.show_grid)
                 .map(|_| self.clock.t),
         );
+        let mw = self.sim.as_ref().map_or(0.0, |s| s.quake.mw);
+        self.map.set_intensity_scale(self.scale, mw);
         let out = self.map.ui(ui, frame, crate::MSAA);
         if let Some(c) = out.clicked {
             if self.sim.is_some() {
@@ -791,7 +814,9 @@ impl SeismiraApp {
                 _ => None,
             };
             hovered_city = layer
-                .draw(ui, rect, &self.map, sim_state, P_COLOR, hover_pos)
+                .draw(
+                    ui, rect, &self.map, sim_state, P_COLOR, hover_pos, self.scale,
+                )
                 .hovered;
         }
 
@@ -801,7 +826,11 @@ impl SeismiraApp {
             let gmm = seismira_core::shaking::Gmm::for_quake(&sim.quake);
             if let (Some(_), Some(gmm)) = (&self.results, gmm) {
                 let limit = lang.t_args("model-limit", &[("km", lang.num(gmm.max_rrup_km(), 0))]);
-                city_layer::draw_legend(ui, rect, &lang.t("shindo-legend"), Some(&limit));
+                let title = match self.scale {
+                    crate::mmi_style::Scale::Shindo => lang.t("shindo-legend"),
+                    crate::mmi_style::Scale::Mmi => lang.t("mmi-legend"),
+                };
+                city_layer::draw_legend(ui, rect, &title, Some(&limit), self.scale);
             }
             self.draw_ground_failure(ui, rect);
             self.draw_tsunami(ui, rect);
@@ -2276,6 +2305,7 @@ impl eframe::App for SeismiraApp {
             if self.show_tsunami { "1" } else { "0" }.to_owned(),
         );
         storage.set_string(STORAGE_QUALITY, self.quality.code().to_owned());
+        storage.set_string(STORAGE_SCALE, self.scale.code().to_owned());
     }
 }
 

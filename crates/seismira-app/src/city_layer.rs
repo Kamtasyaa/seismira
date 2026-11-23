@@ -4,6 +4,8 @@
 use eframe::egui::{self, Align2, Color32, FontId, Pos2, Rect, Stroke, vec2};
 use seismira_core::cities::City;
 use seismira_core::intensity::Shindo;
+
+use crate::mmi_style::{self, Scale};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -94,6 +96,7 @@ impl CityLayer {
         sim: Option<(&CityResults, &[usize], f64)>,
         p_color: Color32,
         hover: Option<Pos2>,
+        scale: Scale,
     ) -> Drawn {
         let painter = ui.painter_at(rect);
         let label_font = FontId::proportional(12.0);
@@ -111,6 +114,24 @@ impl CityLayer {
         let shindo_at = |i: usize| -> Option<Shindo> {
             let (results, _, t) = sim?;
             results.sites[i].shindo_at(t)
+        };
+        // Gösterilecek kutu: renk ve etiket, seçili ölçekte. MMI kademeli
+        // yükselişi Shindo'nunkiyle aynı anda tamamlanır; I gösterilmez.
+        let box_at = |i: usize| -> Option<(Color32, &'static str)> {
+            let s = shindo_at(i)?;
+            match scale {
+                Scale::Shindo => Some((shindo_style::color(s), s.label())),
+                Scale::Mmi => {
+                    let (results, _, _) = sim?;
+                    let m = results.sites[i].motion?;
+                    let k = mmi_style::class_at(
+                        mmi_style::class(m.mmi),
+                        s as usize,
+                        m.shindo() as usize,
+                    );
+                    Some((mmi_style::color(k)?, mmi_style::label(k)))
+                }
+            }
         };
         // P ulaştı, S henüz değil.
         let p_only = |i: usize| -> bool {
@@ -131,18 +152,21 @@ impl CityLayer {
                 if placed[i] {
                     continue;
                 }
-                let Some(s) = shindo_at(i) else { continue };
+                let Some((fill, label)) = box_at(i) else {
+                    continue;
+                };
                 let c = &self.cities[i];
                 let p = map.to_screen(rect, (c.lon, c.lat));
                 if !inside.contains(p) {
                     continue;
                 }
-                let box_rect = Rect::from_center_size(p - vec2(0.0, 13.0), shindo_style::BOX_SIZE);
+                let box_rect =
+                    Rect::from_center_size(p - vec2(0.0, 13.0), shindo_style::box_size(label));
                 if occupied.iter().any(|o| o.intersects(box_rect.expand(1.0))) {
                     continue;
                 }
                 painter.circle_filled(p, 2.5, dot);
-                shindo_style::draw_box(&painter, box_rect.center(), s);
+                shindo_style::draw_labeled_box(&painter, box_rect.center(), fill, label);
                 occupied.push(box_rect);
                 placed[i] = true;
                 candidates.push((i, p, Some(box_rect)));
@@ -176,11 +200,11 @@ impl CityLayer {
             if p_only(i) {
                 painter.circle_stroke(p, 5.0, Stroke::new(1.5, p_color));
             }
-            match shindo_at(i) {
-                // Kutusu komşu kutuyla çakıştığı için çizilmedi: nokta Shindo
+            match box_at(i) {
+                // Kutusu komşu kutuyla çakıştığı için çizilmedi: nokta şiddet
                 // renginde (değer fare ile kartta; renk tek taşıyıcı değil).
-                Some(s) => {
-                    painter.circle_filled(p, 4.0, shindo_style::color(s));
+                Some((fill, _)) => {
+                    painter.circle_filled(p, 4.0, fill);
                     painter.circle_stroke(p, 4.0, Stroke::new(1.0, Color32::from_gray(20)));
                 }
                 None => {
@@ -218,11 +242,32 @@ impl CityLayer {
 pub const MODEL_LIMIT_COLOR: Color32 = Color32::from_rgba_premultiplied(150, 150, 160, 170);
 
 /// Sağ altta Shindo ölçek açıklaması (Bölüm 10).
-pub fn draw_legend(ui: &egui::Ui, rect: Rect, title: &str, limit_note: Option<&str>) {
+pub fn draw_legend(ui: &egui::Ui, rect: Rect, title: &str, limit_note: Option<&str>, scale: Scale) {
     let painter = ui.painter_at(rect);
-    let n = Shindo::ALL.len() - 1; // 0 hariç
-    let w = shindo_style::BOX_SIZE.x + 2.0;
-    let width = n as f32 * w;
+    // (renk, etiket); Shindo 0 ve MMI I hariç, MMI II–III tek kutu.
+    let items: Vec<(Color32, &str)> = match scale {
+        Scale::Shindo => Shindo::ALL
+            .iter()
+            .skip(1)
+            .map(|s| (shindo_style::color(*s), s.label()))
+            .collect(),
+        Scale::Mmi => [2u8, 4, 5, 6, 7, 8, 9, 10]
+            .iter()
+            .filter_map(|&k| {
+                let label = if k == 2 {
+                    "II–III"
+                } else {
+                    mmi_style::label(k)
+                };
+                Some((mmi_style::color(k)?, label))
+            })
+            .collect(),
+    };
+    let widths: Vec<f32> = items
+        .iter()
+        .map(|(_, l)| shindo_style::box_size(l).x + 2.0)
+        .collect();
+    let width: f32 = widths.iter().sum();
     let note_h = if limit_note.is_some() { 18.0 } else { 0.0 };
     let origin = rect.right_bottom() - vec2(12.0 + width, 12.0 + shindo_style::BOX_SIZE.y + note_h);
     let bg = Rect::from_min_max(
@@ -237,9 +282,11 @@ pub fn draw_legend(ui: &egui::Ui, rect: Rect, title: &str, limit_note: Option<&s
         FontId::proportional(12.0),
         ui.visuals().text_color(),
     );
-    for (k, s) in Shindo::ALL.iter().skip(1).enumerate() {
-        let c = origin + vec2(k as f32 * w + w / 2.0, shindo_style::BOX_SIZE.y / 2.0);
-        shindo_style::draw_box(&painter, c, *s);
+    let mut x = 0.0;
+    for ((fill, label), w) in items.iter().zip(&widths) {
+        let c = origin + vec2(x + w / 2.0, shindo_style::BOX_SIZE.y / 2.0);
+        shindo_style::draw_labeled_box(&painter, c, *fill, label);
+        x += w;
     }
     if let Some(note) = limit_note {
         let y = origin.y + shindo_style::BOX_SIZE.y + 11.0;
