@@ -26,8 +26,8 @@ LİSANSLAR
 ---------
 Kod: GPL-3.0-or-later (LICENSE). Veriler kendi lisanslarıyla gelir;
 listesi ve atıflar uygulamada Yardım → "Veri kaynakları ve lisanslar"
-penceresinde ve data/SOURCES.toml dosyasındadır. Bu pakette heyelan
-katmanı ve GEM hasar verisi YOKTUR (lisans / ayrı paket).
+penceresinde ve data/SOURCES.toml dosyasındadır. GEM hasar verisi bu
+pakette YOKTUR (ayrı lisans / ayrı paket).
 
 Kaynak kod: https://github.com/Kamtasyaa/seismira
 
@@ -60,7 +60,7 @@ LICENSES
 --------
 Code: GPL-3.0-or-later (LICENSE). Data ships under its own licenses; the
 list and attributions are in the app under Help → "Data sources and
-licenses" and in data/SOURCES.toml. This package does NOT include the
-landslide layer or GEM damage data (license / separate package).
+licenses" and in data/SOURCES.toml. GEM damage data is NOT included
+(separate licence / separate package).
 
 Source code: https://github.com/Kamtasyaa/seismira

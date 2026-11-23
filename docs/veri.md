@@ -364,11 +364,13 @@ Lisans kuralları:
   Gizlilik ve Güvenlik → "Yine de Aç" ya da `xattr -dr com.apple.quarantine`.
 - Veri paketi: `python3 scripts/package_data.py <sürüm>` →
   dist/seismira-data-<sürüm>.tar.zst. Açık liste (betikte, her dosyanın
-  SOURCES.toml kimliğiyle). v0.1.0: 17 dosya, 347 MB, arşiv 336 MB, sha256
-  36d922ea…732f. Girmeyenler: heyelan (ls_static: GLiM izni yok), Fan WTD
-  ve onunla üretilmiş sıvılaşma (izin bekleniyor; pakette sıvılaşma KIYI
-  modeli, `liq-static --coastal`, 75 s), GEM (ayrı, CC BY-NC-SA),
-  doğrulama / test / ham veri.
+  SOURCES.toml kimliğiyle). v0.1.0: 18 dosya, 711 MB, arşiv 699 MB, sha256
+  fb026734…20d3d2 (hedef ~750 MB, CLAUDE.md Bölüm 12). Heyelan dahil:
+  litolojisi GLiM 0,5° (CC BY 3.0, scripts/gen_glim05.py) olan kopya,
+  `ls-static` ile pakette yeniden üretilir (129 s). Sıvılaşma KIYI modeli
+  (`liq-static --coastal`, Fan WTD izni bekleniyor). Girmeyenler: vektör
+  GLiM ve Fan WTD türevleri, GEM (ayrı, CC BY-NC-SA), doğrulama / test /
+  ham veri.
 - Sürüm iş akışı: .github/workflows/release.yml ("v*" etiketi ya da elle).
   İkililer: linux-x86_64 (ubuntu-22.04, glibc 2.35), windows-x86_64,
   macos-arm64, macos-x86_64. Paketleme işi veri paketini `data-v0.1.0`

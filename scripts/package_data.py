@@ -9,8 +9,10 @@ arar (crates/seismira-app/src/paths.rs).
 
 YALNIZCA lisansı dağıtıma uygun dosyalar girer (açık liste, aşağıda); her
 satırın lisansı data/SOURCES.toml'dadır. Girmeyenler:
-- data/ground/ls_static.sras (heyelan): GLiM litolojisi, vektör verinin
-  dağıtım izni yok (docs/veri.md) → pakette heyelan katmanı yok.
+- Yerel data/ground/ls_static.sras (heyelan): vektör GLiM'den, dağıtım izni
+  yok (docs/veri.md) → heyelan, litolojisi GLiM 0,5° (CC BY 3.0,
+  scripts/gen_glim05.py; doğrulama docs/dogrulama.md) olan bir kopyayla
+  YENİDEN üretilir (`ls-static`, geçici zemin klasöründe).
 - data/ground/wtd.sras ve onunla üretilmiş liq_static: Fan vd. (2017) yeraltı
   su seviyesi "yalnızca araştırma", izin bekleniyor → sıvılaşma KIYI modeliyle
   (`liq-static --coastal`, yeraltı suyu istemez) yeniden üretilir.
@@ -94,6 +96,25 @@ def main() -> int:
         [str(tool), "liq-static", str(DATA / "ground"), str(DATA / "vs30" / "vs30.sras"), str(liq), "--coastal"],
         check=True,
     )
+
+    # Heyelan: vektör GLiM yerine GLiM 0,5° litolojisiyle (dağıtılabilir).
+    glim05 = ROOT / "data" / "raw" / "glim05" / "glim05_vs30grid.u8"
+    if not glim05.exists():
+        print("önce: .venv/bin/python -I scripts/gen_glim05.py")
+        return 1
+    tmp = ROOT / "dist" / f"{name}-ground-tmp"
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    tmp.mkdir()
+    for f in ("inputs30.sras", "slope75.sras", "landcover.sras"):
+        (tmp / f).symlink_to(DATA / "ground" / f)
+    vs30 = str(DATA / "vs30" / "vs30.sras")
+    subprocess.run([str(tool), "lith", str(glim05), vs30, str(tmp / "lith.sras")], check=True)
+    subprocess.run(
+        [str(tool), "ls-static", str(tmp), vs30, str(out / "data" / "ground" / "ls_static.sras")],
+        check=True,
+    )
+    shutil.rmtree(tmp)
 
     lines = []
     total = 0
