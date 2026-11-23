@@ -19,6 +19,10 @@ offline.
 > **This is an educational simulation.** For real earthquake information,
 > follow official agencies such as AFAD, Kandilli, JMA or USGS.
 
+![2023 Kahramanmaraş Mw 7,8: Shindo kutuları, il vurgusu, heyelan karesi ve bildirimler](docs/images/kahramanmaras.png)
+
+![2011 Tōhoku Mw 9,1: JMA kategorileriyle tsunami kıyı şeridi ve varış bildirimleri](docs/images/tohoku-tsunami.png)
+
 ## Özellikler / Features
 
 - **Sonlu fay modeli** (tek dikdörtgen düzlem); sığ kabuk, dalma-batma
