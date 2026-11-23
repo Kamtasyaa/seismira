@@ -524,6 +524,65 @@ pub struct Datasets {
     pub vuln: Option<Arc<seismira_core::damage::VulnCurves>>,
     pub ground: Option<Arc<Ground>>,
     pub tsunami: Option<Arc<crate::tsunami::TsunamiData>>,
+    pub quality: Quality,
+}
+
+/// Kalite ayarı (docs/arayuz.md): ince ızgaranın en büyük kenarı ve hasar
+/// örnekleme adımı. Hesap arka planda olduğundan hiçbir ayar arayüzü
+/// yavaşlatmaz; düşük ayar sonucu daha çabuk ve daha kaba verir.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Quality {
+    Low,
+    Medium,
+    #[default]
+    High,
+    Ultra,
+}
+
+impl Quality {
+    pub const ALL: [Quality; 4] = [Self::Low, Self::Medium, Self::High, Self::Ultra];
+
+    /// İnce ızgaranın en büyük kenarı (hücre). Yüksek ve Ultra: GPU doku
+    /// sınırı ([`seismira_core::grid::MAX_DIM`]).
+    pub fn max_dim(self) -> u32 {
+        match self {
+            Self::Low => 512,
+            Self::Medium => 1024,
+            Self::High | Self::Ultra => seismira_core::grid::MAX_DIM,
+        }
+    }
+
+    /// Bina hasarı örnekleme adımı, ince adımın katı (bölge toplamı).
+    pub fn damage_factor(self) -> u32 {
+        match self {
+            Self::Low => 4,
+            Self::Medium | Self::High => 2,
+            Self::Ultra => 1,
+        }
+    }
+
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+            Self::Ultra => "ultra",
+        }
+    }
+
+    pub fn from_code(s: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|q| q.code() == s)
+    }
+
+    /// Çeviri anahtarı.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Low => "quality-low",
+            Self::Medium => "quality-medium",
+            Self::High => "quality-high",
+            Self::Ultra => "quality-ultra",
+        }
+    }
 }
 
 impl Job {
@@ -539,6 +598,7 @@ impl Job {
             vuln,
             ground,
             tsunami,
+            quality,
         } = data;
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = channel();
@@ -619,6 +679,7 @@ impl Job {
                             ground.as_deref(),
                         ),
                         (&cities, &sites_for_regions),
+                        quality,
                         &flag,
                         &tx,
                         &ctx,
@@ -660,6 +721,7 @@ fn shake_grid(
         Option<&Ground>,
     ),
     (cities, sites): (&[City], &[SiteResult]),
+    quality: Quality,
     cancel: &AtomicBool,
     tx: &std::sync::mpsc::Sender<JobMsg>,
     ctx: &eframe::egui::Context,
@@ -683,7 +745,7 @@ fn shake_grid(
         }
         None => None,
     };
-    let step = domain.fine_step();
+    let step = domain.fine_step_for(quality.max_dim());
     for (s, fine) in [(step * COARSE_FACTOR, false), (step, true)] {
         let Some(g) = grid::compute(scenario, &domain, s, window.as_deref(), cancel) else {
             return; // iptal
@@ -795,9 +857,10 @@ fn shake_grid(
                 return;
             }
         };
-        // Hasar için ince adımın iki katı yeterli (bölge toplamı; her
-        // örnek hücre adım² hücreyi temsil eder).
-        let dstep = (step * 2).max(2);
+        // Hasar için ince adımın katı (kaliteye göre 1–4; bölge toplamı,
+        // her örnek hücre adım² hücreyi temsil eder).
+        let f = quality.damage_factor();
+        let dstep = (step * f).max(f);
         let (mut by_region, mut city) = (Vec::new(), Vec::new());
         if let Some(exp) = exposure {
             let Some(r) = seismira_core::damage::regions(

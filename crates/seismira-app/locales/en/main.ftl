@@ -11,6 +11,12 @@ menu-liquefaction = Liquefaction hazard (after shaking)
 menu-landslide = Landslide hazard (after shaking)
 menu-tsunami = Tsunami warnings
 menu-reduce-motion = Reduce motion
+menu-quality = Quality
+quality-low = Low (up to 512 cells, fast)
+quality-medium = Medium (up to 1024 cells)
+quality-high = High (up to 2048 cells, default)
+quality-ultra = Ultra (2048 cells, damage at full resolution)
+quality-note = Resolution of the shaking grid and damage estimate. Computed in the background; an open simulation is recomputed.
 menu-text-test = Text test
 menu-language = Language
 

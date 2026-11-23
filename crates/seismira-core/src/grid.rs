@@ -128,7 +128,16 @@ impl Domain {
 
     /// İnce geçişin adımı (taban hücre sayısı): kenar ≤ [`MAX_DIM`].
     pub fn fine_step(&self) -> u32 {
-        self.w.max(self.h).div_ceil(MAX_DIM).max(1)
+        self.fine_step_for(MAX_DIM)
+    }
+
+    /// İnce geçişin adımı, kenar ≤ `max_dim` (en çok [`MAX_DIM`]); kalite
+    /// ayarı için.
+    pub fn fine_step_for(&self, max_dim: u32) -> u32 {
+        self.w
+            .max(self.h)
+            .div_ceil(max_dim.clamp(1, MAX_DIM))
+            .max(1)
     }
 
     /// `step` taban hücrelik adımla ızgara geometrisi.

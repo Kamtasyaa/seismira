@@ -11,6 +11,12 @@ menu-liquefaction = Sıvılaşma riski (sarsıntı bitince)
 menu-landslide = Heyelan riski (sarsıntı bitince)
 menu-tsunami = Tsunami uyarıları
 menu-reduce-motion = Hareketi azalt
+menu-quality = Kalite
+quality-low = Düşük (en çok 512 hücre, hızlı)
+quality-medium = Orta (en çok 1024 hücre)
+quality-high = Yüksek (en çok 2048 hücre, varsayılan)
+quality-ultra = Ultra (2048 hücre, hasar tam çözünürlükte)
+quality-note = Sarsıntı ızgarasının ve hasar hesabının çözünürlüğü. Hesap arka planda yapılır; açık simülasyon yeniden hesaplanır.
 menu-text-test = Yazı testi
 menu-language = Dil
 

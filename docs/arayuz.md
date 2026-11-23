@@ -204,7 +204,14 @@ Uygulama notları:
 - Şehirler nüfusa ve yakınlaştırmaya göre gösterilir.
 - "Veri Kaynakları ve Lisanslar" sayfası (zorunlu).
 - Kalite ayarı: Düşük / Orta / Yüksek / Ultra (ızgara çözünürlüğü
-  değişir; akıcılık hiçbir ayarda bozulmaz).
+  değişir; akıcılık hiçbir ayarda bozulmaz). UYGULANDI (Faz 10 adım 3,
+  2026-11-23): Görünüm → Kalite (kaydedilir; varsayılan Yüksek). İnce
+  ızgaranın en büyük kenarı 512 / 1024 / 2048 / 2048 hücre (taban 30″;
+  küçük depremde hepsi tam çözünürlük), bina hasarı örnekleme adımı ince
+  adımın 4 / 2 / 2 / 1 katı. Açık simülasyonda değişince arka plan hesabı
+  yeniden başlar (saat korunur). Tōhoku Mw 9,1 (referans makine): ince
+  ızgara 0,27 / 0,33 / 0,46 / 0,45 s, hasar 0,11 / 0,14 / 0,25 / 0,71 s.
+  Geliştirme: `SEISMIRA_QUALITY=low|medium|high|ultra`.
 
 
 ## Doğrulama notu: egui 0.37 karmaşık yazı testi (2026-11-14)

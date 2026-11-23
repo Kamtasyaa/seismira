@@ -30,6 +30,7 @@ const STORAGE_FAULT_TRACE: &str = "fault_trace";
 const STORAGE_GROUND_FAILURE: &str = "ground_failure";
 const STORAGE_LANDSLIDE: &str = "landslide";
 const STORAGE_TSUNAMI: &str = "tsunami";
+const STORAGE_QUALITY: &str = "quality";
 
 /// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
 const BLINK_HZ: f64 = 1.0;
@@ -358,6 +359,8 @@ pub struct SeismiraApp {
     /// Simülasyon sonunda modelin fay kırılma izi (Bölüm 2.8; varsayılan
     /// kapalı, Görünüm menüsü, kaydedilir).
     show_fault_trace: bool,
+    /// Kalite ayarı (Görünüm menüsü; kaydedilir).
+    quality: compute::Quality,
     /// Sıvılaşma katmanı (Bölüm 2.6; varsayılan açık, Görünüm menüsü,
     /// kaydedilir).
     show_ground: bool,
@@ -516,6 +519,11 @@ impl SeismiraApp {
                 .storage
                 .and_then(|s| s.get_string(STORAGE_FAULT_TRACE))
                 .is_some_and(|v| v == "1"),
+            quality: cc
+                .storage
+                .and_then(|s| s.get_string(STORAGE_QUALITY))
+                .and_then(|v| compute::Quality::from_code(&v))
+                .unwrap_or_default(),
             show_ground: cc
                 .storage
                 .and_then(|s| s.get_string(STORAGE_GROUND_FAILURE))
@@ -564,6 +572,14 @@ impl SeismiraApp {
     /// (ve isteğe bağlı `SEISMIRA_DEMO_SETTING=interface[,eğim]`)
     /// başlatıp verilen anda duraklatır (ekran görüntüsü testleri için).
     fn with_demo(mut self, ctx: &egui::Context) -> Self {
+        // `SEISMIRA_QUALITY=low|medium|high|ultra`: kalite (kayıtlı ayarı
+        // ezer; ölçüm için).
+        if let Some(q) = std::env::var("SEISMIRA_QUALITY")
+            .ok()
+            .and_then(|v| compute::Quality::from_code(&v))
+        {
+            self.quality = q;
+        }
         let Some(v) = std::env::var("SEISMIRA_DEMO").ok().map(|s| {
             s.split(',')
                 .filter_map(|x| x.trim().parse::<f64>().ok())
@@ -644,6 +660,19 @@ impl SeismiraApp {
                     ui.checkbox(&mut self.show_tsunami, t("menu-tsunami"));
                 }
                 ui.checkbox(&mut self.reduce_motion, t("menu-reduce-motion"));
+                ui.menu_button(t("menu-quality"), |ui| {
+                    let before = self.quality;
+                    for q in compute::Quality::ALL {
+                        ui.radio_value(&mut self.quality, q, t(q.key()));
+                    }
+                    ui.label(RichText::new(t("quality-note")).small().weak());
+                    if self.quality != before {
+                        // Açık simülasyon yeni kaliteyle yeniden hesaplanır
+                        // (saat ve oynatma durumu korunur).
+                        let ctx = ui.ctx().clone();
+                        self.spawn_job(&ctx);
+                    }
+                });
                 ui.checkbox(&mut self.show_text_test, t("menu-text-test"));
             });
             ui.menu_button(t("menu-language"), |ui| {
@@ -1580,7 +1609,23 @@ impl SeismiraApp {
         }
         self.cancel_sim();
         self.sim = Simulation::new(self.draft.quake, &tt);
-        if self.sim.is_some()
+        self.spawn_job(ctx);
+        self.clock = Clock {
+            t: 0.0,
+            playing: self.sim.is_some(),
+            speed: self.clock.speed,
+        };
+    }
+
+    /// Açık simülasyonun arka plan hesabını (yeniden) başlatır; eski iş
+    /// düşürülünce iptal edilir, yeni sonuçlar geldikçe eskilerin yerine
+    /// geçer.
+    fn spawn_job(&mut self, ctx: &egui::Context) {
+        let Ok(tt) = &self.travel_times else {
+            return;
+        };
+        let tt = tt.clone();
+        if let Some(sim) = &self.sim
             && let Ok(layer) = &self.cities
         {
             let data = compute::Datasets {
@@ -1594,14 +1639,10 @@ impl SeismiraApp {
                 vuln: self.vuln.clone(),
                 ground: self.ground.clone(),
                 tsunami: self.tsunami_data.clone(),
+                quality: self.quality,
             };
-            self.job = Some(compute::Job::spawn(self.draft.quake, data, ctx.clone()));
+            self.job = Some(compute::Job::spawn(sim.quake, data, ctx.clone()));
         }
-        self.clock = Clock {
-            t: 0.0,
-            playing: self.sim.is_some(),
-            speed: self.clock.speed,
-        };
     }
 
     /// Sağ üstte dalga renk açıklaması.
@@ -2215,6 +2256,7 @@ impl eframe::App for SeismiraApp {
             STORAGE_TSUNAMI,
             if self.show_tsunami { "1" } else { "0" }.to_owned(),
         );
+        storage.set_string(STORAGE_QUALITY, self.quality.code().to_owned());
     }
 }
 
