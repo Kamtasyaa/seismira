@@ -650,3 +650,28 @@ deprem için fazla kırılgan olabilir; (3) sarsıntı: Puebla UNAM
 istasyonlarında sapma yok (C +0,00), ama CDMX dışında yakın alan
 istasyonu az. Ayar YAPILMADI; bölge kartındaki GEM oranı "büyüklük
 mertebesi" olarak okunmalı.
+
+## Faz 10: hazır senaryoların şiddet doğrulaması (2026-11-23)
+
+Komut: `seismira-data validate-shakemap <stationlist.json> --scenario <kimlik>
+--vs30 data/vs30/vs30.sras --slab data/slab2/slab2.sslb` (uygulamanın hazır
+senaryosuyla birebir aynı deprem: ShakeMap kırılma modelinden L, W, eğim,
+odak konumu; scripts/gen_scenarios.py). Karşılaştırma C (bizim geometri +
+bizim Vs30), ortalama ΔI ve |ΔI| < 1 oranı; "önce" = varsayılan geometri
+(WC94 boyutu, odak ortada; yukarıdaki bölümler).
+
+| Deprem (istasyon) | Senaryo fayı | Önce C | Senaryo C |
+|---|---|---|---|
+| Tōhoku Mw 9,1 (1189) | 435 × 191 km, odak %46 | −0,32, %95 | **−0,18, %99** |
+| İzmit (31) | 142 × 20 km, odak %31 (doğuya) | −0,44, %81 | **−0,32, %84** |
+| Kumamoto (308) | 26 × 14 km, odak SW ucunda | −0,06, %97 | −0,04, %98 |
+| Kahramanmaraş Mw 7,8 (191) | 268 × 15 km, odak %57 | +0,08, %91 | +0,07, %92 |
+| Puebla (29) | 23 × 16 km, Ztor 46 km | +0,00, %97 | +0,07, %100 |
+
+Sonuç: gerçek kırılma boyutu ve odak konumu büyük ve tek yönlü
+kırılmalarda belirgin iyileştirme getiriyor (Tōhoku, İzmit), diğerlerinde
+fark küçük. İzmit hâlâ ortalama ölçütünün (|ΔI| < 0,3) biraz dışında:
+A satırı (ShakeMap mesafeleri) da −0,24, yani sapmanın çoğu GMPE'nin bu
+olaydaki olaylar arası teriminden (ShakeMap'in kendi biası da negatif).
+Kumamoto ve Puebla için ShakeMap kırılma modeli kısa (26 / 23 km); daha
+uzun yayımlanmış modeller var, değiştirilmedi.
