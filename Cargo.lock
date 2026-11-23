@@ -3080,7 +3080,7 @@ dependencies = [
 
 [[package]]
 name = "seismira-app"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bytemuck",
  "eframe",
@@ -3102,7 +3102,7 @@ dependencies = [
 
 [[package]]
 name = "seismira-core"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bytemuck",
  "earcut",
@@ -3113,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "seismira-data"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "csv",
