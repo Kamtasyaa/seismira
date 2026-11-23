@@ -1,0 +1,189 @@
+{
+ "version": 1,
+ "scenarios": [
+  {
+   "id": "kahramanmaras2023",
+   "usgs_id": "us6000jllz",
+   "setting": "crust",
+   "lon": 37.0143,
+   "lat": 37.2256,
+   "depth_km": 10,
+   "mw": 7.8,
+   "strike": 224.5,
+   "dip": 89.2,
+   "rake": -1.3,
+   "hypo_along": 0.574,
+   "hypo_down": 0.6,
+   "length_km": 268.0,
+   "width_km": 15.0,
+   "time": 1675646254342,
+   "source": {
+    "event": "USGS ComCat us6000jllz, Mww düğüm düzlemi 228/89/-1",
+    "rupture": "USGS ShakeMap (us v19) rupture.json: Source: Wald Finite Fault Model (surface trace, FF model, known faults)Event ID: us6000jllzModel created: 2023-02-09 19:17 MST",
+    "dip_from": "Mww",
+    "skipped_quads": 0
+   }
+  },
+  {
+   "id": "izmit1999",
+   "usgs_id": "usp0009d4z",
+   "setting": "crust",
+   "lon": 29.864,
+   "lat": 40.748,
+   "depth_km": 17,
+   "mw": 7.6,
+   "strike": 86.7,
+   "dip": 81.0,
+   "rake": 163.0,
+   "hypo_along": 0.313,
+   "hypo_down": 0.85,
+   "length_km": 142.0,
+   "width_km": 20.0,
+   "time": 934848099130,
+   "source": {
+    "event": "USGS ComCat usp0009d4z, Mww düğüm düzlemi 85/81/163",
+    "rupture": "USGS ShakeMap (atlas v1) rupture.json: SOURCE: Barka, A., H. S. Akyüz, E. Altunel, G. Sunal, Z. Çakir, A. Dikbas, B. Yerli, R. Armijo, B. Meyer, J. B. d. Chabalier, T. Rockwell, J. R. Dolan, R. Hartleb, T. Dawson, S. Christofferson, A. Tucker, T. Fumal, R. Langridge, H. Stenner, W. Lettis, J. Bachhuber, and W. Page (2002). The Surface Rupture and Slip Distribution of the 17 August 1999 Izmit Earthquake (M 7.4), North Anatolian Fault, Bull. Seism. Soc. Am. 92, 43-60.",
+    "dip_from": "Mww",
+    "skipped_quads": 0
+   }
+  },
+  {
+   "id": "kumamoto2016",
+   "usgs_id": "us20005iis",
+   "setting": "crust",
+   "lon": 130.7543,
+   "lat": 32.7906,
+   "depth_km": 10,
+   "mw": 7.0,
+   "strike": 235.3,
+   "dip": 71.5,
+   "rake": -151.0,
+   "hypo_along": 1.0,
+   "hypo_down": 0.704,
+   "length_km": 26.0,
+   "width_km": 14.0,
+   "time": 1460737506220,
+   "source": {
+    "event": "USGS ComCat us20005iis, Mww düğüm düzlemi 224/66/-151",
+    "rupture": "USGS ShakeMap (atlas v1) rupture.json: Combination of NIED GPS & Seismic Models. 4.18.2016",
+    "dip_from": "ShakeMap kuadı",
+    "skipped_quads": 0
+   }
+  },
+  {
+   "id": "ridgecrest2019",
+   "usgs_id": "ci38457511",
+   "setting": "crust",
+   "lon": -117.5993,
+   "lat": 35.7695,
+   "depth_km": 8,
+   "mw": 7.1,
+   "strike": 320.5,
+   "dip": 83.9,
+   "rake": -171.3,
+   "hypo_along": 0.603,
+   "hypo_down": 0.533,
+   "length_km": 50.0,
+   "width_km": 15.0,
+   "time": 1562383193040,
+   "source": {
+    "event": "USGS ComCat ci38457511, Mww düğüm düzlemi 321/84/-171",
+    "rupture": "USGS ShakeMap (atlas v1) rupture.json: ARIA Coseismic Interferogram from ALOS-2",
+    "dip_from": "Mww",
+    "skipped_quads": 0
+   }
+  },
+  {
+   "id": "tohoku2011",
+   "usgs_id": "official20110311054624120_30",
+   "setting": "interface",
+   "lon": 142.373,
+   "lat": 38.297,
+   "depth_km": 29,
+   "mw": 9.1,
+   "strike": 194.2,
+   "dip": 12.1,
+   "rake": 78.0,
+   "hypo_along": 0.459,
+   "hypo_down": 0.475,
+   "length_km": 435.0,
+   "width_km": 191.0,
+   "time": 1299822384120,
+   "source": {
+    "event": "USGS ComCat official20110311054624120_30, Mww düğüm düzlemi 192/8/78",
+    "rupture": "USGS ShakeMap (atlas v1) rupture.json: Suzuki, W., Aoi, S., Sekiguchi, H., and Kunugi, T. (2011): Rupture process of the 2011 Tohoku-Oki mega-thrust earthquake (M9.0) inverted from strong-motion data. Geophysical Research Letters 38, doi:10.1029/2011GL049136, L00G16, October 2011.http://dx.doi.org/10.1029/2011GL049136",
+    "dip_from": "ShakeMap kuadı",
+    "skipped_quads": 0
+   }
+  },
+  {
+   "id": "noto2024",
+   "usgs_id": "us6000m0xl",
+   "setting": "crust",
+   "lon": 137.271,
+   "lat": 37.4874,
+   "depth_km": 10,
+   "mw": 7.5,
+   "strike": 49.2,
+   "dip": 38.1,
+   "rake": 102.5,
+   "hypo_along": 0.524,
+   "hypo_down": 0.563,
+   "length_km": 130.0,
+   "width_km": 29.0,
+   "time": 1704093009476,
+   "source": {
+    "event": "USGS ComCat us6000m0xl, Mww düğüm düzlemi 49/41/102",
+    "rupture": "USGS ShakeMap (us v10) rupture.json: Source: USGS NEIC Rapid Finite Fault - Modified by D.WaldEvent ID: 6000m0xlModel created: 2024-01-01 10:14 MST",
+    "dip_from": "ShakeMap kuadı",
+    "skipped_quads": 0
+   }
+  },
+  {
+   "id": "maule2010",
+   "usgs_id": "official20100227063411530_30",
+   "setting": "interface",
+   "lon": -72.898,
+   "lat": -36.122,
+   "depth_km": 22.9,
+   "mw": 8.8,
+   "strike": 15.5,
+   "dip": 17.2,
+   "rake": 108.0,
+   "hypo_along": 0.445,
+   "hypo_down": 0.405,
+   "length_km": 518.0,
+   "width_km": 167.0,
+   "time": 1267252451530,
+   "source": {
+    "event": "USGS ComCat official20100227063411530_30, Mww düğüm düzlemi 17/13/108",
+    "rupture": "USGS ShakeMap (atlas v1) rupture.json: Source: Hayes, G. (2011b) (cut). USGS NEIC",
+    "dip_from": "ShakeMap kuadı",
+    "skipped_quads": 0
+   }
+  },
+  {
+   "id": "puebla2017",
+   "usgs_id": "us2000ar20",
+   "setting": "intraslab",
+   "lon": -98.4887,
+   "lat": 18.5499,
+   "depth_km": 48,
+   "mw": 7.1,
+   "strike": 109.4,
+   "dip": 44.0,
+   "rake": -97.5,
+   "hypo_along": 0.279,
+   "hypo_down": 0.176,
+   "length_km": 23.0,
+   "width_km": 16.0,
+   "time": 1505844878090,
+   "source": {
+    "event": "USGS ComCat us2000ar20, Mww düğüm düzlemi 108/47/-98",
+    "rupture": "USGS ShakeMap (atlas v1) rupture.json: Gavin Hayes teleseismic model V2 9.22.17 5 pm MST",
+    "dip_from": "ShakeMap kuadı",
+    "skipped_quads": 0
+   }
+  }
+ ]
+}

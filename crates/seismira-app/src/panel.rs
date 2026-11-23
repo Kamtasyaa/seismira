@@ -15,6 +15,8 @@ const WARN_COLOR: Color32 = Color32::from_rgb(0xE8, 0xB4, 0x4C);
 pub struct Draft {
     pub quake: Quake,
     pub has_epicenter: bool,
+    /// Seçili hazır senaryo (kimlik); girdi elle değişince düşer.
+    pub preset: Option<String>,
 }
 
 impl Default for Draft {
@@ -22,6 +24,7 @@ impl Default for Draft {
         Self {
             quake: Quake::new((0.0, 0.0)),
             has_epicenter: false,
+            preset: None,
         }
     }
 }
@@ -30,6 +33,8 @@ pub enum Action {
     None,
     /// Taslak değişti (çalışan simülasyon iptal edilir).
     Changed,
+    /// Hazır senaryo seçildi: taslak değişti, harita merkez üssüne gitsin.
+    Preset,
     Start,
     /// Çalışan simülasyonu kapat (haritaya tıklayınca yeniden merkez üssü
     /// seçilebilsin).
@@ -182,19 +187,56 @@ fn slab_section(ui: &mut egui::Ui, lang: Lang, q: &mut Quake, slab: &Slab2) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn ui(
     ui: &mut egui::Ui,
     lang: Lang,
     draft: &mut Draft,
+    presets: &[crate::scenarios::Preset],
     slab: Option<&Slab2>,
     issues: &[Issue],
     can_run: bool,
     running: bool,
 ) -> Action {
     let t = |k| lang.t(k);
+    let mut action = Action::None;
+
+    // Hazır senaryolar (Bölüm 14 doğrulama depremleri).
+    if !presets.is_empty() {
+        let selected = draft
+            .preset
+            .as_ref()
+            .and_then(|id| presets.iter().find(|p| &p.id == id));
+        let label = selected.map_or_else(|| t("scenario-custom"), |p| lang.t(&p.name_key()));
+        let mut chosen = None;
+        ui.horizontal(|ui| {
+            ui.label(t("scenario"));
+            egui::ComboBox::from_id_salt("scenario")
+                .selected_text(label)
+                .width(ui.available_width())
+                .show_ui(ui, |ui| {
+                    for p in presets {
+                        let on = selected.is_some_and(|s| s.id == p.id);
+                        if ui.selectable_label(on, lang.t(&p.name_key())).clicked() {
+                            chosen = Some(p);
+                        }
+                    }
+                });
+        });
+        if let Some(p) = chosen {
+            draft.quake = p.quake;
+            draft.has_epicenter = true;
+            draft.preset = Some(p.id.clone());
+            action = Action::Preset;
+        }
+        if draft.preset.is_some() {
+            ui.label(RichText::new(t("scenario-note")).small().weak());
+        }
+        ui.add_space(4.0);
+    }
+
     let before = draft.quake;
     let q = &mut draft.quake;
-    let mut action = Action::None;
 
     egui::Grid::new("quake-main")
         .num_columns(2)
@@ -373,6 +415,7 @@ pub fn ui(
 
     if draft.quake != before {
         action = Action::Changed;
+        draft.preset = None;
     }
 
     ui.add_space(8.0);

@@ -370,6 +370,8 @@ pub struct SeismiraApp {
     map: MapWidget,
     /// Sağ paneldeki taslak deprem.
     draft: panel::Draft,
+    /// Hazır senaryolar (data/scenarios/scenarios.json; yoksa boş).
+    presets: Vec<crate::scenarios::Preset>,
     /// Çalışan simülasyon; taslak değişince iptal edilir.
     sim: Option<Simulation>,
     clock: Clock,
@@ -492,6 +494,10 @@ impl SeismiraApp {
                 )
             })
             .ok();
+        let presets =
+            crate::scenarios::load(&paths::data_dir().join("scenarios").join("scenarios.json"))
+                .inspect_err(|e| log::warn!("hazır senaryolar yok: {e}"))
+                .unwrap_or_default();
         let slab = Slab2::load(&paths::data_dir().join("slab2").join("slab2.sslb"))
             .map(Arc::new)
             .inspect_err(|e| log::warn!("Slab2 yok, dalma-batmada küresel model: {e}"))
@@ -524,6 +530,7 @@ impl SeismiraApp {
                 .is_none_or(|v| v == "1"),
             map: MapWidget::new(paths::data_dir(), initial_view()),
             draft: panel::Draft::default(),
+            presets,
             sim: None,
             clock: Clock::default(),
             travel_times,
@@ -2067,8 +2074,21 @@ impl eframe::App for SeismiraApp {
                         && !issues.iter().any(|i| i.blocks());
                     let running = self.sim.is_some();
                     let slab = self.slab.as_deref();
-                    match panel::ui(ui, lang, &mut self.draft, slab, &issues, can_run, running) {
+                    match panel::ui(
+                        ui,
+                        lang,
+                        &mut self.draft,
+                        &self.presets,
+                        slab,
+                        &issues,
+                        can_run,
+                        running,
+                    ) {
                         panel::Action::Changed | panel::Action::Stop => self.cancel_sim(),
+                        panel::Action::Preset => {
+                            self.cancel_sim();
+                            self.map.center_on(self.draft.quake.epicenter);
+                        }
                         panel::Action::Start => {
                             let ctx = ui.ctx().clone();
                             self.start_sim(&ctx);

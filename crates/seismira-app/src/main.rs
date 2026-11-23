@@ -11,6 +11,7 @@ mod i18n;
 mod map;
 mod panel;
 mod paths;
+mod scenarios;
 mod shindo_style;
 mod text_test;
 mod theme;

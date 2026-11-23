@@ -223,3 +223,16 @@ tsunami-tip = { $place }: { $cat }, { $h }, ilk dalga { $eta }
 tsunami-no-height = yükseklik tahmin edilmedi
 tsunami-height = tahmini ~{ $m } m
 tsunami-unnamed = Kıyı
+
+# Hazır senaryolar (Faz 10)
+scenario = Hazır senaryo
+scenario-custom = Özel (elle)
+scenario-note = USGS olay kaydı ve ShakeMap kırılma modelinden tek düzlemli kaba eşdeğer; gerçek kırılma birden çok parçalı olabilir. Değerleri değiştirirsen senaryo "Özel" olur.
+scenario-kahramanmaras2023 = 2023 Kahramanmaraş (Pazarcık), Mw 7,8 — yalnızca ilk ana şok
+scenario-izmit1999 = 1999 İzmit (Gölcük), Mw 7,6
+scenario-kumamoto2016 = 2016 Kumamoto (Japonya), Mw 7,0
+scenario-ridgecrest2019 = 2019 Ridgecrest (ABD), Mw 7,1
+scenario-tohoku2011 = 2011 Tōhoku (Japonya), Mw 9,1
+scenario-noto2024 = 2024 Noto Yarımadası (Japonya), Mw 7,5
+scenario-maule2010 = 2010 Maule (Şili), Mw 8,8
+scenario-puebla2017 = 2017 Puebla (Meksika), Mw 7,1

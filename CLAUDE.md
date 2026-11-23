@@ -113,7 +113,7 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
   tek komutla yeniden üretilir: `python3 scripts/prepare_data.py`.
   İstisna (fiili durum, 2026-11-15'te yazıya geçirildi): küçük işlenmiş
   dosyalar depoda DURUR (data/traveltime, data/cities, data/regions,
-  data/test, data/validation; ~17 MB), çünkü üretimleri ağır kurulum
+  data/test, data/validation, data/scenarios; ~18 MB), çünkü üretimleri ağır kurulum
   (ObsPy) ya da elle indirilen Vs30 ister ve testler bunları okur.
   Silinirse cities ve regions aynı betikle, traveltime ve test verileri
   kendi betikleriyle (scripts/gen_*.py) yeniden üretilir. Bu dosyalar

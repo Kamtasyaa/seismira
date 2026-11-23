@@ -40,7 +40,14 @@
 ## 6. Kullanıcı girdileri (sağ panel)
 
 Ana ayarlar:
-- Hazır senaryolar (Bölüm 14'teki gerçek depremler)
+- Hazır senaryolar (Bölüm 14'teki gerçek depremler). UYGULANDI (Faz 10
+  adım 2, 2026-11-23): panelin en üstünde açılır liste; seçince taslak
+  dolar, harita merkez üssüne gider, altında kaynak notu çıkar; bir değer
+  elle değişince "Özel (elle)" olur. Veri: data/scenarios/scenarios.json
+  (scripts/gen_scenarios.py: USGS ComCat merkez üssü/derinlik/Mww düzlemi
+  + ShakeMap rupture.json'dan tek düzlemli eşdeğer L, W, eğim, odak
+  konumu; ayrıntı betiğin başında). Kahramanmaraş: yalnızca Mw 7,8 ana şok
+  (uygulama tek deprem).
 - Konum: haritaya tıklayarak veya enlem/boylam girerek. Kullanıcı
   haritayı serbestçe gezip depremi istediği yerden başlatır; şehir
   listesinden konum seçme yoktur (2026-11-14 kullanıcı kararı).

@@ -223,3 +223,16 @@ tsunami-tip = { $place }: { $cat }, { $h }, first wave { $eta }
 tsunami-no-height = height not estimated
 tsunami-height = estimated ~{ $m } m
 tsunami-unnamed = Coast
+
+# Hazır senaryolar (Faz 10)
+scenario = Preset scenario
+scenario-custom = Custom (manual)
+scenario-note = Rough single-plane equivalent from the USGS event record and ShakeMap rupture model; the real rupture may have several segments. Changing any value makes the scenario "Custom".
+scenario-kahramanmaras2023 = 2023 Kahramanmaraş (Pazarcık), Mw 7.8 — first mainshock only
+scenario-izmit1999 = 1999 İzmit (Gölcük), Mw 7.6
+scenario-kumamoto2016 = 2016 Kumamoto (Japan), Mw 7.0
+scenario-ridgecrest2019 = 2019 Ridgecrest (USA), Mw 7.1
+scenario-tohoku2011 = 2011 Tōhoku (Japan), Mw 9.1
+scenario-noto2024 = 2024 Noto Peninsula (Japan), Mw 7.5
+scenario-maule2010 = 2010 Maule (Chile), Mw 8.8
+scenario-puebla2017 = 2017 Puebla (Mexico), Mw 7.1

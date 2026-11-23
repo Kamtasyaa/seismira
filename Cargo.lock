@@ -3092,6 +3092,7 @@ dependencies = [
  "log",
  "memmap2",
  "seismira-core",
+ "serde_json",
  "skrifa",
  "sys-locale",
  "unic-langid",
