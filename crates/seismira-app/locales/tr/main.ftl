@@ -60,6 +60,9 @@ issue-deep = Odak { $max } km'den derin: yer hareketi modeli bu derinlikte geçe
 issue-geometry = Geçersiz değer (eğim 0–90°, enlem −90–90° olmalı).
 issue-ztor = Kırılmanın üst kenarı { $ztor } km derinlikte; yer hareketi modeli en fazla { $max } km için geçerli. Odak derinliğini azaltın ya da büyüklüğü artırın.
 issue-rupture-size = Kırılma boyutu bağıntısı Mw { $max } değerine kadar veriyle destekleniyor; daha büyük depremde fay uzunluğu ve genişliği kaba tahmindir.
+issue-rupture-invalid = Kırılma uzunluğu 1–{ $l } km, genişliği 1–{ $w } km olmalı.
+issue-rupture-clamped = Kırılma genişliği sismojenik tabana sığmıyor; { $w } km'ye kırpıldı.
+issue-rupture-area = Kırılma alanı bu büyüklük için olağan değerin { $r } katı (Wells ve Coppersmith 1994, ±2,5σ dışında); sonuçlar beklenenden farklı olabilir.
 
 # Zaman çizgisi
 play = Oynat (Boşluk)
@@ -106,6 +109,9 @@ advanced = İleri seviye
 hypo-along = Odak, doğrultu boyunca
 hypo-down = Odak, eğim boyunca
 rupture-size = Kırılma: { $l } × { $w } km, üst kenar { $ztor } km derinlikte
+rupture-manual = Kırılma boyutunu elle gir
+rupture-length = Kırılma uzunluğu
+rupture-width = Kırılma genişliği
 model-limit = Tahmin sınırı: faya { $km } km
 
 # Erken uyarı (Faz 4)

@@ -137,6 +137,7 @@ impl Fault {
     /// `Quake::hypo_along` ve `hypo_down` ile (varsayılan ikisi de ortada);
     /// düzlem yüzeyin üstüne çıkamaz (Ztor ≥ 0) ve kabukta sismojenik tabanı
     /// aşamaz. Genişlik doyunca alan korunacak şekilde uzunluk artar.
+    /// `Quake::rupture_km` verilmişse boyutlar ondan (genişlik kırpılabilir).
     pub fn from_quake(q: &Quake) -> Self {
         let dip = q.dip.clamp(1.0, 90.0);
         let sin_d = dip.to_radians().sin();
@@ -152,8 +153,15 @@ impl Fault {
             Setting::Interface => (bottom / sin_d).min(INTERFACE_MAX_WIDTH_KM),
             _ => bottom / sin_d,
         };
-        let width = area.sqrt().min(w_max);
-        let length = area / width;
+        let (length, width) = match q.rupture_km {
+            // Elle boyut: genişlik tabana sığacak kadar kırpılır, uzunluk
+            // olduğu gibi (alan korunmaz; kullanıcı ne verdiyse).
+            Some([l, w]) => (l, w.min(w_max)),
+            None => {
+                let width = area.sqrt().min(w_max);
+                (area / width, width)
+            }
+        };
         let vertical = width * sin_d;
         // Hiposantr eğim boyunca ortada; düzlem [0, taban] içinde tutulur.
         let down = q.hypo_down.clamp(0.0, 1.0);

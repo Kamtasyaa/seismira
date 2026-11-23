@@ -67,7 +67,13 @@ Ana ayarlar:
 
 "İleri seviye" (katlanabilir):
 - Odağın fay üzerindeki konumu, kırılma yönü
-- Kırılma uzunluğu ve genişliği (varsayılan: otomatik)
+- Kırılma uzunluğu ve genişliği (varsayılan: otomatik). UYGULANDI (Faz 10
+  adım 1, 2026-11-23): İleri seviye → "Kırılma boyutunu elle gir"; açılınca
+  o anki otomatik değerlerle başlar. Girdi 1–1500 × 1–250 km (dışı
+  engellenir); genişlik tabana sığmazsa kırpılır ve uyarılır; alan WC94'ün
+  ×4,1 dışındaysa (±2,5σ) uyarılır; elle boyutta "Mw 7,9 üstü boyut
+  ekstrapolasyonu" uyarısı gösterilmez. Hazır senaryolar gerçek boyutu
+  bununla verir.
 - Zemin etkisi açık/kapalı
 - Erken uyarı sistemi varsayımı (Bölüm 7.3)
 

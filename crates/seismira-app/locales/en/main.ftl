@@ -60,6 +60,9 @@ issue-deep = Focus deeper than { $max } km: the ground-motion model is not valid
 issue-geometry = Invalid value (dip must be 0–90°, latitude −90–90°).
 issue-ztor = The top of the rupture is { $ztor } km deep; the ground-motion model is valid up to { $max } km. Reduce the focal depth or increase the magnitude.
 issue-rupture-size = The rupture-size relation is supported by data up to Mw { $max }; for larger earthquakes fault length and width are rough estimates.
+issue-rupture-invalid = Rupture length must be 1–{ $l } km and width 1–{ $w } km.
+issue-rupture-clamped = Rupture width does not fit above the seismogenic base; clipped to { $w } km.
+issue-rupture-area = Rupture area is { $r } times the typical value for this magnitude (Wells and Coppersmith 1994, outside ±2.5σ); results may differ from expectations.
 
 # Timeline
 play = Play (Space)
@@ -106,6 +109,9 @@ advanced = Advanced
 hypo-along = Hypocenter, along strike
 hypo-down = Hypocenter, down dip
 rupture-size = Rupture: { $l } × { $w } km, top edge at { $ztor } km depth
+rupture-manual = Enter rupture size manually
+rupture-length = Rupture length
+rupture-width = Rupture width
 model-limit = Estimate limit: { $km } km from fault
 
 # Erken uyarı (Faz 4)

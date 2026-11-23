@@ -87,6 +87,17 @@ pub fn issue_text(lang: Lang, issue: Issue) -> String {
             "issue-ztor",
             &[("ztor", lang.num(ztor, 1)), ("max", lang.num(max, 0))],
         ),
+        Issue::RuptureSizeInvalid { max_l, max_w } => lang.t_args(
+            "issue-rupture-invalid",
+            &[("l", lang.num(max_l, 0)), ("w", lang.num(max_w, 0))],
+        ),
+        Issue::RuptureWidthClamped { width } => {
+            lang.t_args("issue-rupture-clamped", &[("w", lang.num(width, 0))])
+        }
+        Issue::RuptureAreaUnusual { ratio } => lang.t_args(
+            "issue-rupture-area",
+            &[("r", lang.num(ratio, if ratio < 1.0 { 2 } else { 1 }))],
+        ),
     }
 }
 
@@ -322,6 +333,29 @@ pub fn ui(
                         q.hypo_down = pct / 100.0;
                     }
                     ui.end_row();
+                    // Kırılma boyutu: otomatik (WC94) ya da elle. Elle'ye
+                    // geçince o anki otomatik değerlerle başlar.
+                    ui.label(t("rupture-manual"));
+                    let mut manual = q.rupture_km.is_some();
+                    if ui.checkbox(&mut manual, "").changed() {
+                        q.rupture_km = manual.then(|| {
+                            let auto = Fault::from_quake(&Quake {
+                                rupture_km: None,
+                                ..*q
+                            });
+                            [auto.length.round(), auto.width.round()]
+                        });
+                    }
+                    ui.end_row();
+                    if let Some([l, w]) = &mut q.rupture_km {
+                        let (max_l, max_w) = seismira_core::quake::limits::RUPTURE_MAX_KM;
+                        ui.label(t("rupture-length"));
+                        ui.add(number(lang, l, 1.0..=max_l, 0, 1.0).suffix(" km"));
+                        ui.end_row();
+                        ui.label(t("rupture-width"));
+                        ui.add(number(lang, w, 1.0..=max_w, 0, 0.5).suffix(" km"));
+                        ui.end_row();
+                    }
                 });
             let f = Fault::from_quake(q);
             ui.label(

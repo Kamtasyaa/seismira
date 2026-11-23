@@ -80,6 +80,11 @@ pub struct Quake {
     /// 1 = alt kenar). Varsayılan 0.5. Ztor ≥ 0 ve sismojenik taban kısıtı
     /// gerekirse bunu değiştirir (bkz. source.rs).
     pub hypo_down: f64,
+    /// İleri seviye: elle kırılma boyutu [uzunluk, genişlik] (km). `None`:
+    /// otomatik (WC94 alanı, [`crate::source::Fault::from_quake`]).
+    /// Genişlik sismojenik taban / arayüz sınırına sığmazsa kırpılır
+    /// ([`Issue::RuptureWidthClamped`]).
+    pub rupture_km: Option<[f64; 2]>,
 }
 
 impl Quake {
@@ -97,6 +102,7 @@ impl Quake {
             rake,
             hypo_along: 0.5,
             hypo_down: 0.5,
+            rupture_km: None,
         }
     }
 }
@@ -124,6 +130,15 @@ pub mod limits {
     /// Bu derinliğin ötesinde yer hareketi modeli yok (Parker vd. 2020,
     /// levha içi Zhyp ≤ 200 km).
     pub const DEEP_FOCUS_FROM: f64 = psbah20::INTRASLAB_ZHYP_MAX;
+    /// Elle kırılma boyutunun girdi sınırı [uzunluk, genişlik] (km). Bilim
+    /// katsayısı değil, yazım hatasını yakalayan akıl sınırı: kayıtlı en
+    /// uzun kırılma 2004 Sumatra–Andaman (~1300–1500 km); arayüz genişliği
+    /// ~200 km'de doyar ([`crate::source::INTERFACE_MAX_WIDTH_KM`]).
+    pub const RUPTURE_MAX_KM: (f64, f64) = (1500.0, 250.0);
+    /// Elle alanın WC94 alanından sapma uyarısı: Tablo 2A M–RA standart
+    /// sapması s = 0,24 (M birimi), b = 0,98 → log10 A'da 0,245; 2,5σ =
+    /// 0,61 → ×4,1.
+    pub const RUPTURE_AREA_FACTOR: f64 = 4.1;
 }
 
 /// Bir geçerlilik sorunu. `Block` simülasyonu engeller, `Warn` açıkça
@@ -151,13 +166,25 @@ pub enum Issue {
     /// üstünde ([`crate::source::WC94_MW_MAX`]): fay boyutları
     /// ekstrapolasyondur. Engellemez, açıkça uyarır.
     RuptureSizeExtrapolated { max: f64 },
+    /// Elle kırılma boyutu aralık dışı ya da sayı değil (uzunluk
+    /// 1–[`limits::RUPTURE_MAX_KM`].0, genişlik 1–[`limits::RUPTURE_MAX_KM`].1).
+    RuptureSizeInvalid { max_l: f64, max_w: f64 },
+    /// Elle genişlik sismojenik taban / arayüz sınırına sığmadı; bu
+    /// değere kırpıldı. Engellemez, açıkça uyarır.
+    RuptureWidthClamped { width: f64 },
+    /// Elle verilen alan, büyüklüğün WC94 alanından [`limits::RUPTURE_AREA_FACTOR`]
+    /// katından fazla farklı (~2,5σ). Engellemez, açıkça uyarır.
+    RuptureAreaUnusual { ratio: f64 },
 }
 
 impl Issue {
     pub fn blocks(self) -> bool {
         !matches!(
             self,
-            Issue::DeepFocus { .. } | Issue::RuptureSizeExtrapolated { .. }
+            Issue::DeepFocus { .. }
+                | Issue::RuptureSizeExtrapolated { .. }
+                | Issue::RuptureWidthClamped { .. }
+                | Issue::RuptureAreaUnusual { .. }
         )
     }
 }
@@ -211,8 +238,38 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
     .all(|v| v.is_finite());
     if !finite || !(0.0..=90.0).contains(&q.dip) || !(-90.0..=90.0).contains(&q.epicenter.1) {
         out.push(Issue::BadGeometry);
-    } else if q.setting == Setting::ShallowCrust {
-        if q.mw > crate::source::WC94_MW_MAX {
+    } else if let Some([l, w]) = q.rupture_km
+        && !(l.is_finite()
+            && w.is_finite()
+            && (1.0..=RUPTURE_MAX_KM.0).contains(&l)
+            && (1.0..=RUPTURE_MAX_KM.1).contains(&w))
+    {
+        out.push(Issue::RuptureSizeInvalid {
+            max_l: RUPTURE_MAX_KM.0,
+            max_w: RUPTURE_MAX_KM.1,
+        });
+    } else {
+        if let Some([l, w]) = q.rupture_km {
+            let f = crate::source::Fault::from_quake(q);
+            if f.width < w - 1e-6 {
+                out.push(Issue::RuptureWidthClamped { width: f.width });
+            }
+            let ratio = l * f.width / crate::source::area_wc94(q.mw);
+            if !(1.0 / RUPTURE_AREA_FACTOR..=RUPTURE_AREA_FACTOR).contains(&ratio) {
+                out.push(Issue::RuptureAreaUnusual { ratio });
+            }
+        }
+        if q.setting == Setting::ShallowCrust {
+            crust_checks(q, &mut out);
+        }
+    }
+    out
+}
+
+/// Sığ kabuk: boyut bağıntısı aralığı ve Ztor sınırı.
+fn crust_checks(q: &Quake, out: &mut Vec<Issue>) {
+    {
+        if q.rupture_km.is_none() && q.mw > crate::source::WC94_MW_MAX {
             out.push(Issue::RuptureSizeExtrapolated {
                 max: crate::source::WC94_MW_MAX,
             });
@@ -224,7 +281,6 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
             out.push(Issue::ZtorOutOfRange { ztor, max });
         }
     }
-    out
 }
 
 #[cfg(test)]
@@ -233,6 +289,44 @@ mod tests {
 
     fn quake() -> Quake {
         Quake::new((29.0, 40.7))
+    }
+
+    #[test]
+    fn elle_kirilma_boyutu() {
+        let mut q = quake();
+        q.mw = 7.6;
+        // İzmit benzeri: 145 × 20 km (WC94 alanı ~3 950 km² → oran 0,73).
+        q.rupture_km = Some([145.0, 20.0]);
+        assert!(validate(&q).is_empty(), "{:?}", validate(&q));
+        let f = crate::source::Fault::from_quake(&q);
+        assert_eq!((f.length, f.width), (145.0, 20.0));
+        // Taban 20 km, düşey fay: 30 km genişlik kırpılır, uyarı.
+        q.rupture_km = Some([145.0, 30.0]);
+        let v = validate(&q);
+        assert!(
+            v.contains(&Issue::RuptureWidthClamped { width: 20.0 }),
+            "{v:?}"
+        );
+        assert!(v.iter().all(|i| !i.blocks()));
+        // Alan çok küçük: uyarı.
+        q.rupture_km = Some([20.0, 10.0]);
+        assert!(matches!(
+            validate(&q)[..],
+            [Issue::RuptureAreaUnusual { .. }]
+        ));
+        // Aralık dışı: engeller.
+        q.rupture_km = Some([0.0, 10.0]);
+        assert!(validate(&q).iter().any(|i| i.blocks()));
+        q.rupture_km = Some([f64::NAN, 10.0]);
+        assert!(validate(&q).iter().any(|i| i.blocks()));
+        // Elle boyutta WC94 ekstrapolasyon uyarısı yok.
+        q.mw = 8.2;
+        q.rupture_km = Some([400.0, 20.0]);
+        assert!(
+            !validate(&q)
+                .iter()
+                .any(|i| matches!(i, Issue::RuptureSizeExtrapolated { .. }))
+        );
     }
 
     #[test]
