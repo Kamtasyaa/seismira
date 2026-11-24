@@ -724,6 +724,30 @@ uzun yayımlanmış modeller var, değiştirilmedi.
   tek istasyonlarda ln std ~0,35 (ör. İzmit istasyonu 811 → 492 m/s,
   Ambarlı 175 → 344 m/s); C'nin istasyon saçılımı bu yüzden biraz büyük.
 
+## Doğrultu atımlı fay uzunluğu: WC94 ↔ Thingbaijam vd. (2017) (2026-11-24)
+
+Otomatik geometri (elle boyut YOK; odak konumu senaryodaki gibi), Vs30
+haritasıyla (C). Komut: `validate-shakemap <istasyonlar> --vs30
+data/vs30/vs30.sras <boylam enlem derinlik Mw doğrultu eğim SS odak>` ve
+`validate-nga ... "Duzce, Turkey"`. Hücre: L (km) / C ort. ΔI.
+
+| Olay | Önce (WC94) | Yalnız TMG17 L, W | Seçilen: min(WC94, TMG17) |
+|---|---|---|---|
+| İzmit Mw 7,6 (ShakeMap, 31) | 198 / −0,41 | 171 / −0,37 | 171 / −0,37 |
+| Kahramanmaraş Mw 7,8 (191 → 185) | 320 / +0,05 | 234 / +0,14 | 234 / +0,14 |
+| Kumamoto Mw 7,0 (308) | 46 / −0,08 | 67 / −0,15 | 46 / −0,08 |
+| Düzce Mw 7,14 (NGA, 26) | 62 / −0,25 | 83 / −0,33 | 62 / −0,25 |
+
+- Kahramanmaraş'ta fay kısalınca 6 istasyon CY14'ün 300 km sınırının
+  dışına çıktı (n 191 → 185). Gerçek kırılma ~300 km'yi aşıyor (senaryo:
+  268 km), yani TMG17 burada kısa; sapma ölçüt içinde kaldı.
+- Mw ≥ 8 doğrultu atımlı için doğrulama verisi yok; değişikliğin asıl
+  amacı ekstrapolasyonu kaldırmak (Mw 8,5: 1 657 → 700 km; TMG17 verisinin
+  en uzun kırılması 580 km).
+- İzmit regresyon testi (`izmit_1999_dogrulamasi_kayitli_degerlerde`) B
+  satırı güncellendi: −0,39 / −0,49 → −0,36 / −0,45 (doğrultu 85°, odak
+  ortada). Hazır senaryolar elle boyut kullandığı için etkilenmez.
+
 ## Platform denemeleri (v0.1.0)
 
 ### macOS x86_64 (2026-11-23, kullanıcı)

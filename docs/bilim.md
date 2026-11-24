@@ -19,9 +19,9 @@ karşılaştırılır). Katsayılar makalelerin elektronik eklerinden alınır.
 - Moment: M0 = 10^(1.5·Mw + 9.05) N·m (Hanks & Kanamori 1979; aşağıda
   "Moment bağıntısı"; 2026-11-23'te 9.1'den düzeltildi, kodda
   `tsunami::source::moment`).
-- Kırılma boyutları: kabuk için Wells & Coppersmith (1994) veya
-  Leonard (2010); dalma-batma için Strasser vd. (2010). Alternatif
-  tek kaynak: Thingbaijam vd. (2017).
+- Kırılma boyutları: Wells & Coppersmith (1994) alanı; sığ kabuk doğrultu
+  atımlıda uzunluk Thingbaijam vd. (2017) uzunluğuyla sınırlı (Bölüm 7.1,
+  2026-11-24). Dalma-batma: WC94 + genişlik sınırları (Bölüm 7.1, Faz 5).
 - Tek düzlem dikdörtgen: strike, dip, rake, odağın düzlemdeki konumu.
 - Kısıtlar: üst kenar yüzeyin üstüne çıkamaz (Ztor ≥ 0). Kabukta
   genişlik sismojenik kalınlıkla sınırlı (~15–25 km, doğrula);
@@ -585,18 +585,35 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   deprem, a = 4.07 ± 0.06, b = 0.98 ± 0.03, s = 0.24, r = 0.95, büyüklük
   aralığı 4.8–7.9, alan aralığı 2.2–5 184 km².
 - Veri aralığının üstü (Mw > 7.9) ekstrapolasyondur ve arayüzde AÇIKÇA
-  uyarılır (engellenmez; `Issue::RuptureSizeExtrapolated`). 20 km genişlikle
-  doğrultu atımlıda: Mw 7.6 → 200 km, 7.8 → 320 km, 8.0 → 512 km, 8.5 →
-  1 657 km. İzmit'te uzun (gözlenen ~145 km), Kahramanmaraş'ta uyumlu
-  (docs/dogrulama.md, B). Mw 8 üstü için genişlik doygunluğunu gözeten bir
-  bağıntı (ör. Leonard 2010) AÇIK KONU; kaynaktan doğrulanmadan eklenmez.
+  uyarılır (engellenmez; `Issue::RuptureSizeExtrapolated`). Yalnız WC94 ile
+  20 km genişlikte doğrultu atımlı fay Mw 7.6 → 200 km, 7.8 → 320 km,
+  8.0 → 512 km, 8.5 → 1 657 km oluyordu (2026-11-24'e kadar).
+- Doğrultu atımlı sığ kabuk (2026-11-24): uzunluk = min(WC94 alanından
+  uzunluk, Thingbaijam, Mai & Goda 2017 uzunluğu). Künye: BSSA 107(5),
+  2225–2246, doi:10.1785/0120170017; Tablo 1 "Strike-slip": log10 L =
+  −2.943 + 0.681·Mw (σ 0.151), log10 W = −0.543 + 0.261·Mw (σ 0.105);
+  veri Mw 5.38–8.70, L 6–580 km, W 6.5–50 km. Birincil kaynaktan
+  DOĞRULANDI (yazar kabul kopyası, Bristol; kullanıcı tarayıcıdan indirdi).
+  20 km genişlikte iki uzunluk Mw ≈ 7.40'ta eşitlenir: altında WC94 aynen,
+  üstünde TMG17 (Mw 7.6 → 171 km, 7.8 → 234, 8.0 → 320, 8.5 → 700).
+  Genişlik WC94 kolundaki gibi; alan korunmaz. Ekstrapolasyon uyarısı
+  doğrultu atımlıda TMG17 aralığına (8.7) göre: girdi sınırı 8.5 olduğu
+  için çıkmaz. Neden yalnız TMG17 değil: Mw ~7'de gözlenenden uzun
+  (Kumamoto 67 km, Düzce 83 km) ve doğrulamada sapmayı büyüttü
+  (docs/dogrulama.md "Doğrultu atımlı fay uzunluğu"). Ters/normal kabuk
+  ve dalma-batma WC94'te kaldı (TMG17 ters fay verisi Mw ≤ 7.69; arayüz
+  uzunluğu Tōhoku'da WC94'ten de uzun: 782 km).
 - Genişlik = min(√A, sismojenik taban / sin δ); doyunca L = A / W.
   Sismojenik taban: 20 km (VARSAYIM; CLAUDE.md "15–25 km"). Hiposantr
   tabandan derinse taban hiposantr + 1 km'ye iner.
 - Hiposantrın düzlemdeki konumu "İleri seviye" ayarı (varsayılan doğrultu
   ve eğim boyunca ortada). Ztor ≥ 0 ve taban kısıtı konumu kaydırabilir.
-- Thingbaijam vd. (2017): erişilebilen kopya "tüm haklar saklı, metin ve
-  veri madenciliği / yapay zekâ yasak" notlu olduğu için kullanılmadı.
+- Thingbaijam vd. (2017): Faz 3'te erişilen kopya "tüm haklar saklı, metin
+  ve veri madenciliği / yapay zekâ yasak" notlu olduğu için kullanılmamıştı.
+  2026-11-24: Bristol deposundaki yazar kabul kopyasında (core.ac.uk
+  153373648, SHA256 a7baaf67…) böyle bir not YOK ("made available in
+  accordance with publisher policies"); yalnızca Tablo 1'deki katsayılar
+  (bilimsel olgu) künyeyle kullanıldı, metin kopyalanmadı.
 - Dalma-batma ve levha içi ölçekleme (Strasser vd. 2010) Faz 5'te.
 - Mesafe ölçüleri NGA-West2 tanımlarıyla; saha, merkez üssü çevresinde
   azimutal eşit uzaklık düzlemine taşınır (300 km içinde hatası ihmal

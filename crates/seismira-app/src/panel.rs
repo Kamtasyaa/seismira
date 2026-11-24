@@ -401,7 +401,7 @@ pub fn ui(
                         q.hypo_down = pct / 100.0;
                     }
                     ui.end_row();
-                    // Kırılma boyutu: otomatik (WC94) ya da elle. Elle'ye
+                    // Kırılma boyutu: otomatik (WC94 / TMG17) ya da elle. Elle'ye
                     // geçince o anki otomatik değerlerle başlar.
                     let l = ui.label(t("rupture-manual")).id;
                     let mut manual = q.rupture_km.is_some();

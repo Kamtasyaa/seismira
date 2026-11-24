@@ -81,7 +81,8 @@ pub struct Quake {
     /// gerekirse bunu değiştirir (bkz. source.rs).
     pub hypo_down: f64,
     /// İleri seviye: elle kırılma boyutu [uzunluk, genişlik] (km). `None`:
-    /// otomatik (WC94 alanı, [`crate::source::Fault::from_quake`]).
+    /// otomatik (WC94 alanı; sığ kabuk doğrultu atımlıda TMG17 uzunluk ve
+    /// genişliği, [`crate::source::Fault::from_quake`]).
     /// Genişlik sismojenik taban / arayüz sınırına sığmazsa kırpılır
     /// ([`Issue::RuptureWidthClamped`]).
     pub rupture_km: Option<[f64; 2]>,
@@ -163,7 +164,8 @@ pub enum Issue {
     /// tek başına bunu yakalamaz, çünkü Ztor büyüklüğe de bağlıdır.
     ZtorOutOfRange { ztor: f64, max: f64 },
     /// Sığ kabukta büyüklük, kırılma boyutu bağıntısının veri aralığının
-    /// üstünde ([`crate::source::WC94_MW_MAX`]): fay boyutları
+    /// üstünde ([`crate::source::auto_size_mw_max`]: WC94 7.9; doğrultu
+    /// atımlıda TMG17 8.7, girdi sınırı 8.5 olduğundan oluşmaz): fay boyutları
     /// ekstrapolasyondur. Engellemez, açıkça uyarır.
     RuptureSizeExtrapolated { max: f64 },
     /// Elle kırılma boyutu aralık dışı ya da sayı değil (uzunluk
@@ -269,10 +271,9 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
 /// Sığ kabuk: boyut bağıntısı aralığı ve Ztor sınırı.
 fn crust_checks(q: &Quake, out: &mut Vec<Issue>) {
     {
-        if q.rupture_km.is_none() && q.mw > crate::source::WC94_MW_MAX {
-            out.push(Issue::RuptureSizeExtrapolated {
-                max: crate::source::WC94_MW_MAX,
-            });
+        let max = crate::source::auto_size_mw_max(q);
+        if q.rupture_km.is_none() && q.mw > max {
+            out.push(Issue::RuptureSizeExtrapolated { max });
         }
         // Kaynak geometrisi kurulabiliyorsa: üst kenar modelin sınırında mı?
         let ztor = crate::source::Fault::from_quake(q).ztor;
@@ -338,10 +339,14 @@ mod tests {
     fn kabukta_buyukluk_siniri_fay_tipine_bagli() {
         let mut q = quake();
         q.mw = 8.3;
-        // Doğrultu atımlı: 8.5'e kadar izinli; 7.9'un üstünde yalnızca
-        // kırılma boyutu uyarısı (engellemez).
+        // Doğrultu atımlı: 8.5'e kadar izinli; boyut bağıntısı (TMG17,
+        // Mw ≤ 8.7) bu aralığı kapsar, uyarı yok.
+        assert!(validate(&q).is_empty(), "{:?}", validate(&q));
+        q.mw = 8.5;
+        assert!(validate(&q).is_empty(), "{:?}", validate(&q));
+        q.mw = 8.3;
+        // Ters fay: 8.0 sınırı ve WC94 (7.9) ekstrapolasyon uyarısı.
         let warn = Issue::RuptureSizeExtrapolated { max: 7.9 };
-        assert_eq!(validate(&q), vec![warn]);
         assert!(!warn.blocks());
         q.fault = FaultType::Reverse;
         assert_eq!(

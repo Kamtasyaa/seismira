@@ -57,11 +57,66 @@ pub fn area_wc94(mw: f64) -> f64 {
 
 /// [`area_wc94`] bağıntısının veri aralığının üst sınırı (Tablo 2A: 4.8–7.9).
 /// Üstünde alan ekstrapolasyondur (Mw 8.0'da ~10 200 km², verideki en
-/// büyük alanın iki katı; 20 km genişlikle doğrultu atımlıda L ≈ 512 km,
-/// Mw 8.5'te ≈ 1 657 km). Girdi denetimi bunu AÇIKÇA uyarır (engellemez).
+/// büyük alanın iki katı). Girdi denetimi bunu AÇIKÇA uyarır (engellemez).
+/// Sığ kabuk doğrultu atımlı faylar WC94 yerine [`length_tmg17_ss`]
+/// kullanır (2026-11-24): WC94 + 20 km genişlik orada Mw 8.0'da 512 km,
+/// 8.5'te 1 657 km veriyordu.
 /// Alt sınırın (4.8) altı uyarılmaz: Mw 4.0'da alan ~0.9 km², kaynak
 /// pratikte noktadır ve mesafelere etkisi 1 km'nin altındadır.
 pub const WC94_MW_MAX: f64 = 7.9;
+
+/// Sığ kabuk doğrultu atımlı kırılma uzunluğu (km): Thingbaijam, Mai &
+/// Goda (2017), "New empirical earthquake source-scaling laws", BSSA
+/// 107(5), 2225–2246, doi:10.1785/0120170017. Tablo 1, "Strike-slip"
+/// satırı: log10 L = −2.943 + 0.681·Mw (σ = 0.151; genel ortogonal
+/// regresyon, sonlu fay modelleri). Birincil kaynaktan DOĞRULANDI
+/// (2026-11-24, yazar kabul kopyası, Bristol: Tablo 1).
+///
+/// Veri aralığı Mw 5.38–8.70, L 6.0–580.0 km ([`TMG17_SS_MW`]). Uzunluk
+/// genişlikten bağımsız regresyondur: genişlik sismojenik tabana göre
+/// kırpılsa da uzunluk değişmez (makale: doğrultu atımlıda genişlik
+/// büyümesi "strongly inhibited", L büyüklükle W'dan hızlı büyür). WC94
+/// alanı + doymuş genişlik Mw 8.5'te ~1 650 km verirken bu ~700 km verir.
+///
+/// Kullanım (2026-11-24): sığ kabuk doğrultu atımlıda uzunluk =
+/// min(WC94 alanından uzunluk, bu). Genişlik WC94 kolundaki gibi
+/// (√A, tabana göre kırpılmış). 20 km genişlikte iki uzunluk Mw ≈ 7.4'te
+/// eşitlenir; altında WC94 (değişiklik yok), üstünde TMG17. Neden yalnızca
+/// TMG17 değil: doğrulamada (docs/dogrulama.md) TMG17 Mw ~7'de gözlenenden
+/// uzun fay verdi (Kumamoto 67 km ↔ ~30–50; Düzce 83 km ↔ ~47) ve sapmayı
+/// büyüttü; WC94 ise 7.9 üstünde ekstrapolasyonla patlıyor.
+pub fn length_tmg17_ss(mw: f64) -> f64 {
+    10f64.powf(-2.943 + 0.681 * mw)
+}
+
+/// Sığ kabuk doğrultu atımlı kırılma genişliği (km), aynı kaynak, Tablo 1:
+/// log10 W = −0.543 + 0.261·Mw (σ = 0.105; veri W 6.5–50.0 km). Fay
+/// kurulumunda KULLANILMIYOR (genişlik WC94 kolundan; Mw ≥ 7.4'te ikisi de
+/// 20 km tabana kırpılır); karşılaştırma ve test için.
+pub fn width_tmg17_ss(mw: f64) -> f64 {
+    10f64.powf(-0.543 + 0.261 * mw)
+}
+
+/// [`length_tmg17_ss`] / [`width_tmg17_ss`] veri aralığı (Mw), Tablo 1.
+/// Kabukta doğrultu atımlı girdi sınırı (8.5) bunun içinde kalır.
+pub const TMG17_SS_MW: (f64, f64) = (5.38, 8.70);
+
+/// Otomatik kırılma uzunluğu TMG17 ile sınırlanıyor mu (yalnızca sığ
+/// kabuk doğrultu atımlı); değilse yalnızca WC94 alanı.
+pub fn uses_tmg17_ss(q: &Quake) -> bool {
+    q.setting == Setting::ShallowCrust && q.fault == FaultType::StrikeSlip
+}
+
+/// Otomatik kırılma boyutu bağıntısının veri aralığı üst sınırı (Mw):
+/// üstü ekstrapolasyondur. Doğrultu atımlıda Mw > 7.9'da uzunluk her zaman
+/// TMG17'den gelir (WC94 uzunluğu ~7.4'ten sonra daha uzun) ([`crate::quake::Issue::RuptureSizeExtrapolated`]).
+pub fn auto_size_mw_max(q: &Quake) -> f64 {
+    if uses_tmg17_ss(q) {
+        TMG17_SS_MW.1
+    } else {
+        WC94_MW_MAX
+    }
+}
 
 /// Ortalama kırılma hızı (km/s), fay tipine göre. Vera, Tilmann & Saul
 /// (2024), "A decade of short-period earthquake rupture histories from
@@ -136,12 +191,13 @@ impl Fault {
     /// Depremden fay düzlemini kurar. Hiposantrın düzlemdeki konumu
     /// `Quake::hypo_along` ve `hypo_down` ile (varsayılan ikisi de ortada);
     /// düzlem yüzeyin üstüne çıkamaz (Ztor ≥ 0) ve kabukta sismojenik tabanı
-    /// aşamaz. Genişlik doyunca alan korunacak şekilde uzunluk artar.
+    /// aşamaz. Otomatik boyut: WC94 alanı, genişlik doyunca alan korunacak
+    /// şekilde uzunluk artar; sığ kabuk doğrultu atımlıda uzunluk TMG17
+    /// uzunluğuyla sınırlıdır ([`length_tmg17_ss`]).
     /// `Quake::rupture_km` verilmişse boyutlar ondan (genişlik kırpılabilir).
     pub fn from_quake(q: &Quake) -> Self {
         let dip = q.dip.clamp(1.0, 90.0);
         let sin_d = dip.to_radians().sin();
-        let area = area_wc94(q.mw);
         let bottom = match q.setting {
             Setting::ShallowCrust => SEISMOGENIC_BOTTOM_KM.max(q.depth_km + 1.0),
             Setting::Interface => INTERFACE_BOTTOM_KM.max(q.depth_km + 1.0),
@@ -158,8 +214,16 @@ impl Fault {
             // olduğu gibi (alan korunmaz; kullanıcı ne verdiyse).
             Some([l, w]) => (l, w.min(w_max)),
             None => {
+                let area = area_wc94(q.mw);
                 let width = area.sqrt().min(w_max);
-                (area / width, width)
+                let length = area / width;
+                // Doğrultu atımlı kabuk: WC94 uzunluğu TMG17'yi aşarsa
+                // TMG17 (Mw ≳ 7.4; alan korunmaz). Gerekçe: [`length_tmg17_ss`].
+                if uses_tmg17_ss(q) {
+                    (length.min(length_tmg17_ss(q.mw)), width)
+                } else {
+                    (length, width)
+                }
             }
         };
         let vertical = width * sin_d;
@@ -387,16 +451,58 @@ mod tests {
 
     #[test]
     fn genislik_doyunca_uzunluk_artar() {
-        let f = Fault::from_quake(&quake(7.6, 15.0, FaultType::StrikeSlip, 90.0));
-        // Dikey fay: genişlik sismojenik kalınlıkla sınırlı.
+        // Ters fay (WC94): genişlik tabanla sınırlı, alan korunur.
+        let mut q = quake(7.6, 15.0, FaultType::Reverse, 90.0);
+        q.dip = 90.0;
+        let f = Fault::from_quake(&q);
         assert!((f.width - SEISMOGENIC_BOTTOM_KM).abs() < 1e-9);
         assert!((f.length * f.width - area_wc94(7.6)).abs() < 1e-6);
         assert!(f.length > 100.0);
         assert!(f.ztor >= 0.0 && f.ztor + f.width <= SEISMOGENIC_BOTTOM_KM + 1e-9);
-        // Küçük depremde kare düzlem, hiposantr ortada.
-        let g = Fault::from_quake(&quake(5.0, 10.0, FaultType::StrikeSlip, 0.0));
+        // Küçük depremde kare düzlem, hiposantr eğim boyunca ortada.
+        let g = Fault::from_quake(&quake(5.0, 10.0, FaultType::Reverse, 0.0));
         assert!((g.length - g.width).abs() < 1e-9);
-        assert!((g.ztor + g.width / 2.0 - 10.0).abs() < 1e-9);
+        let half_v = g.width / 2.0 * g.dip.to_radians().sin();
+        assert!((g.ztor + half_v - 10.0).abs() < 1e-9);
+    }
+
+    /// Thingbaijam vd. (2017) Tablo 1, doğrultu atımlı: Mw 8.0'da
+    /// log10 L = −2.943 + 5.448 = 2.505 → 319.9 km; log10 W = −0.543 +
+    /// 2.088 = 1.545 → 35.08 km. Mw 7.0: L = 10^1.824 = 66.68 km.
+    #[test]
+    fn tmg17_dogrultu_atimli() {
+        assert!((length_tmg17_ss(8.0) - 10f64.powf(2.505)).abs() < 1e-9);
+        assert!((length_tmg17_ss(8.0) - 319.9).abs() < 0.1);
+        assert!((width_tmg17_ss(8.0) - 35.08).abs() < 0.01);
+        assert!((length_tmg17_ss(7.0) - 66.68).abs() < 0.01);
+        // Fayda: dikey fay, genişlik tabana (20 km) kırpılır, uzunluk TMG17
+        // (WC94: 10 200 / 20 ≈ 512 km).
+        let f = Fault::from_quake(&quake(8.0, 10.0, FaultType::StrikeSlip, 90.0));
+        assert!((f.width - SEISMOGENIC_BOTTOM_KM).abs() < 1e-9, "{f:?}");
+        assert!((f.length - length_tmg17_ss(8.0)).abs() < 1e-9, "{f:?}");
+        // Mw 8.5: ~700 km (WC94 + 20 km ile ~1 657 km idi).
+        let g = Fault::from_quake(&quake(8.5, 10.0, FaultType::StrikeSlip, 90.0));
+        assert!((690.0..710.0).contains(&g.length), "{g:?}");
+        // Mw 7.4 altında WC94 aynen (alan korunur): Mw 7.0 → 977 / 20 ≈ 49 km.
+        let h = Fault::from_quake(&quake(7.0, 10.0, FaultType::StrikeSlip, 0.0));
+        assert!((h.length * h.width - area_wc94(7.0)).abs() < 1e-6, "{h:?}");
+        assert!(h.length < length_tmg17_ss(7.0), "{h:?}");
+        // Kesişim (20 km genişlik): 1.0204·M − 5.454 = 0.681·M − 2.943 → M ≈ 7.40.
+        for m in [7.35, 7.45] {
+            let k = Fault::from_quake(&quake(m, 10.0, FaultType::StrikeSlip, 0.0));
+            let wc = area_wc94(m) / k.width;
+            assert_eq!(k.length < wc, m > 7.4, "{m}: {k:?} wc {wc}");
+        }
+        // Uzunluk büyüklükle tekdüze artar (kesişimde sıçrama yok).
+        let mut prev = 0.0;
+        for i in 0..=40 {
+            let m = 6.5 + 0.05 * f64::from(i);
+            let l = Fault::from_quake(&quake(m, 10.0, FaultType::StrikeSlip, 0.0)).length;
+            assert!(l > prev, "{m}: {l} ≤ {prev}");
+            prev = l;
+        }
+        // Ters fay WC94'te kalır.
+        assert!(!uses_tmg17_ss(&quake(8.0, 10.0, FaultType::Reverse, 0.0)));
     }
 
     /// 2011 Tōhoku benzeri: Mw 9, eğim 14°, odak 29 km. Genişlik doyar:

@@ -1229,9 +1229,11 @@ mod tests {
             close(a.sd_ln, 0.66) && close(a.within_one, 27.0 / 31.0),
             "{a:?}"
         );
-        assert!(close(b.mean_di, -0.39) && close(b.mean_ln, -0.49), "{b:?}");
+        // B: fay uzunluğu TMG17 ile sınırlı (2026-11-24): 198 → 171 km;
+        // önce −0.39 / −0.49 / 0.66.
+        assert!(close(b.mean_di, -0.36) && close(b.mean_ln, -0.45), "{b:?}");
         assert!(
-            close(b.sd_ln, 0.66) && close(b.within_one, 26.0 / 31.0),
+            close(b.sd_ln, 0.69) && close(b.within_one, 26.0 / 31.0),
             "{b:?}"
         );
         // Başlangıç kabul ölçütü (Bölüm 14), A için: ortalama sapma < 0,3
