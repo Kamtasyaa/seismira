@@ -839,6 +839,35 @@ C (uygulamanın tam zinciri), ort. ΔI (JMA) / |ΔI| < 1 oranı:
   değerlerle güncellendi; ortalama ölçütü bu (ShakeMap atlas) gözlem
   setiyle artık aranmıyor, %80 koşulu korunuyor.
 
+## Tsunami: korunaklı kıyılar (2026-11-24)
+
+Değişiklik: kaynağı doğrudan görmeyen kıyılara (≥ 20 km kara engeli)
+yakın alan yüksekliği verilmez, PTWC tehdidindeyse "dikkat" (sarı)
+(docs/bilim.md 7.10 "KORUNAKLI KIYI"). `validate-tsunami` artık bu
+kıyıları uygulamadaki kategorisiyle karşılaştırmaya katar (yükseklik
+oranına katmaz). Bölge bazında kategori farkı (|gözlem − model|) toplamı:
+
+| Deprem | Bölge aynı (önce → sonra) | Kategori farkı toplamı | Nokta bazında aynı | Korunaklı nokta |
+|---|---|---|---|---|
+| Tōhoku | 8 → 8 / 14 | 9 → 7 | %77 → %77 | 291 |
+| Noto | 9 → 9 / 13 | 4 → 4 | %53 → %52 | 546 |
+| Maule | 5 → 5 / 8 | 3 → 3 | %93 → %93 | 211 |
+
+- Tōhoku: Sahalin 5,2 m (mor) → sarı (gözlem 0,2 m), Kanagawa 17,3 m
+  (mor) → sarı (gözlem 1,8 m; bir kategori az), Japon Denizi kıyısı
+  (Yamagata, Sakata 0,35 m) sarı. "TOKYO" bölgesinde model 17,9 → 11,0 m:
+  kalan değer açık okyanustaki İzu adalarından (Hachijō); iç körfez
+  (Harumi 1,6–2,8 m) korunaklı. NCEI'nin "YAMAGATA" etiketli 2,6 m'lik
+  Hamanaka kaydı aslında Hokkaido'da (43,1°K 145,1°D): veri etiketi hatası.
+- Noto: Fukui, Hyogo, Kyoto korunaklı (sarı; gözlem 0,3–0,6 m, aynı);
+  Tottori ve Yamaguchi sarı (gözlem 0,6 / 0,2 m; önce 0 / 1 idi).
+  Toyama hâlâ fazla (11,8 / 1,4 m): körfez Noto'ya açık, sorun kıyı
+  boyunca azalma (Lorentz) ve kıyı şekli; korunma değil.
+- Maule: Coquimbo korunaklı (sarı; gözlem 1,3 m, bir kategori az).
+- 5 km eşik denemesi: Tōhoku nokta bazında %73, Noto %25 (yarımadanın
+  arka kıyıları korunaklı sayıldı) → reddedildi. Tepe noktasını hedef
+  almak: Noto %16 (tepe karada) → reddedildi.
+
 ## Platform denemeleri (v0.1.0)
 
 ### macOS x86_64 (2026-11-23, kullanıcı)

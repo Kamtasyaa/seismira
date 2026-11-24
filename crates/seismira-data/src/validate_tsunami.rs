@@ -234,16 +234,30 @@ pub fn run(
             r.4.map_or("-".into(), |m| format!("{:.0} dk", m / 60.0))
         );
     }
-    // Yükseklikler (yakın alan).
-    let near: Vec<(f64, f64, f64)> = f
+    // Yükseklikler (yakın alan). Korunaklı kıyılar (yükseklik verilmez):
+    // uygulamadaki gibi tehdit bölgesindeyse "sarı" (kategori 1), değilse 0;
+    // nokta bazında oran hesabına girmez, kategori karşılaştırmasına girer.
+    let near: Vec<(f64, f64, Option<f64>, u8)> = f
         .coast
         .iter()
-        .filter_map(|c| {
+        .filter(|c| c.runup_m.is_some() || c.sheltered)
+        .map(|c| {
             let p = &pts[c.point];
-            c.runup_m.map(|h| (f64::from(p.lon), f64::from(p.lat), h))
+            // Uygulama (crates/seismira-app/src/tsunami.rs): yükseklikten
+            // kategori; 0,2 m altı ya da yükseklik yoksa tehdit → sarı.
+            let from_h = c.runup_m.map_or(0, category);
+            let cat = if from_h > 0 {
+                from_h
+            } else {
+                u8::from(c.threat)
+            };
+            (f64::from(p.lon), f64::from(p.lat), c.runup_m, cat)
         })
         .collect();
+    let sheltered = f.coast.iter().filter(|c| c.sheltered).count();
+    println!("korunaklı kıyı noktası (yakın alanda, yükseklik verilmedi): {sheltered}");
     let (mut n, mut same, mut lnsum, mut obs_max) = (0usize, 0usize, 0.0, 0.0f64);
+    let mut n_h = 0usize;
     let mut confusion = [[0usize; 4]; 4];
     for it in &items {
         let ty = it["typeMeasurementId"].as_i64().unwrap_or(0);
@@ -262,9 +276,9 @@ pub fn run(
         }
         let best = near
             .iter()
-            .map(|&(x, y, h)| (geo::distance_azimuth((lon, lat), (x, y)).0, h))
+            .map(|&(x, y, h, c)| (geo::distance_azimuth((lon, lat), (x, y)).0, h, c))
             .min_by(|a, b| a.0.total_cmp(&b.0));
-        let Some((km, hm)) = best else {
+        let Some((km, hm, cm)) = best else {
             continue;
         };
         if km > 20.0 {
@@ -272,16 +286,21 @@ pub fn run(
         }
         n += 1;
         obs_max = obs_max.max(ho);
-        let (co, cm) = (category(ho), category(hm));
+        let co = category(ho);
         confusion[co as usize][cm as usize] += 1;
         same += usize::from(co == cm);
-        lnsum += (hm.max(0.01) / ho).ln();
+        if let Some(hm) = hm {
+            n_h += 1;
+            lnsum += (hm.max(0.01) / ho).ln();
+        }
     }
     // Bölge bazında (NCEI `area`, Japonya'da il): JMA kategorisi tahmin
     // bölgesindeki EN YÜKSEK değere göre verilir ("高いところで"); gözlenen
     // en yüksek ile bölgedeki gözlemlere ≤ 20 km kıyı noktalarındaki model en
     // yükseği karşılaştırılır.
-    let mut areas: std::collections::BTreeMap<String, (f64, f64)> = Default::default();
+    // Değer: (gözlenen en yüksek, model en yüksek kategori, model en yüksek
+    // yükseklik (korunaklıda NaN)).
+    let mut areas: std::collections::BTreeMap<String, (f64, u8, f64)> = Default::default();
     for it in &items {
         let ty = it["typeMeasurementId"].as_i64().unwrap_or(0);
         if ty != 2 && ty != 4 {
@@ -295,22 +314,24 @@ pub fn run(
         ) else {
             continue;
         };
-        let hm = near
+        let close: Vec<_> = near
             .iter()
-            .filter(|&&(x, y, _)| geo::distance_azimuth((lon, lat), (x, y)).0 <= 20.0)
-            .map(|&(_, _, h)| h)
-            .fold(f64::NAN, f64::max);
-        if !hm.is_finite() {
+            .filter(|&&(x, y, _, _)| geo::distance_azimuth((lon, lat), (x, y)).0 <= 20.0)
+            .collect();
+        if close.is_empty() {
             continue;
         }
-        let e = areas.entry(area.to_owned()).or_insert((0.0, 0.0));
+        let cm = close.iter().map(|c| c.3).max().unwrap_or(0);
+        let hm = close.iter().filter_map(|c| c.2).fold(f64::NAN, f64::max);
+        let e = areas.entry(area.to_owned()).or_insert((0.0, 0, f64::NAN));
         e.0 = e.0.max(ho);
-        e.1 = e.1.max(hm);
+        e.1 = e.1.max(cm);
+        e.2 = e.2.max(hm);
     }
     if !areas.is_empty() {
         let same = areas
             .values()
-            .filter(|(o, m)| category(*o) == category(*m))
+            .filter(|(o, m, _)| category(*o) == *m)
             .count();
         println!(
             "bölge bazında (en yüksek / en yüksek): {} bölge, aynı JMA kategorisi {} (%{:.0})",
@@ -318,21 +339,25 @@ pub fn run(
             same,
             100.0 * same as f64 / areas.len() as f64
         );
-        for (a, (o, m)) in &areas {
+        for (a, (o, cm, m)) in &areas {
+            let model = if m.is_finite() {
+                format!("{m:>5.1} m")
+            } else {
+                "korunaklı".to_owned()
+            };
             println!(
-                "    {a:<28} gözlem {o:>5.1} m, model {m:>5.1} m  ({} / {})",
+                "    {a:<28} gözlem {o:>5.1} m, model {model:>9}  ({} / {cm})",
                 category(*o),
-                category(*m)
             );
         }
     }
     if n > 0 {
         println!(
             "yükseklik (yakın alan, tür 2 + 4, ≤ 20 km): {n} gözlem, aynı JMA kategorisi %{:.0}, \
-             ortalama ln(model/gözlem) {:+.2} (oran {:.2}); gözlenen en yüksek {obs_max:.1} m, R0 {:.1} m",
+             ortalama ln(model/gözlem) (yükseklikli {n_h}) {:+.2} (oran {:.2}); gözlenen en yüksek {obs_max:.1} m, R0 {:.1} m",
             100.0 * same as f64 / n as f64,
-            lnsum / n as f64,
-            (lnsum / n as f64).exp(),
+            lnsum / n_h.max(1) as f64,
+            (lnsum / n_h.max(1) as f64).exp(),
             f.r0
         );
         println!("  karışıklık (satır gözlem, sütun model; 0 yok, 1 sarı, 2 kırmızı, 3 mor):");

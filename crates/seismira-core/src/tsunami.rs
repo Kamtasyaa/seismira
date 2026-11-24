@@ -980,6 +980,40 @@ pub mod forecast {
     /// Eğimin makul aralığı (Riquelme: 1°–2° kama; şelf 0,0027 örneği).
     pub const SLOPE_MIN: f64 = 5e-4;
     pub const SLOPE_MAX: f64 = 0.1;
+    /// Korunaklı kıyı denetimi (2026-11-24): kıyı noktasından DENİZDEKİ en
+    /// yakın kaynak hücresine (|uz| ≥ %25 H, [`SOURCE_FRACTION`]; 0,25°
+    /// kovalarla seyreltilmiş) giden büyük çember üzerinde, ilk `SHELTER_SKIP_KM`
+    /// atlandıktan sonra en az `SHELTER_LAND_KM` kesintisiz kara varsa kıyı
+    /// kaynağı doğrudan görmez (koy / körfez içi, yarımadanın arkası, karşı
+    /// kıyı). Riquelme vd. (2015) koy ve haliçleri kapsam dışı sayar; bu
+    /// kıyılara yakın alan yüksekliği VERİLMEZ (uzak alan gibi yalnızca
+    /// tehdit ve varış). Ölçütün kendisi VARSAYIM: 1′ ızgarada kıyı şeridi
+    /// pürüzü (5 km) ve küçük adacıklar (< 5 km) yok sayılır.
+    pub const SHELTER_SKIP_KM: f64 = 5.0;
+    pub const SHELTER_LAND_KM: f64 = 20.0;
+
+    /// Kıyı noktası denizdeki kaynağı doğrudan görmüyor mu (bkz.
+    /// [`SHELTER_SKIP_KM`]); `target`: en yakın kaynak hücresi. Pencere dışı
+    /// örnekler kara sayılmaz.
+    pub fn sheltered(depth: &Depth, from: (f64, f64), target: (f64, f64)) -> bool {
+        let (km, az) = geo::distance_azimuth(from, target);
+        let step = 1.0;
+        let (mut x, mut land) = (SHELTER_SKIP_KM, 0.0);
+        while x < km {
+            let p = geo::destination(from, az, x);
+            match depth.index(p.0, p.1) {
+                Some(i) if !depth.depth[i].is_finite() => {
+                    land += step;
+                    if land >= SHELTER_LAND_KM {
+                        return true;
+                    }
+                }
+                _ => land = 0.0,
+            }
+            x += step;
+        }
+        false
+    }
 
     /// Derinlik penceresi (m; NaN kara), boylam-enlem, satır satır kuzeyden.
     pub struct Depth<'a> {
@@ -1030,8 +1064,11 @@ pub mod forecast {
         pub point: usize,
         /// İlk varış (s); ulaşılamıyorsa INFINITY.
         pub eta_s: f64,
-        /// Yakın alan tırmanması (m); uzak alanda `None`.
+        /// Yakın alan tırmanması (m); uzak alanda ve korunaklı kıyıda `None`.
         pub runup_m: Option<f64>,
+        /// Yakın alanda ama kaynağı doğrudan görmeyen kıyı ([`sheltered`]):
+        /// yükseklik verilmez.
+        pub sheltered: bool,
         /// PTWC tehdit bölgesinde mi.
         pub threat: bool,
     }
@@ -1154,6 +1191,16 @@ pub mod forecast {
             let a = fault.strike.to_radians();
             (a.sin(), a.cos())
         };
+        // Korunaklı kıyı hedefleri: kaynak hücreleri 0,25° kovalarda birer
+        // temsilciye seyreltilir (en yakın hücre araması ucuz kalsın).
+        let targets: Vec<(f64, f64)> = {
+            let mut keys = std::collections::HashSet::new();
+            seeds
+                .iter()
+                .map(|s| depth.center(s.0))
+                .filter(|c| keys.insert(((c.0 * 4.0).floor() as i64, (c.1 * 4.0).floor() as i64)))
+                .collect()
+        };
         let threat_radius = match assessment {
             trigger::Assessment::Threat { radius_km } => Some(radius_km),
             _ => None,
@@ -1173,9 +1220,18 @@ pub mod forecast {
             let (ex, ny) = (km * a.sin(), km * a.cos());
             let along = ex * sx + ny * sy;
             let across = (ex * sy - ny * sx).abs();
-            let runup_m = (across <= NEAR_ACROSS_KM
-                && fault.fault != crate::quake::FaultType::StrikeSlip)
-                .then(|| r0 * runup::along_coast(alpha * along, fault.length));
+            let near =
+                across <= NEAR_ACROSS_KM && fault.fault != crate::quake::FaultType::StrikeSlip;
+            let shelter = near && {
+                let target = targets
+                    .iter()
+                    .min_by(|a, b| geo::distance_km(pt, **a).total_cmp(&geo::distance_km(pt, **b)))
+                    .copied()
+                    .unwrap_or(up.at);
+                sheltered(depth, pt, target)
+            };
+            let runup_m =
+                (near && !shelter).then(|| r0 * runup::along_coast(alpha * along, fault.length));
             let threat = match threat_radius {
                 Some(Some(r)) => geo::distance_azimuth(q.epicenter, pt).0 <= r,
                 Some(None) => t <= trigger::BASIN_ETA_S,
@@ -1185,6 +1241,7 @@ pub mod forecast {
                 point: k,
                 eta_s: t,
                 runup_m,
+                sheltered: shelter,
                 threat,
             });
         }
@@ -1197,5 +1254,53 @@ pub mod forecast {
             eta,
             ..empty
         })
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// 3° × 1° deniz (1′), arada `wall` derece genişlikte kara şeridi
+        /// (1,0°D'den başlayarak).
+        fn grid(wall: f64) -> Vec<f32> {
+            let (w, h) = (180, 60);
+            (0..w * h)
+                .map(|i| {
+                    let lon = (i % w) as f64 / 60.0 + 1.0 / 120.0;
+                    if (1.0..1.0 + wall).contains(&lon) {
+                        f32::NAN
+                    } else {
+                        1000.0
+                    }
+                })
+                .collect()
+        }
+
+        fn depth(v: &[f32]) -> Depth<'_> {
+            Depth {
+                west: 0.0,
+                north: 1.0,
+                cell: 1.0 / 60.0,
+                width: 180,
+                height: 60,
+                depth: v,
+                wrap: false,
+            }
+        }
+
+        /// Kaynakla kıyı arasında ~44 km kara: korunaklı. ~11 km (dar
+        /// yarımada; dalga dolaşır): korunaklı DEĞİL. Pencere dışı kara
+        /// sayılmaz.
+        #[test]
+        fn korunakli_kiyi() {
+            let wide = grid(0.4);
+            assert!(sheltered(&depth(&wide), (0.5, 0.5), (2.5, 0.5)));
+            let narrow = grid(0.1);
+            assert!(!sheltered(&depth(&narrow), (0.5, 0.5), (2.5, 0.5)));
+            let sea = grid(0.0);
+            assert!(!sheltered(&depth(&sea), (0.5, 0.5), (2.5, 0.5)));
+            // Hedef pencere dışında (kuzeyde): yol pencereden çıkınca kara yok.
+            assert!(!sheltered(&depth(&sea), (0.5, 0.5), (0.5, 3.0)));
+        }
     }
 }

@@ -530,6 +530,18 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   H 4,98 m (143,52°D 38,06°K), d 4179 m, b 0,0057, R0 34,7 m (gözlenen
   en yüksek ~40 m; Riquelme FFM ile 41 m), Ishinomaki kıyısı varış
   16–56 dk; hesap 0,3 s.
+- KORUNAKLI KIYI (2026-11-24): Riquelme vd. (2015) koy ve haliçleri kapsam
+  dışı sayar. `tsunami::forecast::sheltered`: kıyı noktasından denizdeki en
+  yakın kaynak hücresine (|uz| ≥ %25 H; 0,25° kovalarla seyreltilmiş)
+  giden büyük çember üzerinde, ilk 5 km atlandıktan sonra ≥ 20 km
+  kesintisiz kara varsa kıyı kaynağı doğrudan görmez (körfez içi,
+  yarımadanın arkası, karşı kıyı): yakın alan yüksekliği VERİLMEZ, uzak
+  alan gibi yalnızca PTWC tehdidi ("dikkat", sarı) ve varış. Ölçüt
+  VARSAYIM; 5 km eşiği denendi, Noto'da yarımadanın arka kıyılarını da
+  (dalganın dolaştığı Suzu / Iida koyu) korunaklı saydığı için 20 km
+  seçildi (docs/dogrulama.md). Hedef tepe noktası değil denizdeki kaynak:
+  Noto'da en büyük yükselme karada. Adalar (İzu) hâlâ kapsam dışı ama
+  ayrılmıyor (açık).
 - UYGULAMA (Faz 8 adım 4, 2026-11-23): varış süresi, seismira-core
   `tsunami::travel` (birinci dereceden fast marching, 4 komşu, iki yönlü
   güncelleme; boylam-enlem ızgarada dx = R cos φ Δλ). Kaynaklar: Sethian
