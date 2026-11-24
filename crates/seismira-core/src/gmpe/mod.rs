@@ -1,5 +1,6 @@
 //! Yer hareketi tahmin denklemleri (GMPE), CLAUDE.md Bölüm 7.4.
 
+pub mod ask14;
 pub mod bssa14;
 pub mod cy14;
 pub mod psbah20;

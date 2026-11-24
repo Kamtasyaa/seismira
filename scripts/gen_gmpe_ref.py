@@ -164,7 +164,16 @@ def ngaw2(which: str) -> None:
         "ask14": pygmm.AbrahamsonSilvaKamai2014,
         "cb14": pygmm.CampbellBozorgnia2014,
     }[which]
-    regions = {"bssa14": ["global", "turkey", "japan"]}.get(which, ["global"])
+    regions = {
+        "bssa14": ["global", "turkey", "japan"],
+        "ask14": ["global", "japan", "taiwan", "china"],
+        "cb14": ["global", "japan", "china"],
+    }[which]
+    # ASK14 ve CB14 fay genişliği ister (verilmezse pygmm kendi tahminini
+    # kullanır); Vs30 haritadan "tahmini" (ASK14 σ'sı için).
+    extra = {} if which == "bssa14" else dict(width=15.0)
+    if which == "ask14":
+        extra["vs_source"] = "inferred"
     rows = []
     mags = [4.5, 5.5, 6.5, 7.5, 8.2]
     dists = [1.0, 5.0, 20.0, 60.0, 150.0, 300.0]
@@ -179,11 +188,12 @@ def ngaw2(which: str) -> None:
         s = pygmm.Scenario(
             mag=mag, dist_rup=rrup, dist_jb=rjb, dist_x=rx, dip=dip, depth_tor=ztor,
             mechanism=mech, v_s30=vs30, on_hanging_wall=side > 0, region=region,
+            **extra,
         )
         m = cls(s)
         row = dict(
             region=region, mag=mag, rrup=rrup, rjb=rjb, rx=rx, ztor=ztor, dip=dip,
-            mech=mech, vs30=vs30,
+            mech=mech, vs30=vs30, **({"width": extra["width"]} if "width" in extra else {}),
             ln_pga=float(np.log(m.pga)), sd_pga=float(m.ln_std_pga),
             ln_pgv=float(np.log(m.pgv)), sd_pgv=float(m.ln_std_pgv),
         )
