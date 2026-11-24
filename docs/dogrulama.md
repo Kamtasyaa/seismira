@@ -876,6 +876,35 @@ oranına katmaz). Bölge bazında kategori farkı (|gözlem − model|) toplamı
   arka kıyıları korunaklı sayıldı) → reddedildi. Tepe noktasını hedef
   almak: Noto %16 (tepe karada) → reddedildi.
 
+## Hasar doğrulaması: Pazarcık hazır senaryo geometrisiyle (2026-11-24)
+
+`validate-damage` artık Pazarcık ana şokunu uygulamanın hazır senaryosuyla
+kurar (268 × 15 km, odak %57; ShakeMap kırılma modelinden), Elbistan
+otomatik boyutla (146 km). Model: dört NGA-West2 ortalaması, Türkiye
+bölgesi. Önce (aynı gün, otomatik 234 km, odak ortada) → sonra:
+
+| İl | model / gözlenen (önce) | (sonra) |
+|---|---|---|
+| Adana | 9,12 | 9,33 |
+| Adıyaman | 0,37 | 0,36 |
+| Diyarbakır | 0,05 | 0,12 |
+| Elazığ | 0,06 | 0,16 |
+| Gaziantep | 1,42 | 1,44 |
+| Kahramanmaraş | 0,44 | 0,46 |
+| Malatya | 0,24 | 0,47 |
+| Hatay | 0,31 | 0,33 |
+| Kilis | 0,62 | 0,74 |
+| Osmaniye | 0,67 | 0,67 |
+| Şanlıurfa | 1,01 | 1,18 |
+
+- İl başına ln(model/gözlenen): −0,78 (×0,46), std 1,44 → **−0,50 (×0,60),
+  std 1,18**. 11 il toplamı %8,4 → %9,5 (gözlenen bina %8,9).
+- Kalan sapma: en çok hasar gören illerde (Hatay, Adıyaman, Kahramanmaraş,
+  Malatya) model gözlenenin ~0,35–0,5'i; Adana'da ×9. Sarsıntı tarafı
+  istasyonlarla uyumlu (Kahramanmaraş C ΔI +0,01), dolayısıyla fark büyük
+  ölçüde hasar zincirinde (ESRM20 kırılganlık / bina envanteri, gözlenenin
+  konut ölçeği). Model değiştirilmedi.
+
 ## Platform denemeleri (v0.1.0)
 
 ### macOS x86_64 (2026-11-23, kullanıcı)

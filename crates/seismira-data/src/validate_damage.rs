@@ -28,7 +28,12 @@ use std::sync::atomic::AtomicBool;
 
 /// USGS olay sayfaları (us6000jllz, us6000jlqa): merkez üssü, derinlik,
 /// Mww düğüm düzlemi (fay izine uyan düzlem).
-fn events() -> Vec<(&'static str, Quake)> {
+///
+/// Pazarcık (2026-11-24): uygulamanın hazır senaryosu (ShakeMap kırılma
+/// modelinden 268 × 15 km, odak doğrultunun %57'sinde), çünkü otomatik boyut
+/// (TMG17 ile 234 km, odak ortada) gerçek kırılmanın güney ucunu (Hatay)
+/// kapsamıyor. Elbistan otomatik boyutla (146 km; gözlenen ~150 km).
+fn events() -> Result<Vec<(&'static str, Quake)>> {
     let mk = |lon, lat, depth, mw, strike, dip| {
         let mut q = Quake::new((lon, lat));
         q.depth_km = depth;
@@ -39,16 +44,16 @@ fn events() -> Vec<(&'static str, Quake)> {
         q.rake = 0.0;
         q
     };
-    vec![
+    Ok(vec![
         (
-            "Mw 7,8 Pazarcık",
-            mk(37.0143, 37.2256, 10.0, 7.8, 227.6, 89.2),
+            "Mw 7,8 Pazarcık (hazır senaryo)",
+            crate::scenario_quake("kahramanmaras2023")?,
         ),
         (
             "Mw 7,5 Elbistan",
             mk(37.1962, 38.0106, 7.4, 7.5, 277.2, 77.9),
         ),
-    ]
+    ])
 }
 
 /// (bölge kimliği → hasar) bir deprem için.
@@ -116,7 +121,7 @@ pub fn run(sbb_csv: &Path, esrm20_turkey_res: &Path) -> Result<()> {
 
     // Olay başına ağır hasar oranı (medyan, −1τ, +1τ).
     let mut per_event: Vec<HashMap<u16, [f64; 3]>> = Vec::new();
-    for (name, q) in events() {
+    for (name, q) in events()? {
         let t = std::time::Instant::now();
         let d = run_event(q, &tt, &vs30, &regions, &exposure)?;
         println!("{name}: {} bölge ({} ms)", d.len(), t.elapsed().as_millis());
