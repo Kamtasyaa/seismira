@@ -299,8 +299,9 @@ ters fay dışı seçilmişse ya da değer geçersizse Başlat kapalıdır (⛔)
 300 km'den derin odak engellenmez ama "kaba tahmin" uyarısı verilir (⚠).
 Faz 3'te CY14, Faz 5'te Parker vd. (2020) eklenirken her modelin
 yayımlanmış aralığı makaleden alınıp bu sabitler güncellenecek.
-Varsayılan eğim/kayma açıları (doğrultu atımlı 90°/0°, normal 55°/−90°,
-ters 40°/90°) da doğrulanacak değerlerdir.
+Varsayılan eğim/kayma açıları (doğrultu atımlı 90°/0°, normal 50°/−90°,
+ters 40°/90°): eğimler 2026-11-24'te USGS OFR 2010-1296 Tablo 2'den
+doğrulandı (docs/bilim.md 7.1).
 
 Ek denetimler (2026-11-15), yalnızca sığ kabuk:
 - ⛔ Kırılmanın üst kenarı (Ztor) 20 km'den derinse (CY14 ve CB14 sınırı): Başlat

@@ -26,9 +26,11 @@ karşılaştırılır). Katsayılar makalelerin elektronik eklerinden alınır.
 - Kısıtlar: üst kenar yüzeyin üstüne çıkamaz (Ztor ≥ 0). Kabukta
   genişlik sismojenik kalınlıkla sınırlı (~15–25 km, doğrula);
   genişlik doyunca alan korunacak şekilde uzunluk artar.
-- Varsayılanlar (doğrula): doğrultu atımlı dip 90°, rake 0° veya 180°;
-  normal dip ~55°, rake −90°; ters dip ~40°, rake 90°; arayüzde dip
-  ve strike Slab2'den.
+- Varsayılan eğimler DOĞRULANDI (2026-11-24): doğrultu atımlı 90°, ters
+  40°, normal 50° (önce 55°); USGS OFR 2010-1296 sürüm 1.1 Tablo 2,
+  Kaklamanos vd. (2011) önerisi (`data/raw/refs/misc/`, SHA256 16413082…).
+  Kayma açısı saf mekanizma (0°, +90°, −90°). Arayüzde dip ve strike
+  Slab2'den.
 - Ortalama kayma D = M0 / (μ·A), μ = 30 GPa (Riquelme vd. 2015 ile aynı;
   `tsunami::source::mean_slip`). Tsunami için.
 - Düzlem ~5–10 km'lik alt faylara bölünür. Alt fayın kırılma zamanı =

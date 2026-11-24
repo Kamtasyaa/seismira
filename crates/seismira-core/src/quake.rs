@@ -27,13 +27,17 @@ pub enum FaultType {
 }
 
 impl FaultType {
-    /// Varsayılan (eğim, kayma açısı), derece. Bölüm 7.1'deki uzlaşımsal
-    /// değerler (doğrulanacak): doğrultu atımlı dikey ve saf yanal; normal
-    /// ~55° ve −90°; ters ~40° ve +90°.
+    /// Varsayılan (eğim, kayma açısı), derece. Eğim: Kaklamanos, Boore,
+    /// Thompson & Campbell (2010, sürüm 1.1 2011), USGS Open-File Report
+    /// 2010-1296, Tablo 2 "Estimation of dip angle from style of faulting"
+    /// (Kaklamanos vd. 2011, Earthquake Spectra 27(4), doi:10.1193/1.3650372
+    /// önerisi): doğrultu atımlı 90°, ters 40°, normal 50° (2026-11-24
+    /// doğrulandı; önce normal 55° idi). Kayma açısı: saf mekanizma
+    /// (0°, +90°, −90°; uzlaşım).
     pub fn default_dip_rake(self) -> (f64, f64) {
         match self {
             FaultType::StrikeSlip => (90.0, 0.0),
-            FaultType::Normal => (55.0, -90.0),
+            FaultType::Normal => (50.0, -90.0),
             FaultType::Reverse => (40.0, 90.0),
         }
     }
