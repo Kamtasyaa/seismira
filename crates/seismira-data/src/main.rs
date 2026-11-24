@@ -496,7 +496,10 @@ fn compare_shakemap(
             .collect();
         let obs = match channels[..] {
             [(_, h1), (_, h2)] => (h1.ln() + h2.ln()) / 2.0,
-            [("UNK", v)] => {
+            // Tek kanal: "UNK" ya da eski (atlas) verilerde "peak". Bileşen
+            // tanımı belgede görülmedi (ShakeMap kılavuzu erişilemedi);
+            // olduğu gibi alınır, sonuçta "tek kanallı" sayısı yazılır.
+            [("UNK" | "peak", v)] => {
                 single += 1;
                 v.ln()
             }

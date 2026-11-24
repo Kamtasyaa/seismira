@@ -758,8 +758,14 @@ depoda değil):
   istasyonda PGV medyan ln farkı 0,00 (ortalama −0,17, birkaç uç değer).
 - Noto us6000m0xl: `us` sürüm 10 (404 sismik; SHA256 223350c8…).
 - Maule: `atlas` (35 sismik; SHA256 b307eba0…). Kanallar tek "peak"
-  kanalı (H1/H2 yok): `compare_shakemap` bunları okumuyor (0 istasyon).
-  Bileşen tanımı belirsiz; AÇIK.
+  kanalı (H1/H2 yok). 2026-11-24'ten beri `compare_shakemap` bunu "UNK"
+  gibi tek kanal olarak, değeri olduğu gibi okur (bileşen tanımı ShakeMap
+  kılavuzunda doğrulanamadı: sayfa 403). Sonuç (Parker vd. 2020, bölge
+  sa_s, senaryo geometrisi; 28 istasyon): A +0,48, B +0,44, **C +0,40 ΔI,
+  %96 < 1 birim** (model az tahmin; 25–150 km'de +0,36…+0,59). "peak" büyük
+  yatay bileşen ise Boore & Kishida (2017) oranı (M 8,8, 75 km: ln 0,12)
+  kadar düşer → C ≈ +0,31. İki yorumda da ortalama ölçütünün biraz
+  dışında; model değiştirilmedi.
 
 Komut: `validate-shakemap <stationlist> --scenario <id> --vs30
 data/vs30/vs30.sras --slab data/slab2/slab2.sslb`. C satırı, ort. ΔI / %<1:
