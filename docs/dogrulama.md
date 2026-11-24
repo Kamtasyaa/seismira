@@ -748,6 +748,56 @@ data/vs30/vs30.sras <boylam enlem derinlik Mw doğrultu eğim SS odak>` ve
   satırı güncellendi: −0,39 / −0,49 → −0,36 / −0,45 (doğrultu 85°, odak
   ortada). Hazır senaryolar elle boyut kullandığı için etkilenmez.
 
+## Senaryo şiddet doğrulaması tamamlama: Ridgecrest, Noto, Maule (2026-11-24)
+
+Veri (USGS ShakeMap `stationlist.json`, kamu malı; `data/raw/validation/`,
+depoda değil):
+- Ridgecrest ci38457511: `us` sürüm 7 (ShakeMap 4, 1129 sismik istasyon;
+  SHA256 a67a51b1…). Bölge ağının `ci` v14 dosyası eski biçimde (mesafe ve
+  `station_type` yok), `cgs` v10 da öyle; `atlas` v1 ile `us` v7 ortak 924
+  istasyonda PGV medyan ln farkı 0,00 (ortalama −0,17, birkaç uç değer).
+- Noto us6000m0xl: `us` sürüm 10 (404 sismik; SHA256 223350c8…).
+- Maule: `atlas` (35 sismik; SHA256 b307eba0…). Kanallar tek "peak"
+  kanalı (H1/H2 yok): `compare_shakemap` bunları okumuyor (0 istasyon).
+  Bileşen tanımı belirsiz; AÇIK.
+
+Komut: `validate-shakemap <stationlist> --scenario <id> --vs30
+data/vs30/vs30.sras --slab data/slab2/slab2.sslb`. C satırı, ort. ΔI / %<1:
+
+| Deprem (istasyon) | A | C | Mesafeye göre C |
+|---|---|---|---|
+| Ridgecrest (683) | −0,41 / %88 | **−0,40 / %88** | her mesafede −0,1 … −0,7 (çoğu −0,35…−0,45) |
+| Noto (351) | −0,67 / %70 | **−0,75 / %65** | 0–100 km −0,03…+0,04; 150–200 −0,84; 200–300 −1,11 |
+
+İki olay da ÖLÇÜT DIŞI (ort. |ΔI| > 0,3; Noto %80 koşulunu da sağlamıyor).
+A ≈ C: sapma geometri ya da Vs30'dan değil, yer hareketi modelinden (CY14)
+geliyor. CY14'ün Japonya/İtalya anelastik düzeltmesi yalnızca 6 < M < 6,9
+için tanımlı (pygmm uygulaması), Noto'yu etkilemez.
+
+### Deney: dört NGA-West2 modeli (karar desteği)
+
+`scripts/compare_ngaw2_models.py` (pygmm 0.9.1; yalnızca karşılaştırma):
+ShakeMap mesafeleri + istasyon Vs30 (A tipi), ln(gözlem/tahmin) ortalaması.
+"r": modelin bölgesel sürümü (Japonya: hepsi; Türkiye: yalnızca BSSA14'te
+açık bölge, diğerleri temel model; Kaliforniya: temel). "ort4r": dört
+bölgesel modelin eşit ağırlıklı ortalaması (ln uzayında).
+
+| Olay | CY14 | BSSA14r | ASK14r | CB14r | ort4r |
+|---|---|---|---|---|---|
+| Kahramanmaraş (192) | +0,19 | −0,15 | +0,02 | +0,29 | +0,09 |
+| İzmit (31, ShakeMap gözlemi) | −0,31 | −0,62 | −0,45 | −0,34 | −0,43 |
+| Kumamoto (308) | −0,01 | +0,20 | +0,29 | +0,41 | +0,22 |
+| Ridgecrest (684) | −0,52 | −0,16 | −0,60 | −0,25 | −0,38 |
+| Noto (351) | −0,84 | −0,24 | −0,27 | −0,12 | −0,37 |
+
+(İzmit ShakeMap gözlemi NGA'dan ~0,46 ln düşük; NGA'ya göre CY14 ≈ +0,15,
+ort4r ≈ +0,03.) Ortalama |sapma| CY14 0,34 → ort4r 0,22; en kötü olay
+(Noto) −0,84 → −0,37, uzak alan (200–300 km) −1,29 → −0,65. Kumamoto
+kötüleşiyor (−0,01 → +0,22; uzak alan +0,03 → +0,54): Japonya'nın
+bölgesel sönümlenmesi Kyushu'da gözlemden hızlı, orta Honshu'da yavaş.
+Sonuç: model ortalaması (Faz 11 maddesi) en büyük sapmaları belirgin
+küçültüyor; karar kullanıcıya soruldu.
+
 ## Platform denemeleri (v0.1.0)
 
 ### macOS x86_64 (2026-11-23, kullanıcı)
