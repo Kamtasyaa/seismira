@@ -904,6 +904,16 @@ bölgesi. Önce (aynı gün, otomatik 234 km, odak ortada) → sonra:
   istasyonlarla uyumlu (Kahramanmaraş C ΔI +0,01), dolayısıyla fark büyük
   ölçüde hasar zincirinde (ESRM20 kırılganlık / bina envanteri, gözlenenin
   konut ölçeği). Model değiştirilmedi.
+- Ölçek denemesi (aynı gün): gözlem KONUT, model BİNA oranı. `validate-
+  damage` artık ESRM20 Türkiye konut envanterinin DWELLINGS sütununu tip
+  eşlemesiyle kırılganlık tiplerine dağıtıp aynı zinciri "konut stoku"yla
+  da çalıştırır (konut binası ve konut ağırlıklı sütunlar). Sonuç: konut
+  ağırlıklı il başına ×0,61 (std 1,27), 11 il %8,8 konut (gözlenen %17,3);
+  bina oranıyla neredeyse aynı (×0,60). HİPOTEZ ÇÜRÜDÜ: ESRM20'de çok katlı
+  betonarme sınıflar belirgin daha kırılgan olmadığından ağırlık sonucu
+  değiştirmiyor. Kalan fark kırılganlık / yapı kalitesi tarafında
+  (en çok hasar gören illerde ×0,33–0,43, Adana ×9–14); yayımlanmış bir
+  bölgesel düzeltme bulunmadan değiştirilmedi.
 
 ## Platform denemeleri (v0.1.0)
 
