@@ -22,6 +22,11 @@ açılışta uyarı verir:
 - Linux: Terminalde "./seismira". Vulkan sürücüsü gerekir; eski
   donanımda OpenGL için: WGPU_BACKEND=gl ./seismira
 
+Not: Windows sürümü gerçek bir Windows bilgisayarda denenmedi (yalnızca
+otomatik derleme ve testler). Pencere boş / siyah kalırsa PowerShell'de:
+    $env:WGPU_BACKEND="gl"; .\seismira.exe
+ile deneyin ve log dosyasını bildirin.
+
 SORUN BİLDİRME
 --------------
 Her açılışta bir log dosyası yazılır (bir sonraki açılışta yenilenir):
@@ -63,6 +68,12 @@ system warns on first launch:
       xattr -dr com.apple.quarantine .
 - Linux: run "./seismira" in a terminal. A Vulkan driver is required;
   for OpenGL on older hardware: WGPU_BACKEND=gl ./seismira
+
+Note: the Windows build has not been tried on a real Windows PC (only
+automated builds and tests). If the window stays empty / black, try in
+PowerShell:
+    $env:WGPU_BACKEND="gl"; .\seismira.exe
+and report the log file.
 
 REPORTING PROBLEMS
 ------------------

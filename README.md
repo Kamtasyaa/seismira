@@ -67,11 +67,19 @@ Uygulama **imzasızdır** (kod imzalama ücretli): Windows'ta "Ek bilgi →
 Yine de çalıştır", macOS'ta Sistem Ayarları → Gizlilik ve Güvenlik →
 "Yine de Aç".
 
+Not: Windows sürümü yalnızca CI'da derlenip test ediliyor; gerçek bir
+Windows bilgisayarda denenmedi. Sorun görürseniz log dosyasıyla
+(`KURULUM.txt`) bildirin.
+
 Prebuilt packages for Windows, macOS and Linux are on the
 [Releases](https://github.com/Kamtasyaa/seismira/releases/latest) page
 (~690 MB each). The app is **unsigned**: on Windows choose "More info → Run
 anyway"; on macOS use System Settings → Privacy & Security → "Open
 Anyway". See `KURULUM.txt` in the archive.
+
+Note: the Windows build is compiled and tested only in CI; it has not been
+tried on a real Windows PC. Please report problems with the log file
+(see `KURULUM.txt`).
 
 ## Kaynaktan derleme / Build from source
 

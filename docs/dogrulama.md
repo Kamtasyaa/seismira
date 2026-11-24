@@ -964,4 +964,9 @@ Küçük ada (< 30 km) kıyılarına yakın alan yüksekliği verilmez (docs/bil
   genişliği kalan alana göre. Regresyon testi `panel_icerigi_tasmaz`
   (8 senaryo × TR/EN × 260 / 300 px, "İleri seviye" açık). macOS'taki
   bozulma büyük olasılıkla aynı hataydı (ilk açılışta panel 300 px).
-- Windows: henüz denenmedi.
+- Windows: gerçek bilgisayarda denenmedi. VirtualBox Windows 11 VM'de
+  (2026-11-23, v0.1.1 taslağı) exe açıldı, pencere içi siyah kaldı; log
+  incelenmedi (VM'de gerçek GPU yok, sonuç gerçek Windows'u temsil
+  etmez). 2026-11-24 kullanıcı kararı: Windows testi bırakıldı; README ve
+  KURULUM.txt'ye "Windows'ta denenmedi" notu ve GL yedeği talimatı
+  eklendi. Windows yalnızca CI'da (derleme + testler) doğrulanıyor.
