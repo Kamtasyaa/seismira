@@ -953,4 +953,15 @@ Küçük ada (< 30 km) kıyılarına yakın alan yüksekliği verilmez (docs/bil
   Metal yüzeyi ile pencere boyutu uyumsuzluğundan (GPU sürücüsü / yama)
   kaynaklandığı düşünülüyor. Kodda değişiklik yapılmadı. Gerçek bir
   Mac'te görülürse yeniden ele alınacak.
+- DÜZELTME (2026-11-24): aynı görüntü Linux'ta da çıktı (kullanıcı, hazır
+  senaryo "Kahramanmaraş" seçildikten sonra; ekran görüntüsünde başlık
+  "arları"). Sürücü değil, YERLEŞİM HATASI: sağa yaslı ayar panelinde bir
+  öğe panelden geniş olunca içerik sola taşıyor, egui sol kısmı kırpıyor.
+  Taşanlar: senaryo kutusundaki uzun seçili ad (260 px'te +264 px),
+  "Tektonik ortam" / "Fay tipi" kutuları (dalma-batmada +51 px), "İleri
+  seviye"deki etiket + kaydırıcı satırları (+87 px). Çözüm: kutular hücre
+  genişliğinde ve metin "…" ile kısaltılır; kaydırıcıların etiketi üstte,
+  genişliği kalan alana göre. Regresyon testi `panel_icerigi_tasmaz`
+  (8 senaryo × TR/EN × 260 / 300 px, "İleri seviye" açık). macOS'taki
+  bozulma büyük olasılıkla aynı hataydı (ilk açılışta panel 300 px).
 - Windows: henüz denenmedi.

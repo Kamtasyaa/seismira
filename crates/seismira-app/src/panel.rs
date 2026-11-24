@@ -211,9 +211,12 @@ pub fn ui(
         let mut chosen = None;
         ui.horizontal(|ui| {
             let label_id = ui.label(t("scenario")).id;
+            // Uzun senaryo adı kutuyu (ve sağa yaslı paneli) genişletmesin:
+            // sığmayan seçili metin "…" ile kısaltılır; tam ad listede.
             egui::ComboBox::from_id_salt("scenario")
                 .selected_text(label)
                 .width(ui.available_width())
+                .wrap_mode(egui::TextWrapMode::Truncate)
                 .show_ui(ui, |ui| {
                     for p in presets {
                         let on = selected.is_some_and(|s| s.id == p.id);
@@ -277,6 +280,9 @@ pub fn ui(
             let l = ui.label(t("setting")).id;
             egui::ComboBox::from_id_salt("setting")
                 .selected_text(t(setting_key(q.setting)))
+                // Dar panelde hücreye sığsın (bkz. `panel_icerigi_tasmaz`).
+                .width(ui.available_width())
+                .wrap_mode(egui::TextWrapMode::Truncate)
                 .show_ui(ui, |ui| {
                     for s in [
                         Setting::ShallowCrust,
@@ -294,6 +300,9 @@ pub fn ui(
             let mut fault = q.fault;
             egui::ComboBox::from_id_salt("fault")
                 .selected_text(t(fault_key(fault)))
+                // Dar panelde hücreye sığsın (bkz. `panel_icerigi_tasmaz`).
+                .width(ui.available_width())
+                .wrap_mode(egui::TextWrapMode::Truncate)
                 .show_ui(ui, |ui| {
                     for f in [FaultType::StrikeSlip, FaultType::Normal, FaultType::Reverse] {
                         ui.selectable_value(&mut fault, f, t(fault_key(f)));
@@ -359,63 +368,51 @@ pub fn ui(
     egui::CollapsingHeader::new(t("advanced"))
         .default_open(false)
         .show(ui, |ui| {
-            egui::Grid::new("quake-adv")
-                .num_columns(2)
-                .spacing([10.0, 8.0])
-                .show(ui, |ui| {
-                    let l = ui.label(t("hypo-along")).id;
-                    let mut pct = q.hypo_along * 100.0;
-                    if ui
-                        .add(
-                            egui::Slider::new(&mut pct, 0.0..=100.0)
-                                .integer()
-                                // Yalnızca kullanıcı oynatınca yuvarla: varsayılan
-                                // (Always) mevcut değeri her karede tam sayıya
-                                // yazıp "değişti" sayıyordu; hazır senaryo
-                                // (ör. %44,9) "Özel"e düşüyordu (2026-11-23).
-                                .clamping(egui::SliderClamping::Edits)
-                                .suffix(" %"),
-                        )
-                        .labelled_by(l)
-                        .changed()
-                    {
-                        q.hypo_along = pct / 100.0;
-                    }
-                    ui.end_row();
-                    let l = ui.label(t("hypo-down")).id;
-                    let mut pct = q.hypo_down * 100.0;
-                    if ui
-                        .add(
-                            egui::Slider::new(&mut pct, 0.0..=100.0)
-                                .integer()
-                                // Yalnızca kullanıcı oynatınca yuvarla: varsayılan
-                                // (Always) mevcut değeri her karede tam sayıya
-                                // yazıp "değişti" sayıyordu; hazır senaryo
-                                // (ör. %44,9) "Özel"e düşüyordu (2026-11-23).
-                                .clamping(egui::SliderClamping::Edits)
-                                .suffix(" %"),
-                        )
-                        .labelled_by(l)
-                        .changed()
-                    {
-                        q.hypo_down = pct / 100.0;
-                    }
-                    ui.end_row();
-                    // Kırılma boyutu: otomatik (WC94 / TMG17) ya da elle. Elle'ye
-                    // geçince o anki otomatik değerlerle başlar.
-                    let l = ui.label(t("rupture-manual")).id;
-                    let mut manual = q.rupture_km.is_some();
-                    if ui.checkbox(&mut manual, "").labelled_by(l).changed() {
-                        q.rupture_km = manual.then(|| {
-                            let auto = Fault::from_quake(&Quake {
-                                rupture_km: None,
-                                ..*q
-                            });
-                            [auto.length.round(), auto.width.round()]
-                        });
-                    }
-                    ui.end_row();
-                    if let Some([l, w]) = &mut q.rupture_km {
+            // Etiket üstte, kaydırıcı altında: dar panelde de sığar (uzun
+            // etiket + kaydırıcı aynı satırda paneli taşırıyordu; bkz.
+            // `panel_icerigi_tasmaz`, 2026-11-24).
+            let slider = |ui: &mut egui::Ui, key: &str, value: &mut f64| {
+                let l = ui.label(lang.t(key)).id;
+                // Değer kutusu ve aralık ~65 px.
+                ui.spacing_mut().slider_width = (ui.available_width() - 70.0).max(40.0);
+                let mut pct = *value * 100.0;
+                if ui
+                    .add(
+                        egui::Slider::new(&mut pct, 0.0..=100.0)
+                            .integer()
+                            // Yalnızca kullanıcı oynatınca yuvarla: varsayılan
+                            // (Always) mevcut değeri her karede tam sayıya
+                            // yazıp "değişti" sayıyordu; hazır senaryo
+                            // (ör. %44,9) "Özel"e düşüyordu (2026-11-23).
+                            .clamping(egui::SliderClamping::Edits)
+                            .suffix(" %"),
+                    )
+                    .labelled_by(l)
+                    .changed()
+                {
+                    *value = pct / 100.0;
+                }
+                ui.add_space(4.0);
+            };
+            slider(ui, "hypo-along", &mut q.hypo_along);
+            slider(ui, "hypo-down", &mut q.hypo_down);
+            // Kırılma boyutu: otomatik (WC94 / TMG17) ya da elle. Elle'ye
+            // geçince o anki otomatik değerlerle başlar.
+            let mut manual = q.rupture_km.is_some();
+            if ui.checkbox(&mut manual, t("rupture-manual")).changed() {
+                q.rupture_km = manual.then(|| {
+                    let auto = Fault::from_quake(&Quake {
+                        rupture_km: None,
+                        ..*q
+                    });
+                    [auto.length.round(), auto.width.round()]
+                });
+            }
+            if let Some([l, w]) = &mut q.rupture_km {
+                egui::Grid::new("quake-rupture")
+                    .num_columns(2)
+                    .spacing([10.0, 8.0])
+                    .show(ui, |ui| {
                         let (max_l, max_w) = seismira_core::quake::limits::RUPTURE_MAX_KM;
                         let id = ui.label(t("rupture-length")).id;
                         ui.add(number(lang, l, 1.0..=max_l, 0, 1.0).suffix(" km"))
@@ -425,8 +422,8 @@ pub fn ui(
                         ui.add(number(lang, w, 1.0..=max_w, 0, 0.5).suffix(" km"))
                             .labelled_by(id);
                         ui.end_row();
-                    }
-                });
+                    });
+            }
             let f = Fault::from_quake(q);
             ui.label(
                 RichText::new(lang.t_args(
@@ -520,6 +517,57 @@ mod preset_tests {
             let draft = h.state();
             assert_eq!(draft.quake, p.quake, "{}: deprem değişti", p.id);
             assert_eq!(draft.preset.as_deref(), Some(p.id.as_str()), "{}", p.id);
+        }
+    }
+
+    /// Panel içeriği panelin genişliğini aşmamalı (2026-11-24 hatası: uzun
+    /// senaryo adı açılır kutuyu genişletiyor, sağa yaslı panel sola büyüyüp
+    /// soldan kırpılıyordu: "Deprem ayarları" → "arları"). Her senaryo, iki
+    /// dil, en dar panel genişliği (260 px, `size_range`) ve varsayılan 300.
+    #[test]
+    fn panel_icerigi_tasmaz() {
+        let path = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/scenarios/scenarios.json"
+        ));
+        let presets = crate::scenarios::load(path).unwrap();
+        for width in [260.0, 300.0] {
+            for lang in [Lang::Tr, Lang::En] {
+                for p in &presets {
+                    let draft = Draft {
+                        quake: p.quake,
+                        has_epicenter: true,
+                        preset: Some(p.id.clone()),
+                    };
+                    let mut h = egui_kittest::Harness::builder()
+                        .with_accessibility_check(false)
+                        .with_size([width, 1200.0])
+                        .with_context_setup(move |ctx| {
+                            crate::fonts::install(ctx, &crate::paths::assets_dir(), lang);
+                        })
+                        .build_ui_state(
+                            |ui, st: &mut (Draft, f32)| {
+                                let avail = ui.available_width();
+                                let issues = seismira_core::quake::validate(&st.0.quake);
+                                super::ui(
+                                    ui, lang, &mut st.0, &presets, None, &issues, true, false,
+                                );
+                                st.1 = st.1.max(ui.min_rect().width() - avail);
+                            },
+                            (draft, 0.0f32),
+                        );
+                    h.run();
+                    // "İleri seviye" açıkken de (kaydırıcılar, elle boyut).
+                    h.get_by_label(&lang.t("advanced")).click();
+                    h.run();
+                    let over = h.state().1;
+                    assert!(
+                        over <= 0.5,
+                        "{} {lang:?} {width}: {over:.0} px taşıyor",
+                        p.id
+                    );
+                }
+            }
         }
     }
 

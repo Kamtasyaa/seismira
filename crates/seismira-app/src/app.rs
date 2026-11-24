@@ -601,6 +601,15 @@ impl SeismiraApp {
         {
             self.scale = s;
         }
+        // `SEISMIRA_PRESET=kimlik`: hazır senaryoyu seçili açar (panel
+        // yerleşimi ekran görüntüsü için; başlatmaz).
+        if let Ok(id) = std::env::var("SEISMIRA_PRESET")
+            && let Some(p) = self.presets.iter().find(|p| p.id == id)
+        {
+            self.draft.quake = p.quake;
+            self.draft.has_epicenter = true;
+            self.draft.preset = Some(p.id.clone());
+        }
         let Some(v) = std::env::var("SEISMIRA_DEMO").ok().map(|s| {
             s.split(',')
                 .filter_map(|x| x.trim().parse::<f64>().ok())
