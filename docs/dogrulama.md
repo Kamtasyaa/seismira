@@ -859,8 +859,10 @@ oranına katmaz). Bölge bazında kategori farkı (|gözlem − model|) toplamı
   kalan değer açık okyanustaki İzu adalarından (Hachijō); iç körfez
   (Harumi 1,6–2,8 m) korunaklı. NCEI'nin "YAMAGATA" etiketli 2,6 m'lik
   Hamanaka kaydı aslında Hokkaido'da (43,1°K 145,1°D): veri etiketi hatası.
-- Noto: Fukui, Hyogo, Kyoto korunaklı (sarı; gözlem 0,3–0,6 m, aynı);
-  Tottori ve Yamaguchi sarı (gözlem 0,6 / 0,2 m; önce 0 / 1 idi).
+- Noto: Fukui, Hyogo, Kyoto korunaklı ve PTWC tehdit bölgesinde (sarı;
+  gözlem 0,3–0,6 m, uyumlu; Fukui önce bir kategori fazlaydı). Tottori ve
+  Yamaguchi korunaklı ama tehdit bölgesi dışında (0; gözlem 0,6 / 0,2 m):
+  Tottori önce uyumluydu, şimdi bir kategori az.
   Toyama hâlâ fazla (11,8 / 1,4 m): körfez Noto'ya açık, sorun kıyı
   boyunca azalma (Lorentz) ve kıyı şekli; korunma değil.
 - Maule: Coquimbo korunaklı (sarı; gözlem 1,3 m, bir kategori az).
