@@ -10,14 +10,19 @@
 //!   shousai.html): "地震波が２点以上の地震観測点で観測され" — en az iki
 //!   istasyonda gözlem.
 //!
-//! Zamanlama modeli (VARSAYIM): uyarı anı = P dalgasının, merkez üssünden
-//! [`System::station_km`] uzaklıktaki sanal istasyona (ikinci istasyon)
-//! varışı + [`System::latency_s`] işlem ve iletim gecikmesi.
-//! - 20 km: Japonya K-NET aralığı ~20 km (NIED; ilk kurulumda ~25 km); bu
-//!   aralıktaki bir ağda ikinci en yakın istasyon tipik olarak bu mesafede
-//!   ya da daha yakındadır (temkinli seçim).
-//! - 5 s: JMA ve diğer kaynaklar gecikmeyi sayı olarak vermiyor ("可能な
-//!   限り素早く"); yayımlanmış performans çalışmalarından doğrulanacak.
+//! Zamanlama modeli (2026-11-24): uyarı anı = P dalgasının, merkez üssünden
+//! [`System::station_km`] uzaklıktaki sanal İLK istasyona varışı (JMA'nın
+//! "地震検知", algılama) + [`System::latency_s`] (algılamadan ilk rapora).
+//! - 4,5 s: JMA, 験震時報 73 (2010) 1–122, Doi, Matsumori, Aikawa & Yokota,
+//!   "緊急地震速報の評価・改善に向けた検討", ek tablo "地震検知から第1報までの
+//!   時間" (2007-10-01 – 2008-12-31, 44 olay): medyan 4,55 s, çeyrekler
+//!   4,0–5,8 s, en az 2,6, en çok 26,7 s; uyarı (警報) yayımlanan 9 olayda
+//!   medyan 4,1 s. Süre ikinci istasyonu beklemeyi ve işlemi içerir.
+//!   (jma.go.jp/jma/kishou/books/kenshin/vol73p001.pdf; data/raw/refs/misc/.)
+//! - 10 km: ilk istasyonun uzaklığı VARSAYIM: K-NET aralığı ~20 km (NIED);
+//!   rastgele bir merkez üssünün en yakın istasyonu aralığın yaklaşık yarısı
+//!   uzaklıktadır. (Önceki model: 20 km'deki ikinci istasyon + 5 s,
+//!   kaynaksız; uyarıyı derinliğe göre ~2 s geç veriyordu.)
 
 use crate::geo;
 use crate::intensity::Shindo;
@@ -26,17 +31,18 @@ use crate::traveltime::{Phase, TravelTimes};
 /// Sanal erken uyarı sistemi.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct System {
-    /// İkinci istasyonun merkez üssüne uzaklığı (km).
+    /// İlk (algılayan) istasyonun merkez üssüne uzaklığı (km).
     pub station_km: f64,
-    /// İşlem + iletim gecikmesi (s).
+    /// Algılamadan ilk rapora geçen süre (s): ikinci istasyonu bekleme +
+    /// işlem + iletim.
     pub latency_s: f64,
 }
 
 impl System {
     /// Yoğun ağ (varsayılan).
     pub const DENSE: System = System {
-        station_km: 20.0,
-        latency_s: 5.0,
+        station_km: 10.0,
+        latency_s: 4.5,
     };
 
     /// Uyarının yayımlandığı an (s, deprem anına göre). Seyahat süresi
@@ -79,9 +85,9 @@ mod tests {
     #[test]
     fn uyari_ani_mantikli() {
         let t = tt();
-        // 10 km derinlik, 20 km uzaklık: P ~ 22 km / ~6 km/s ≈ 3,7 s; + 5 s.
+        // 10 km derinlik, 10 km uzaklık: P ~ 14 km / ~6 km/s ≈ 2,4 s; + 4,5 s.
         let a = System::DENSE.alert_time(&t, 10.0).unwrap();
-        assert!((7.5..10.0).contains(&a), "{a}");
+        assert!((6.0..8.0).contains(&a), "{a}");
         // Derin depremde P istasyona daha geç ulaşır.
         assert!(System::DENSE.alert_time(&t, 100.0).unwrap() > a);
     }

@@ -76,12 +76,13 @@ Erken uyarı (VARSAYIMSAL sistem; arayüzde böyle etiketlenir, çünkü
   faq25): tahmini en yüksek Shindo 5- ve üstüyse, Shindo 4 ve üstü
   beklenen bölgelere uyarı. Ayrıca "地震波が２点以上の地震観測点で観測され"
   (JMA EEW ayrıntıları): en az iki istasyonda gözlem.
-- t_uyarı = P'nin merkez üssünden D uzaklıktaki sanal (ikinci) istasyona
-  varışı + işlem gecikmesi. D = 20 km: K-NET aralığı ~20 km (NIED; ilk
-  kurulumda ~25 km); bu aralıkta ikinci en yakın istasyon tipik olarak bu
-  mesafede ya da daha yakındadır (önceki taslakta 25 km idi). Gecikme =
-  5 s: JMA gecikmeyi sayı olarak vermiyor ("可能な限り素早く"); VARSAYIM,
-  yayımlanmış performans çalışmalarından doğrulanacak. İleri seviyede:
+- t_uyarı = P'nin merkez üssünden D = 10 km'deki sanal İLK istasyona
+  varışı (JMA "地震検知") + algılamadan ilk rapora geçen süre 4,5 s
+  (2026-11-24). Süre DOĞRULANDI: JMA 験震時報 73 (2010) 1–122 (Doi vd.),
+  ek tablo "地震検知から第1報までの時間", 2007-10 – 2008-12 arası 44 olay:
+  medyan 4,55 s (çeyrekler 4,0–5,8; uyarılı 9 olayda medyan 4,1); ikinci
+  istasyonu beklemeyi içerir. D = 10 km VARSAYIM (K-NET aralığı ~20 km'nin
+  yarısı). Önceki model: 20 km'deki ikinci istasyon + 5 s (kaynaksız). İleri seviyede:
   yoğun ağ / seyrek ağ / sistem yok (henüz yok).
 - Bölge değeri: bölgenin yerleşim hücrelerindeki en yüksek tahmini Shindo
   (docs/arayuz.md "İl değeri").
@@ -928,7 +929,8 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   (yalnızca AS16 süre modeli kendi 16.05 dyn·cm sabitiyle, ki H&K ile
   aynıdır). Karar: Faz 8'de (Okada, ortalama kayma) H&K tanımı (9.05)
   kullanılacak; 7.1'deki satır o zaman düzeltilecek.
-- Erken uyarı gecikmesi (5 s) hâlâ VARSAYIM (2026-11-15): JMA sisteminin
+- (2026-11-24: aşağıdaki not geçersiz; süre JMA 験震時報 73'ten doğrulandı,
+  7.3.) Erken uyarı gecikmesi (5 s) hâlâ VARSAYIM (2026-11-15): JMA sisteminin
   gözden geçirme makalesi (Kodera vd. 2021, Frontiers in Earth Science,
   doi:10.3389/feart.2021.726045) ilk rapor zamanını yalnızca deniz
   depremleri için ve oluş anına göre veriyor (S-net bölgesinde %50 için
