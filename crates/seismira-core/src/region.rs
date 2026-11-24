@@ -86,6 +86,39 @@ pub fn read_infos(r: &mut impl Read) -> io::Result<Vec<RegionInfo>> {
     Ok(out)
 }
 
+/// Noktanın ülkesi (ISO 3166-1 alfa-2, bölge kodunun ilk iki harfi); nokta
+/// denizdeyse en yakın karanın ülkesi, `max_km` içinde 5 km'lik halkalarla
+/// (24 yön) aranır. Bulunamazsa `None`. Kabuk depremlerinin bölgesel yer
+/// hareketi düzeltmeleri için ([`crate::gmpe::CrustRegion`]).
+pub fn country_near<B: AsRef<[u8]>>(
+    map: &RegionMap<B>,
+    infos: &[RegionInfo],
+    lonlat: (f64, f64),
+    max_km: f64,
+) -> Option<String> {
+    let at = |p: (f64, f64)| -> Option<String> {
+        let id = map.id_at(p.0, p.1).ok()?;
+        let info = infos.get(usize::from(id).checked_sub(1)?)?;
+        let code = info.iso.get(..2)?;
+        code.chars()
+            .all(|c| c.is_ascii_uppercase())
+            .then(|| code.to_string())
+    };
+    if let Some(c) = at(lonlat) {
+        return Some(c);
+    }
+    let mut r = 5.0;
+    while r <= max_km {
+        for k in 0..24 {
+            if let Some(c) = at(crate::geo::destination(lonlat, f64::from(k) * 15.0, r)) {
+                return Some(c);
+            }
+        }
+        r += 5.0;
+    }
+    None
+}
+
 /// Kimlik rasterı okuyucu.
 pub struct RegionMap<B> {
     raster: Raster<B>,

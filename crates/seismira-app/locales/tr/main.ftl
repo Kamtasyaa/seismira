@@ -69,7 +69,7 @@ strike = Doğrultu (°)
 dip = Eğim (°)
 rake = Kayma açısı (°)
 fault-geometry = Fay geometrisi
-ranges-note = Geçerlilik aralıkları yer hareketi modellerinin yayımlanmış aralıklarından gelir (kabuk: CY14, dalma-batma: Parker vd. 2020).
+ranges-note = Geçerlilik aralıkları yer hareketi modellerinin yayımlanmış aralıklarından gelir (kabuk: ASK14, BSSA14, CB14, CY14 ortalaması; dalma-batma: Parker vd. 2020).
 start-needs-epicenter = Başlatmak için önce merkez üssünü seçin.
 
 issue-mw = Bu ortam ve fay tipi için büyüklük { $min } – { $max } aralığında olmalı.

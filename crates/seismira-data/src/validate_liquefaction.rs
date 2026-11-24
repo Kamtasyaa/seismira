@@ -384,7 +384,7 @@ pub fn run_scenario(usgs_tif: &Path, ground: &Path) -> Result<()> {
     q.dip = 89.2;
     q.fault = FaultType::StrikeSlip;
     q.rake = 0.0;
-    let scenario = Scenario::new(q, &tt);
+    let scenario = Scenario::new(q, &tt).with_crust_region(crate::crust_region_at(q.epicenter)?);
     let g = vs30.grid();
     let domain = Domain::for_scenario(
         &scenario,

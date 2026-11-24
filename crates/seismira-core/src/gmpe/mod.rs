@@ -4,6 +4,7 @@ pub mod ask14;
 pub mod bssa14;
 pub mod cb14;
 pub mod cy14;
+pub mod ngaw2;
 pub mod psbah20;
 
 /// Sığ kabuk NGA-West2 modellerinin bölgesel düzeltmeleri için bölge

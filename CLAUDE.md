@@ -142,7 +142,9 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
 - Referans uygulamalar yalnızca sonuç karşılaştırmak içindir;
   OpenQuake (AGPL) kodu KOPYALANMAZ.
 - Özet: sonlu fay (tek dikdörtgen düzlem), ak135 seyahat süreleri
-  (tek model), sığ kabukta CY14, dalma-batmada Parker vd. (2020), PGV →
+  (tek model), sığ kabukta dört NGA-West2 modelinin (ASK14, BSSA14,
+  CB14, CY14) bölgesel eşit ağırlıklı ortalaması (2026-11-24 kullanıcı
+  kararı), dalma-batmada Parker vd. (2020), PGV →
   JMA Shindo, analitik belirsizlik (Monte Carlo yok), ESRM20/GEM
   kırılganlık, Zhu vd. (2017) sıvılaşma, Nowicki Jessee vd. (2018)
   heyelan, Okada (1985) + fast marching tsunami.

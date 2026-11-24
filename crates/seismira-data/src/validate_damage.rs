@@ -59,7 +59,7 @@ fn run_event(
     regions: &RegionMap<Vec<u8>>,
     exposure: &Exposure,
 ) -> Result<HashMap<u16, RegionDamage>> {
-    let scenario = Scenario::new(q, tt);
+    let scenario = Scenario::new(q, tt).with_crust_region(crate::crust_region_at(q.epicenter)?);
     let g = vs30.grid();
     let base = Base {
         west: g.west,

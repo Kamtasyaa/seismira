@@ -621,7 +621,21 @@ impl Job {
             .name("sarsıntı-hesabı".into())
             .spawn(move || {
                 let started = std::time::Instant::now();
-                let scenario = Scenario::with_slab(quake, &tt, slab.as_deref());
+                // Kabuk modellerinin bölgesi: merkez üssünün ülkesi (denizdeyse
+                // 100 km içindeki en yakın kara).
+                let country = regions.as_deref().and_then(|r| {
+                    seismira_core::region::country_near(&r.map, &r.infos, quake.epicenter, 100.0)
+                });
+                let crust_region = country.as_deref().map_or(
+                    seismira_core::gmpe::CrustRegion::Global,
+                    seismira_core::gmpe::CrustRegion::from_iso,
+                );
+                let scenario = Scenario::with_slab(quake, &tt, slab.as_deref())
+                    .with_crust_region(crust_region);
+                log::info!(
+                    "kabuk bölgesi: {crust_region:?} (ülke {})",
+                    country.as_deref().unwrap_or("bulunamadı")
+                );
                 if let Some(z) = scenario.slab_zone {
                     log::info!(
                         "Slab2 zonu {}, Parker bölgesi {}",

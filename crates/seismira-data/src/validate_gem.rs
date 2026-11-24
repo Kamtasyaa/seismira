@@ -189,7 +189,8 @@ pub fn run(slab_path: &Path) -> Result<()> {
         let mut per_event: Vec<HashMap<u16, [f64; 3]>> = Vec::new();
         for (name, q) in seq.events {
             let t = std::time::Instant::now();
-            let scenario = Scenario::with_slab(q, &tt, Some(&slab));
+            let scenario = Scenario::with_slab(q, &tt, Some(&slab))
+                .with_crust_region(crate::crust_region_at(q.epicenter)?);
             let domain = Domain::for_scenario(&scenario, base);
             let win = vs30.window(domain.col0, domain.row0, domain.w, domain.h)?;
             let ids = regions.window(domain.col0, domain.row0, domain.w, domain.h)?;

@@ -6,7 +6,7 @@
 
 use crate::geo;
 use crate::gmpe::psbah20::{self, EventType};
-use crate::gmpe::{Imt, LnMotion, cy14};
+use crate::gmpe::{CrustRegion, Imt, LnMotion, ngaw2};
 use crate::intensity::{self, Shindo};
 use crate::quake::{Quake, Setting};
 use crate::site::{REFERENCE_VS30, Site};
@@ -119,8 +119,9 @@ impl Motion {
 /// Bir depremin yer hareketi modeli (Bölüm 7.4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gmm {
-    /// Sığ kabuk: Chiou & Youngs (2014).
-    Cy14,
+    /// Sığ kabuk: dört NGA-West2 modelinin eşit ağırlıklı ortalaması
+    /// (ASK14, BSSA14, CB14, CY14; [`ngaw2`]), bölgesel düzeltmelerle.
+    Crust,
     /// Dalma-batma arayüzü ve levha içi: Parker vd. (2020), küresel.
     Psbah20(EventType),
 }
@@ -131,7 +132,7 @@ impl Gmm {
     /// denetimi bunu [`crate::quake::Issue::DeepFocus`] ile uyarır).
     pub fn for_quake(q: &Quake) -> Option<Gmm> {
         match q.setting {
-            Setting::ShallowCrust => Some(Gmm::Cy14),
+            Setting::ShallowCrust => Some(Gmm::Crust),
             Setting::Interface => Some(Gmm::Psbah20(EventType::Interface)),
             Setting::Intraslab => (q.depth_km <= psbah20::INTRASLAB_ZHYP_MAX)
                 .then_some(Gmm::Psbah20(EventType::Intraslab)),
@@ -141,7 +142,7 @@ impl Gmm {
     /// Modelin mesafe sınırı (km, Rrup); ötesi "model dışı".
     pub fn max_rrup_km(self) -> f64 {
         match self {
-            Gmm::Cy14 => cy14::MAX_RRUP_KM,
+            Gmm::Crust => ngaw2::MAX_RRUP_KM,
             Gmm::Psbah20(_) => psbah20::MAX_RRUP_KM,
         }
     }
@@ -149,7 +150,7 @@ impl Gmm {
     /// Modelin Vs30 geçerlilik aralığı (m/s); harita değeri buna çekilir.
     pub fn vs30_range(self) -> (f64, f64) {
         match self {
-            Gmm::Cy14 => (cy14::VS30_MIN, cy14::VS30_MAX),
+            Gmm::Crust => (ngaw2::VS30_MIN, ngaw2::VS30_MAX),
             Gmm::Psbah20(_) => (psbah20::VS30_MIN, psbah20::VS30_MAX),
         }
     }
@@ -171,6 +172,9 @@ pub struct Scenario<'a> {
     /// Parker vd. (2020) bölgesi: zondan ([`slab::parker_region`]); zon
     /// yoksa küresel.
     pub region: psbah20::Region,
+    /// Sığ kabuk modellerinin bölgesi (merkez üssünün ülkesi;
+    /// [`Scenario::with_crust_region`]). Varsayılan: küresel.
+    pub crust_region: CrustRegion,
     slab: Option<&'a Slab2>,
     tt: &'a TravelTimes,
 }
@@ -199,10 +203,18 @@ impl<'a> Scenario<'a> {
             gmm,
             slab_zone,
             region,
+            crust_region: CrustRegion::Global,
             slab,
             quake,
             tt,
         }
+    }
+
+    /// Sığ kabuk bölgesini ayarlar (ör. [`crate::region::country_near`] ile
+    /// bulunan ülke kodundan [`CrustRegion::from_iso`]).
+    pub fn with_crust_region(mut self, region: CrustRegion) -> Self {
+        self.crust_region = region;
+        self
     }
 
     /// Modelin mesafe sınırı (km); model yoksa `None`.
@@ -211,22 +223,26 @@ impl<'a> Scenario<'a> {
     }
 
     /// Herhangi bir yer hareketi ölçüsü (ln, g ya da cm/s): depremin
-    /// modeliyle (CY14 ya da Parker vd. 2020, bölgesiyle). SA'da tabloda
+    /// modeliyle (kabukta dört NGA-West2 ortalaması, dalma-batmada Parker vd.
+    /// 2020; bölgeleriyle). SA'da tabloda
     /// olmayan periyot log-log ara değerle ([`crate::gmpe`]). Model yoksa,
     /// mesafe ya da girdi aralık dışıysa `None`. Bileşen: RotD50.
     pub fn ln_motion(&self, imt: Imt, d: &Distances, vs30: f64) -> Option<LnMotion> {
         match self.gmm? {
-            Gmm::Cy14 => cy14::predict(
+            Gmm::Crust => ngaw2::predict(
                 imt,
-                &cy14::Input {
+                &ngaw2::Input {
                     mw: self.quake.mw,
                     rrup: d.rrup,
                     rjb: d.rjb,
                     rx: d.rx,
                     ztor: self.fault.ztor,
+                    zhyp: self.quake.depth_km,
                     dip: self.fault.dip,
+                    width: self.fault.width,
                     fault: self.quake.fault,
                     vs30,
+                    region: self.crust_region,
                 },
             ),
             Gmm::Psbah20(event) => psbah20::predict(
@@ -407,7 +423,7 @@ mod tests {
     fn model_disi_mesafe_ve_ortam() {
         let t = tt();
         let s = Scenario::new(izmit(), &t);
-        assert_eq!(s.gmm, Some(Gmm::Cy14));
+        assert_eq!(s.gmm, Some(Gmm::Crust));
         assert!(s.site((2.35, 48.85), Site::reference).motion.is_none()); // Paris: > 300 km
         // Levha içinde modelin derinlik sınırı (200 km) ötesi: model yok,
         // varış zamanları yine var.

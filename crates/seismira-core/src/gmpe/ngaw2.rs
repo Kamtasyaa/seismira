@@ -1,0 +1,241 @@
+//! Sığ kabuk için dört NGA-West2 modelinin eşit ağırlıklı ortalaması:
+//! ASK14, BSSA14, CB14, CY14 (CLAUDE.md Bölüm 7.4 ve 15 "model ortalaması";
+//! kullanıcı kararı 2026-11-24, gerekçe docs/dogrulama.md "dört NGA-West2
+//! modeli").
+//!
+//! Modeller ln uzayında eşit ağırlıkla ortalanır (ağırlıklar SEÇİM; veriye
+//! göre ayarlanmadı). Bölgesel düzeltmeler her modelin kendi tanımladığı
+//! bölgelerle ([`CrustRegion`]).
+//!
+//! Standart sapma: karışım dağılımının varyansı,
+//! σ² = Σ wᵢ (σᵢ² + (μᵢ − μ̄)²); aynı biçimde τ² = Σ wᵢ (τᵢ² + (μᵢ − μ̄)²).
+//! Modeller arası fark (epistemik) tüm sahalarda ortak olduğu için olaylar
+//! arası (τ) kısma da eklenir. SEÇİM (kaynakta reçete yok); belirsizlik
+//! aralığını biraz genişletir.
+//!
+//! Aralık: her model kendi yayımlanmış aralığıyla çağrılır; Vs30 her modelin
+//! aralığına çekilir (ASK14 1000 m/s üstünde 1000 ile). Aralığı dışında
+//! kalan model (ör. BSSA14 normal fay Mw > 7, CB14 odak > 20 km ya da eğim
+//! < 15°) ortalamaya katılmaz; hiçbiri geçerli değilse `None`.
+
+use super::{CrustRegion, Imt, LnMotion, ask14, bssa14, cb14, cy14};
+use crate::quake::FaultType;
+
+/// Bir saha için girdi (dört modelin ortak kümesi).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Input {
+    pub mw: f64,
+    pub rrup: f64,
+    pub rjb: f64,
+    pub rx: f64,
+    pub ztor: f64,
+    /// Odak derinliği (km), CB14 için.
+    pub zhyp: f64,
+    pub dip: f64,
+    /// Kırılma genişliği (km), ASK14 ve CB14 tavan bloğu terimi için.
+    pub width: f64,
+    pub fault: FaultType,
+    pub vs30: f64,
+    pub region: CrustRegion,
+}
+
+/// Mesafe sınırı (km, Rrup): dört modelin ortak sınırı (BSSA14 Rjb ≤ 400).
+pub const MAX_RRUP_KM: f64 = 300.0;
+/// Vs30 aralığı (m/s): harita değeri buna çekilir (CY14 ve ASK14'ün alt
+/// sınırı 180; üst sınır CY14 / BSSA14 / CB14'ün 1500'ü).
+pub const VS30_MIN: f64 = 180.0;
+pub const VS30_MAX: f64 = 1500.0;
+
+/// Ortalamadaki modeller.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Model {
+    Ask14,
+    Bssa14,
+    Cb14,
+    Cy14,
+}
+
+pub const MODELS: [Model; 4] = [Model::Ask14, Model::Bssa14, Model::Cb14, Model::Cy14];
+
+/// Tek bir modelin tahmini (Vs30 modelin aralığına çekilir).
+pub fn predict_one(model: Model, imt: Imt, i: &Input) -> Option<LnMotion> {
+    let vs = |lo: f64, hi: f64| i.vs30.clamp(lo, hi);
+    match model {
+        Model::Ask14 => ask14::predict(
+            imt,
+            &ask14::Input {
+                mw: i.mw,
+                rrup: i.rrup,
+                rjb: i.rjb,
+                rx: i.rx,
+                ztor: i.ztor,
+                dip: i.dip,
+                width: i.width,
+                fault: i.fault,
+                vs30: vs(ask14::VS30_MIN, ask14::VS30_MAX),
+                region: i.region,
+            },
+        ),
+        Model::Bssa14 => bssa14::predict(
+            imt,
+            &bssa14::Input {
+                mw: i.mw,
+                rjb: i.rjb,
+                fault: i.fault,
+                vs30: vs(bssa14::VS30_MIN, bssa14::VS30_MAX),
+                region: i.region,
+            },
+        ),
+        Model::Cb14 => cb14::predict(
+            imt,
+            &cb14::Input {
+                mw: i.mw,
+                rrup: i.rrup,
+                rjb: i.rjb,
+                rx: i.rx,
+                ztor: i.ztor,
+                zhyp: i.zhyp,
+                dip: i.dip,
+                width: i.width,
+                fault: i.fault,
+                vs30: vs(cb14::VS30_MIN, cb14::VS30_MAX),
+                region: i.region,
+            },
+        ),
+        // CY14'ün bölgesel kolu (Japonya Vs30 ölçeklemesi vb.) bağlı değil:
+        // temel model (cy14.rs modül notu).
+        Model::Cy14 => cy14::predict(
+            imt,
+            &cy14::Input {
+                mw: i.mw,
+                rrup: i.rrup,
+                rjb: i.rjb,
+                rx: i.rx,
+                ztor: i.ztor,
+                dip: i.dip,
+                fault: i.fault,
+                vs30: vs(cy14::VS30_MIN, cy14::VS30_MAX),
+            },
+        ),
+    }
+}
+
+/// Eşit ağırlıklı ortalama (modül notu). Hiçbir model geçerli değilse `None`.
+pub fn predict(imt: Imt, i: &Input) -> Option<LnMotion> {
+    if i.rrup > MAX_RRUP_KM {
+        return None;
+    }
+    let mut ms = [LnMotion {
+        mean: 0.0,
+        sigma: 0.0,
+        tau: 0.0,
+    }; 4];
+    let mut n = 0;
+    for m in MODELS {
+        if let Some(p) = predict_one(m, imt, i) {
+            ms[n] = p;
+            n += 1;
+        }
+    }
+    combine(&ms[..n])
+}
+
+/// Karışım: ln ortalamaların ortalaması ve karışım varyansı.
+fn combine(ms: &[LnMotion]) -> Option<LnMotion> {
+    if ms.is_empty() {
+        return None;
+    }
+    let w = 1.0 / ms.len() as f64;
+    let mean = ms.iter().map(|m| m.mean).sum::<f64>() * w;
+    let spread = ms.iter().map(|m| (m.mean - mean).powi(2)).sum::<f64>() * w;
+    let var = ms.iter().map(|m| m.sigma * m.sigma).sum::<f64>() * w + spread;
+    let tau2 = ms.iter().map(|m| m.tau * m.tau).sum::<f64>() * w + spread;
+    Some(LnMotion {
+        mean,
+        sigma: var.sqrt(),
+        tau: tau2.sqrt(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn input() -> Input {
+        Input {
+            mw: 7.0,
+            rrup: 20.0,
+            rjb: 20.0,
+            rx: -20.0,
+            ztor: 0.0,
+            zhyp: 10.0,
+            dip: 90.0,
+            width: 15.0,
+            fault: FaultType::StrikeSlip,
+            vs30: 400.0,
+            region: CrustRegion::Global,
+        }
+    }
+
+    /// Ortalama, tek tek model tahminlerinin ln ortalamasıdır; σ en küçük
+    /// model σ'sından küçük olamaz.
+    #[test]
+    fn esit_agirlikli_ortalama() {
+        let i = input();
+        for imt in [Imt::Pga, Imt::Pgv, Imt::Sa(0.3), Imt::Sa(1.0)] {
+            let each: Vec<LnMotion> = MODELS
+                .iter()
+                .map(|&m| predict_one(m, imt, &i).unwrap())
+                .collect();
+            let p = predict(imt, &i).unwrap();
+            let mean = each.iter().map(|m| m.mean).sum::<f64>() / 4.0;
+            assert!((p.mean - mean).abs() < 1e-12);
+            let min_sigma = each.iter().map(|m| m.sigma).fold(f64::MAX, f64::min);
+            assert!(p.sigma >= min_sigma, "{p:?} {each:?}");
+            assert!(p.tau <= p.sigma);
+        }
+    }
+
+    /// Aralığı dışındaki model düşer: normal fay Mw 7.5'te BSSA14 (≤ 7) yok,
+    /// CB14 (≤ 7.5) var; 25 km odakta CB14 yok.
+    #[test]
+    fn aralik_disi_model_duser() {
+        let i = Input {
+            mw: 7.5,
+            fault: FaultType::Normal,
+            dip: 55.0,
+            ..input()
+        };
+        let ok = |m, i: &Input| predict_one(m, Imt::Pgv, i).is_some();
+        assert!(!ok(Model::Bssa14, &i));
+        assert!(ok(Model::Cb14, &i));
+        assert!(predict(Imt::Pgv, &i).is_some());
+        let deep = Input {
+            zhyp: 25.0,
+            ..input()
+        };
+        assert!(!ok(Model::Cb14, &deep));
+        assert!(predict(Imt::Pgv, &deep).is_some());
+        assert!(
+            predict(
+                Imt::Pgv,
+                &Input {
+                    rrup: 301.0,
+                    rjb: 301.0,
+                    ..input()
+                }
+            )
+            .is_none()
+        );
+    }
+
+    /// Vs30 1500'de ASK14 1000'e çekilerek katılır.
+    #[test]
+    fn ask14_vs30_cekilir() {
+        let i = Input {
+            vs30: 1400.0,
+            ..input()
+        };
+        assert!(predict_one(Model::Ask14, Imt::Pga, &i).is_some());
+    }
+}

@@ -303,7 +303,7 @@ Varsayılan eğim/kayma açıları (doğrultu atımlı 90°/0°, normal 55°/−
 ters 40°/90°) da doğrulanacak değerlerdir.
 
 Ek denetimler (2026-11-15), yalnızca sığ kabuk:
-- ⛔ Kırılmanın üst kenarı (Ztor) 20 km'den derinse (CY14 sınırı): Başlat
+- ⛔ Kırılmanın üst kenarı (Ztor) 20 km'den derinse (CY14 ve CB14 sınırı): Başlat
   kapalı. Derinlik aralığı (0–35 km) bunu tek başına yakalamaz; Ztor
   büyüklüğe de bağlıdır (Mw 5 / 22 km engellenir, Mw 7 / 35 km geçer).
 - ⚠ Mw > 7,9: kırılma boyutu bağıntısı veri aralığının dışında

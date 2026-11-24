@@ -69,7 +69,7 @@ strike = Strike (°)
 dip = Dip (°)
 rake = Rake (°)
 fault-geometry = Fault geometry
-ranges-note = Validity ranges come from the published ranges of the ground-motion models (crust: CY14, subduction: Parker et al. 2020).
+ranges-note = Validity ranges come from the published ranges of the ground-motion models (crust: average of ASK14, BSSA14, CB14, CY14; subduction: Parker et al. 2020).
 start-needs-epicenter = Choose an epicenter first.
 
 issue-mw = For this setting and fault type, magnitude must be between { $min } and { $max }.

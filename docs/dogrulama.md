@@ -798,6 +798,47 @@ bölgesel sönümlenmesi Kyushu'da gözlemden hızlı, orta Honshu'da yavaş.
 Sonuç: model ortalaması (Faz 11 maddesi) en büyük sapmaları belirgin
 küçültüyor; karar kullanıcıya soruldu.
 
+## Dört NGA-West2 modeli uygulamada: doğrulama tekrarı (2026-11-24)
+
+Model: `shaking::Gmm::Crust` (ASK14 + BSSA14 + CB14 + CY14, bölgesel;
+docs/bilim.md "7.4 Dört NGA-West2 modelinin ortalaması"). Bölge merkez
+üssünün ülkesinden (Türkiye, Japonya; ABD → temel model). Tüm doğrulama
+araçları (`validate-shakemap`, `validate-nga`, `validate-damage`,
+`validate-gem`, sıvılaşma / heyelan uçtan uca) uygulamayla aynı modeli ve
+bölgeyi kullanır. Senaryo komutu: `validate-shakemap <stationlist>
+--scenario <id> --vs30 data/vs30/vs30.sras --slab data/slab2/slab2.sslb`.
+
+C (uygulamanın tam zinciri), ort. ΔI (JMA) / |ΔI| < 1 oranı:
+
+| Deprem (kayıt) | Yalnız CY14 | Dört model | Mesafeye göre (dört model) |
+|---|---|---|---|
+| Kahramanmaraş (191) | +0,07 / %92 | **+0,01 / %94** | 0–25 km +0,30; 25–300 km −0,11…+0,05 |
+| İzmit, NGA-West2 (28) | +0,08 / %100 | **−0,05 / %100** | — |
+| İzmit, ShakeMap atlas (31) | −0,32 / %84 | −0,46 / %77 | (gözlem ~0,46 ln düşük, yukarıda) |
+| Kumamoto (308) | −0,04 / %98 | +0,15 / %98 | 200–300 km +0,44 |
+| Ridgecrest (683) | −0,40 / %88 | **−0,28 / %89** | 25–50 km −0,80 (8 ist.); diğer −0,16…−0,48 |
+| Noto (351) | −0,75 / %65 | **−0,38 / %87** | 0–150 km −0,09…+0,11; 150–200 −0,45; 200–300 −0,61 |
+| Düzce, NGA-West2 (26) | −0,25 / %100 | −0,34 / %88 | (yakın alan Lamont istasyonları) |
+
+- Ortalama |ΔI| (İzmit NGA ile, 6 olay): 0,27 → 0,20; en kötü olay
+  0,75 → 0,38. Ölçüt (|ΔI| < 0,3): önce 4 / 6, şimdi 4 / 6 (Ridgecrest
+  girdi, Düzce çıktı); Noto ve Düzce sınırın biraz dışında.
+- Noto'da yakın ve orta alan çok iyi; uzak alan (150–300 km, orta
+  Honşu) hâlâ fazla tahmin. Kumamoto'da uzak alan (Kyushu) bu kez az
+  tahmin: Japonya'nın bölgesel sönümlenmesi iki bölgede farklı; tek
+  "Japonya" katsayısı ikisini birden yakalayamıyor. Model değiştirilmedi.
+- Dalma-batma (Tōhoku, Puebla, Maule) etkilenmez (Parker vd. 2020).
+- Hasar (Kahramanmaraş, `validate-damage`, aynı gün öncesi/sonrası): il
+  ortalaması ln(model/gözlenen) −0,77 → −0,78 (×0,46), 11 il toplamı
+  %9,1 → %8,4 (gözlenen bina %8,9). GEM (Kumamoto ili kayıp oranı): 2,68 →
+  2,36 (gözlenen aralık 1,98–10,0); Ridgecrest, Puebla değişmedi.
+- Sıvılaşma uçtan uca (Kahramanmaraş): oran 1,94 (önceki kayıt 2,00).
+  Heyelan uçtan uca: oran 0,66 (önceki kayıt 0,69; arada GLiM 0,5°'ye
+  geçildiği için önceki sayı birebir karşılaştırılabilir değil).
+- Regresyon testi `izmit_1999_dogrulamasi_kayitli_degerlerde` yeni
+  değerlerle güncellendi; ortalama ölçütü bu (ShakeMap atlas) gözlem
+  setiyle artık aranmıyor, %80 koşulu korunuyor.
+
 ## Platform denemeleri (v0.1.0)
 
 ### macOS x86_64 (2026-11-23, kullanıcı)

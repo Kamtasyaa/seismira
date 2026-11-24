@@ -110,10 +110,12 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
 
 - Çıktılar: PGA, PGV, SA(0.3 s), SA(0.6 s), SA(1.0 s). Modelde
   olmayan periyot komşu periyotlardan log-log ara değerle bulunur.
-- Sığ kabuk: CY14 (Chiou & Youngs 2014). Rrup, Rjb, Rx, Ztor ve dip
-  kullanır; derinlik sonucu etkiler. BSSA14 TEK BAŞINA KULLANILMAZ
-  (derinlik terimi yok, derinlik ayarı etkisiz kalır). İleride:
-  ASK14, BSSA14, CB14, CY14 eşit ağırlıklı ortalama (USGS yaklaşımı).
+- Sığ kabuk (2026-11-24'ten beri): ASK14, BSSA14, CB14, CY14 eşit
+  ağırlıklı ortalama, her modelin bölgesel düzeltmeleriyle (bölge:
+  merkez üssünün ülkesi). Ayrıntı ve gerekçe: aşağıda "7.4 Dört
+  NGA-West2 modelinin ortalaması". (2026-11-24'e kadar yalnız CY14;
+  BSSA14'ün derinlik terimi olmadığı için tek başına kullanılmaması
+  kuralı ortalamada geçerli değil: diğer üç model derinliğe duyarlı.)
 - Dalma-batma arayüzü ve levha içi: Parker vd. (2020); alternatif
   Kuehn vd. (2020). Bölgesel katsayılar konuma göre seçilir.
   (BC Hydro modeli PGV vermediği için kullanılmaz, doğrula.)
@@ -670,6 +672,40 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   sarı.
 - Belirsizlik: σ_I = √((1.82·σ_lnPGV / ln10)² + 0.19²); "olası aralık"
   ±1σ.
+
+### 7.4 Dört NGA-West2 modelinin ortalaması (2026-11-24)
+
+- Karar: kullanıcı (2026-11-24), gerekçe docs/dogrulama.md "Senaryo
+  şiddet doğrulaması tamamlama" (Ridgecrest ve Noto ölçüt dışı; pygmm
+  deneyinde ortalama |ln| 0,34 → 0,22).
+- Kod: `gmpe/ask14.rs`, `bssa14.rs`, `cb14.rs`, `cy14.rs`, ortalama
+  `gmpe/ngaw2.rs`; `shaking::Gmm::Crust`.
+- Kaynaklar (her modülün başında ayrıntı): denklemler PEER raporları
+  2013/04 (ASK), 2013/05 (BSSA), 2013/06 + düzeltme notu (CB), açık
+  erişim, `data/raw/refs/ngaw2/` (depoda değil). Katsayılar USGS
+  nshmp-lib (CC0; dergi sürümü). Dergi makaleleri görülmedi; raporla
+  dergi arasındaki farklar pygmm ve OpenQuake'in ortak biçiminden
+  alındı: ASK14 Sa1180, Japonya Vs30 ara değeri, Tayvan min(Vs30, V1);
+  BSSA14 f4 yedi periyotta yazarların 2014-07-15 düzeltmesi (nshmp-lib
+  eski değerde kalmış; bssa14.csv'de "DEĞİŞTİRİLDİ"). Her model pygmm
+  0.9.1 ile < 0,01 ln (BSSA14 972, ASK14 1440, CB14 1080 senaryo).
+- Bölge (`CrustRegion`, `region::country_near`): merkez üssünün admin1
+  rasterındaki ülkesi; denizdeyse 100 km içindeki en yakın kara. Her
+  model kendi bölgelerini ayırır: BSSA14 Δc3 Çin/Türkiye ve
+  İtalya/Japonya; ASK14 Tayvan, Çin, Japonya; CB14 Δc20 Japonya/İtalya,
+  Çin; CY14 bölgesel kolu bağlı değil (temel model).
+- Ortalama ln uzayında eşit ağırlık (SEÇİM). σ: karışım varyansı
+  σ² = Σw(σᵢ² + (μᵢ − μ̄)²), τ² aynı biçimde (modeller arası fark tüm
+  sahalarda ortak olduğu için τ'ya eklenir; SEÇİM).
+- Aralık: her model kendi aralığında; Vs30 her modelin aralığına çekilir
+  (ASK14 > 1000 m/s'de 1000). Aralık dışı model ortalamadan düşer:
+  BSSA14 normal Mw > 7, CB14 normal Mw > 7,5, ters Mw > 8, odak > 20 km
+  ya da eğim < 15°. Ortak mesafe sınırı Rrup ≤ 300 km, Vs30 180–1500.
+- Havza terimleri kapalı (Z1 / Z2.5 Vs30'dan modellerin kendi
+  bağıntılarıyla; CB14'te Z2.5 ≤ 1 km için sığ tortul terimi ÇALIŞIR,
+  Eş. 3.20, Z2.5 Vs30'dan Eş. 6.9 / 6.10).
+- Performans (referans makine, Kahramanmaraş Mw 7,8): ince ızgara
+  355 → 490 ms, hasar 268 → 290 ms (arka planda).
 
 ### 7.4 Parker vd. (2020), dalma-batma (Faz 5, 2026-11-20)
 

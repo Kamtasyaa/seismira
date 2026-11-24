@@ -16,7 +16,7 @@
 //! bileşen dönüşümü gerekmez.
 
 use anyhow::{Context, Result, bail};
-use seismira_core::gmpe::{Imt, cy14};
+use seismira_core::gmpe::{Imt, ngaw2};
 use seismira_core::intensity::jma_from_pgv_vector;
 use seismira_core::quake::{FaultType, Quake};
 use seismira_core::site::Vs30Map;
@@ -147,25 +147,32 @@ pub fn run(flatfile: &Path, event: &str, scenario: Option<&str>) -> Result<()> {
         }
     };
     let ours = Fault::from_quake(&q);
-    let clamp = |v: f64| v.clamp(cy14::VS30_MIN, cy14::VS30_MAX);
-    let cy = |mw, rrup, rjb, rx, ztor, dip, fault, vs30| {
-        cy14::predict(
+    let region = crate::crust_region_at((ev.hypo.0, ev.hypo.1))?;
+    let clamp = |v: f64| v.clamp(ngaw2::VS30_MIN, ngaw2::VS30_MAX);
+    // Dört NGA-West2 modelinin ortalaması (uygulamayla aynı). Odak derinliği
+    // ve genişlik: A'da NGA'nın, B/C'de bizim fayımızınki.
+    #[allow(clippy::too_many_arguments)]
+    let cy = |mw, rrup, rjb, rx, ztor, dip, fault, vs30, zhyp, width| {
+        ngaw2::predict(
             Imt::Pgv,
-            &cy14::Input {
+            &ngaw2::Input {
                 mw,
                 rrup,
                 rjb,
                 rx,
                 ztor,
+                zhyp,
                 dip,
+                width,
                 fault,
                 vs30: clamp(vs30),
+                region,
             },
         )
         .map(|m| m.mean)
     };
 
-    println!("NGA-West2: {event}");
+    println!("NGA-West2: {event} (kabuk bölgesi {region:?})");
     println!(
         "  NGA: Mw {:.2}, doğrultu/eğim/kayma {}/{}/{}, Ztor {:.1} km, L × W = {:.0} × {:.0} km",
         ev.mw, ev.strike, ev.dip, ev.rake, ev.ztor, ev.length, ev.width
@@ -186,26 +193,28 @@ pub fn run(flatfile: &Path, event: &str, scenario: Option<&str>) -> Result<()> {
     let mut vs_ratio = Vec::new();
     let mut out_of_range = 0;
     for r in &recs {
-        if r.rrup > cy14::MAX_RRUP_KM {
+        if r.rrup > ngaw2::MAX_RRUP_KM {
             out_of_range += 1;
             continue;
         }
         let a = cy(
-            ev.mw, r.rrup, r.rjb, r.rx, ev.ztor, ev.dip, nga_fault, r.vs30,
+            ev.mw, r.rrup, r.rjb, r.rx, ev.ztor, ev.dip, nga_fault, r.vs30, ev.hypo.2, ev.width,
         );
         let d = ours.distances(r.site);
-        let b = cy(q.mw, d.rrup, d.rjb, d.rx, ours.ztor, q.dip, q.fault, r.vs30);
+        let b = cy(
+            q.mw, d.rrup, d.rjb, d.rx, ours.ztor, q.dip, q.fault, r.vs30, q.depth_km, ours.width,
+        );
         let site = vs30_map.site(r.site.0, r.site.1)?;
         vs_ratio.push((site.vs30 / r.vs30).ln());
         let c = cy(
-            q.mw, d.rrup, d.rjb, d.rx, ours.ztor, q.dip, q.fault, site.vs30,
+            q.mw, d.rrup, d.rjb, d.rx, ours.ztor, q.dip, q.fault, site.vs30, q.depth_km, ours.width,
         );
         rows.push((r, r.pgv.ln(), [a, b, c]));
     }
     println!(
         "  {} kayıt; PGV'siz {no_pgv}, Rrup > {:.0} km {out_of_range} kayıt atlandı\n",
         rows.len(),
-        cy14::MAX_RRUP_KM
+        ngaw2::MAX_RRUP_KM
     );
 
     let to_i = |ln: f64| jma_from_pgv_vector(ln.exp());
