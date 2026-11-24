@@ -915,6 +915,24 @@ bölgesi. Önce (aynı gün, otomatik 234 km, odak ortada) → sonra:
   (en çok hasar gören illerde ×0,33–0,43, Adana ×9–14); yayımlanmış bir
   bölgesel düzeltme bulunmadan değiştirilmedi.
 
+## Tsunami: küçük adalar (2026-11-24)
+
+Küçük ada (< 30 km) kıyılarına yakın alan yüksekliği verilmez (docs/bilim.md
+7.10 "KÜÇÜK ADA"). Korunaklı kıyı adımına göre:
+
+| Deprem | Bölge aynı | Kategori farkı toplamı | Nokta bazında aynı | Küçük ada noktası |
+|---|---|---|---|---|
+| Tōhoku | 8 → 9 / 14 | 7 → 5 | %77 → %77 | 66 |
+| Noto | 9 → 8 / 13 | 4 → 5 | %52 → %52 | 15 |
+| Maule | 5 → 5 / 8 | 3 → 3 | %93 → %91 | 25 |
+
+- Tōhoku: İzu-Ōshima 13,4 m (mor) → sarı (gözlem 0,7 m, aynı); TOKYO
+  bölgesinde Hachijō vb. adalar → sarı (gözlem en yüksek 2,8 m iç körfezde;
+  bir kategori az).
+- Noto: Shimane gözlemleri Oki adalarında; küçük ada sayıldı ve PTWC
+  tehdit bölgesi dışında → 0 (gözlem 0,3 m; önce aynıydı).
+- Üç depremde toplam kategori farkı 14 → 13 (korunaklı kıyıdan önce 16).
+
 ## Platform denemeleri (v0.1.0)
 
 ### macOS x86_64 (2026-11-23, kullanıcı)

@@ -240,7 +240,7 @@ pub fn run(
     let near: Vec<(f64, f64, Option<f64>, u8)> = f
         .coast
         .iter()
-        .filter(|c| c.runup_m.is_some() || c.sheltered)
+        .filter(|c| c.runup_m.is_some() || c.sheltered || c.small_island)
         .map(|c| {
             let p = &pts[c.point];
             // Uygulama (crates/seismira-app/src/tsunami.rs): yükseklikten
@@ -255,7 +255,10 @@ pub fn run(
         })
         .collect();
     let sheltered = f.coast.iter().filter(|c| c.sheltered).count();
-    println!("korunaklı kıyı noktası (yakın alanda, yükseklik verilmedi): {sheltered}");
+    let islands = f.coast.iter().filter(|c| c.small_island).count();
+    println!(
+        "yakın alanda yükseklik verilmeyen kıyı noktası: korunaklı {sheltered}, küçük ada {islands}"
+    );
     let (mut n, mut same, mut lnsum, mut obs_max) = (0usize, 0usize, 0.0, 0.0f64);
     let mut n_h = 0usize;
     let mut confusion = [[0usize; 4]; 4];
@@ -343,7 +346,7 @@ pub fn run(
             let model = if m.is_finite() {
                 format!("{m:>5.1} m")
             } else {
-                "korunaklı".to_owned()
+                "yok".to_owned()
             };
             println!(
                 "    {a:<28} gözlem {o:>5.1} m, model {model:>9}  ({} / {cm})",

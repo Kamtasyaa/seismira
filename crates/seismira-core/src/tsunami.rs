@@ -992,6 +992,88 @@ pub mod forecast {
     pub const SHELTER_SKIP_KM: f64 = 5.0;
     pub const SHELTER_LAND_KM: f64 = 20.0;
 
+    /// Küçük ada sınırı (km): kara parçasının doğu-batı ve kuzey-güney
+    /// uzanımlarının büyüğü bundan küçükse "küçük ada" (2026-11-24). Riquelme
+    /// vd. (2015) adaları kapsam dışı sayar; PTWC (IOC TS 135, Bölüm II)
+    /// kıyı genliği tahmininin küçük adalarda (< 30 km) fazla verdiğini
+    /// belirtir. Bu adaların kıyılarına yakın alan yüksekliği VERİLMEZ.
+    pub const SMALL_ISLAND_KM: f64 = 30.0;
+
+    /// Pencerede küçük adalara ait kara hücreleri (`true`). Pencere kenarına
+    /// değen kara parçası büyük sayılır (kıtanın parçası olabilir).
+    pub fn small_island_cells(depth: &Depth) -> Vec<bool> {
+        let (w, h) = (depth.width, depth.height);
+        let land = |i: usize| !depth.depth[i].is_finite();
+        let mut label = vec![u32::MAX; w * h];
+        let mut small = vec![false; w * h];
+        let mut stack = Vec::new();
+        let mut cells = Vec::new();
+        for start in 0..w * h {
+            if !land(start) || label[start] != u32::MAX {
+                continue;
+            }
+            label[start] = 0;
+            stack.push(start);
+            cells.clear();
+            let (mut r0, mut r1, mut c0, mut c1) = (h, 0, w, 0);
+            while let Some(i) = stack.pop() {
+                cells.push(i);
+                let (r, c) = (i / w, i % w);
+                (r0, r1, c0, c1) = (r0.min(r), r1.max(r), c0.min(c), c1.max(c));
+                for (dr, dc) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
+                    let (nr, nc) = (r as i64 + dr, c as i64 + dc);
+                    if nr < 0 || nc < 0 || nr >= h as i64 || nc >= w as i64 {
+                        continue;
+                    }
+                    let j = nr as usize * w + nc as usize;
+                    if land(j) && label[j] == u32::MAX {
+                        label[j] = 0;
+                        stack.push(j);
+                    }
+                }
+            }
+            let edge = r0 == 0 || c0 == 0 || r1 + 1 == h || c1 + 1 == w;
+            let lat = depth.north - (r0 + r1 + 1) as f64 / 2.0 * depth.cell;
+            let km = depth.cell * geo::deg_to_km(1.0);
+            let ns = (r1 - r0 + 1) as f64 * km;
+            let ew = (c1 - c0 + 1) as f64 * km * lat.to_radians().cos();
+            if !edge && ns.max(ew) < SMALL_ISLAND_KM {
+                for &i in &cells {
+                    small[i] = true;
+                }
+            }
+        }
+        small
+    }
+
+    /// Kıyı noktasının (deniz hücresi) komşu kara hücreleri yalnızca küçük
+    /// adalara mı ait.
+    fn on_small_island(depth: &Depth, small: &[bool], pt: (f64, f64)) -> bool {
+        let Some(i) = depth.index(pt.0, pt.1) else {
+            return false;
+        };
+        let (w, h) = (depth.width as i64, depth.height as i64);
+        let (r, c) = ((i / depth.width) as i64, (i % depth.width) as i64);
+        let (mut any_small, mut any_big) = (false, false);
+        for dr in -1..=1 {
+            for dc in -1..=1 {
+                let (nr, nc) = (r + dr, c + dc);
+                if nr < 0 || nc < 0 || nr >= h || nc >= w {
+                    continue;
+                }
+                let j = (nr * w + nc) as usize;
+                if !depth.depth[j].is_finite() {
+                    if small[j] {
+                        any_small = true;
+                    } else {
+                        any_big = true;
+                    }
+                }
+            }
+        }
+        any_small && !any_big
+    }
+
     /// Kıyı noktası denizdeki kaynağı doğrudan görmüyor mu (bkz.
     /// [`SHELTER_SKIP_KM`]); `target`: en yakın kaynak hücresi. Pencere dışı
     /// örnekler kara sayılmaz.
@@ -1069,6 +1151,9 @@ pub mod forecast {
         /// Yakın alanda ama kaynağı doğrudan görmeyen kıyı ([`sheltered`]):
         /// yükseklik verilmez.
         pub sheltered: bool,
+        /// Yakın alanda, küçük adanın kıyısı ([`SMALL_ISLAND_KM`]):
+        /// yükseklik verilmez.
+        pub small_island: bool,
         /// PTWC tehdit bölgesinde mi.
         pub threat: bool,
     }
@@ -1205,6 +1290,13 @@ pub mod forecast {
             trigger::Assessment::Threat { radius_km } => Some(radius_km),
             _ => None,
         };
+        // Küçük ada etiketleri yalnızca bir yakın alan noktası çıkarsa.
+        let island_cells = std::cell::OnceCell::new();
+        let islands = || {
+            island_cells
+                .get_or_init(|| small_island_cells(depth))
+                .as_slice()
+        };
         let mut out = Vec::new();
         for (k, p) in coast.iter().enumerate() {
             let pt = (f64::from(p.lon), f64::from(p.lat));
@@ -1230,8 +1322,9 @@ pub mod forecast {
                     .unwrap_or(up.at);
                 sheltered(depth, pt, target)
             };
-            let runup_m =
-                (near && !shelter).then(|| r0 * runup::along_coast(alpha * along, fault.length));
+            let island = near && !shelter && on_small_island(depth, islands(), pt);
+            let runup_m = (near && !shelter && !island)
+                .then(|| r0 * runup::along_coast(alpha * along, fault.length));
             let threat = match threat_radius {
                 Some(Some(r)) => geo::distance_azimuth(q.epicenter, pt).0 <= r,
                 Some(None) => t <= trigger::BASIN_ETA_S,
@@ -1242,6 +1335,7 @@ pub mod forecast {
                 eta_s: t,
                 runup_m,
                 sheltered: shelter,
+                small_island: island,
                 threat,
             });
         }
@@ -1301,6 +1395,34 @@ pub mod forecast {
             assert!(!sheltered(&depth(&sea), (0.5, 0.5), (2.5, 0.5)));
             // Hedef pencere dışında (kuzeyde): yol pencereden çıkınca kara yok.
             assert!(!sheltered(&depth(&sea), (0.5, 0.5), (0.5, 3.0)));
+        }
+
+        /// ~11 km'lik ada küçük, ~44 km'lik şerit (pencerenin kuzey-güney
+        /// kenarına değiyor) büyük; adanın kıyısındaki deniz hücresi "küçük
+        /// ada kıyısı".
+        #[test]
+        fn kucuk_ada() {
+            let mut v = grid(0.0);
+            // 0,1° × 0,1° ada (2,0–2,1°D, 0,45–0,55°K).
+            for r in 0..60 {
+                for c in 0..180 {
+                    let lon = c as f64 / 60.0 + 1.0 / 120.0;
+                    let lat = 1.0 - (r as f64 + 0.5) / 60.0;
+                    if (2.0..2.1).contains(&lon) && (0.45..0.55).contains(&lat) {
+                        v[r * 180 + c] = f32::NAN;
+                    }
+                }
+            }
+            let d = depth(&v);
+            let small = small_island_cells(&d);
+            let i = d.index(2.05, 0.5).unwrap();
+            assert!(small[i]);
+            assert!(on_small_island(&d, &small, (1.99, 0.5)));
+            assert!(!on_small_island(&d, &small, (1.5, 0.5)));
+            let wall = grid(0.4);
+            let dw = depth(&wall);
+            let s2 = small_island_cells(&dw);
+            assert!(!s2[dw.index(1.2, 0.5).unwrap()]);
         }
     }
 }
