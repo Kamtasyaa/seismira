@@ -91,6 +91,9 @@ Sapmalar docs/dogrulama.md'ye yazılır ve kullanıcıya bildirilir.
   km) fayı İstanbul'a doğru uzatmasından; gerçek kırılma çoğunlukla doğuya
   ilerledi ve istasyonların çoğu İstanbul'da. Gerçeğe yakın hiposantr
   konumuyla ölçüt sınırına geliyor.
+- 2026-11-24 güncellemesi: ShakeMap'in İzmit gözlemleri NGA-West2'deki aynı
+  kayıtlardan sistematik ~%37 düşük çıktı; NGA verisiyle sapma pozitif ve
+  küçük (aşağıda "NGA-West2 kayıtlarıyla CY14").
 - Açık konular: (1) WC94 alan bağıntısı İzmit için gerçekten uzun fay veriyor
   (198 km; gözlenen ~145 km). (2) Hazır senaryolarda (Faz 10) gerçek
   hiposantr konumu ve doğrultu verilecek. (3) Vs30 burada istasyonun kendi
@@ -675,6 +678,51 @@ A satırı (ShakeMap mesafeleri) da −0,24, yani sapmanın çoğu GMPE'nin bu
 olaydaki olaylar arası teriminden (ShakeMap'in kendi biası da negatif).
 Kumamoto ve Puebla için ShakeMap kırılma modeli kısa (26 / 23 km); daha
 uzun yayımlanmış modeller var, değiştirilmedi.
+
+## NGA-West2 kayıtlarıyla CY14: İzmit 1999 ve Düzce 1999 (2026-11-24)
+
+- Veri: PEER NGA-West2 flatfile, RotD50 d050 public sürüm (Ancheta vd.
+  2014, Earthquake Spectra 30(3), doi:10.1193/070913EQS197M), kayıt
+  gerektirmeyen kamuya açık dosya. Yeniden dağıtım izni sorulmuş, yanıt yok:
+  ham dosya `data/raw/validation/nga/` altında, depoya GİRMEZ (dolayısıyla
+  `cargo test`te değil). Türkiye satırları `turkey_d050.csv`.
+- Komut: `seismira-data validate-nga <turkey_d050.csv> "Kocaeli, Turkey"
+  --scenario izmit1999` ve `... "Duzce, Turkey"` (Düzce'nin hazır senaryosu
+  yok: NGA odak parametreleri + otomatik WC94 boyutu, yani uygulamada elle
+  girilen depremin aynısı). Vs30 haritası `data/vs30/vs30.sras`.
+- A: NGA'nın kendi Mw, Rrup/Rjb/Rx, Ztor, eğim ve ölçülmüş Vs30 değeri
+  (yalnız CY14). B: bizim geometri + ölçülmüş Vs30. C: bizim geometri +
+  bizim Vs30 (uygulamadaki sonuç). Rrup > 300 km ve PGV'siz kayıtlar atlandı.
+
+| Olay (kayıt) | A ln / ΔI / %<1 | B ln / ΔI | C ln / ΔI / %<1 | Vs30 harita/ölçülmüş |
+|---|---|---|---|---|
+| İzmit Mw 7,51 (28) | +0,24 / +0,19 / %100 | +0,08 / +0,07 | +0,10 / +0,08 / %100 | ×1,02 (std 0,34) |
+| Düzce Mw 7,14 (26) | −0,29 / −0,23 / %92 | −0,40 / −0,31 | −0,32 / −0,25 / %100 | ×1,12 (std 0,35) |
+
+(std ln: İzmit A 0,41, C 0,49; Düzce A 0,61, C 0,60.)
+
+- **İzmit'teki negatif sapma gözlem verisinden kaynaklanıyor.** ShakeMap
+  atlas `stationlist.json` ile NGA-West2'nin aynı istasyonlarında
+  (27 eşleşme, ≤ 2 km) ShakeMap'in yatay PGV ortalaması NGA RotD50'den
+  sistematik olarak düşük: ort. ln −0,46 (×0,63), std 0,31. Bileşen
+  tanımı farkı bunu açıklamaz: ShakeMap'in BÜYÜK yatay bileşeni bile
+  27 istasyonun 25'inde NGA RotD50'nin altında (ort. ln −0,33); büyük
+  bileşen ortalamada RotD50'den büyüktür (Boore & Kishida 2017, `component.rs`).
+  Nedeni belirlenmedi (atlasın eski/farklı işlenmiş kayıtları olabilir;
+  doğrulanmadı). NGA-West2 kayıtları CY14'ün kendi geliştirme verisi olduğu
+  ve tek tek işlendiği için daha güvenilir kabul edildi.
+- Sonuç: NGA verisiyle İzmit senaryosu ölçüt İÇİNDE (C: ΔI +0,08, %100).
+  Faz 10 tablosundaki −0,32 sonucu ShakeMap gözlemine özgüdür. Model
+  değiştirilmedi; senaryo geometrisi (B) A'ya göre sapmayı küçültüyor.
+- Düzce: ortalama ölçüt içinde (|ΔI| < 0,3, C −0,25), ama yakın alanda
+  (Rrup < 20 km, 11 kayıt) model fazla tahmin ediyor (A −0,62 ln). Bunun
+  çoğu "Lamont" geçici istasyonlarından (Rrup 0–25 km, ln −0,6 ile −1,6;
+  ör. Lamont 1058 Rrup 0,2 km, PGV 14,6 cm/s). Aynı mesafedeki Düzce,
+  Bolu ve IRIGM istasyonları modele yakın ya da üstünde. Uzak alanda
+  (100–300 km, 10 kayıt) sapma ~0. Model değiştirilmedi.
+- Vs30 haritası bu istasyonlarda ortalamada doğru (×1,02 / ×1,12), ama tek
+  tek istasyonlarda ln std ~0,35 (ör. İzmit istasyonu 811 → 492 m/s,
+  Ambarlı 175 → 344 m/s); C'nin istasyon saçılımı bu yüzden biraz büyük.
 
 ## Platform denemeleri (v0.1.0)
 

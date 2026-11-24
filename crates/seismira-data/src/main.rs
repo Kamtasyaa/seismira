@@ -42,6 +42,7 @@ mod validate_damage;
 mod validate_gem;
 mod validate_landslide;
 mod validate_liquefaction;
+mod validate_nga;
 mod validate_tsunami;
 mod vs30;
 mod wtd;
@@ -68,6 +69,12 @@ fn main() -> Result<()> {
             Path::new(output),
         ),
         [cmd, slab] if cmd == "validate-gem" => validate_gem::run(Path::new(slab)),
+        [cmd, flatfile, event] if cmd == "validate-nga" => {
+            validate_nga::run(Path::new(flatfile), event, None)
+        }
+        [cmd, flatfile, event, flag, id] if cmd == "validate-nga" && flag == "--scenario" => {
+            validate_nga::run(Path::new(flatfile), event, Some(id))
+        }
         [cmd, sbb, dwellings] if cmd == "validate-damage" => {
             validate_damage::run(Path::new(sbb), Path::new(dwellings))
         }
