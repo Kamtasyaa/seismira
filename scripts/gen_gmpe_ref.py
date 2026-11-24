@@ -174,6 +174,8 @@ def ngaw2(which: str) -> None:
     extra = {} if which == "bssa14" else dict(width=15.0)
     if which == "ask14":
         extra["vs_source"] = "inferred"
+    if which == "cb14":
+        extra["depth_hyp"] = 10.0
     rows = []
     mags = [4.5, 5.5, 6.5, 7.5, 8.2]
     dists = [1.0, 5.0, 20.0, 60.0, 150.0, 300.0]
@@ -194,6 +196,7 @@ def ngaw2(which: str) -> None:
         row = dict(
             region=region, mag=mag, rrup=rrup, rjb=rjb, rx=rx, ztor=ztor, dip=dip,
             mech=mech, vs30=vs30, **({"width": extra["width"]} if "width" in extra else {}),
+            **({"zhyp": extra["depth_hyp"]} if "depth_hyp" in extra else {}),
             ln_pga=float(np.log(m.pga)), sd_pga=float(m.ln_std_pga),
             ln_pgv=float(np.log(m.pgv)), sd_pgv=float(m.ln_std_pgv),
         )

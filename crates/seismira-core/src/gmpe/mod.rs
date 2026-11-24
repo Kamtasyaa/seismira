@@ -2,6 +2,7 @@
 
 pub mod ask14;
 pub mod bssa14;
+pub mod cb14;
 pub mod cy14;
 pub mod psbah20;
 

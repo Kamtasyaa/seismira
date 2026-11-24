@@ -100,6 +100,17 @@ snapshot = "nshmp-lib main, 2026-11-24; ASK14.csv sha256 01fae02a733b33b5ed13861
 files = "crates/seismira-core/src/gmpe/ask14.csv"
 
 [[dataset]]
+id = "cb14-coefficients"
+name = "Campbell & Bozorgnia (2014) GMPE katsayıları"
+url = "https://code.usgs.gov/ghsc/nshmp/nshmp-lib"
+license = "CC0-1.0 / ABD kamu malı"
+attribution = "Campbell & Bozorgnia (2014), Earthquake Spectra 30(3), 1087–1115. Katsayı dosyası: USGS nshmp-lib."
+modified = false
+license_checked = "2026-11-24"
+snapshot = "nshmp-lib main, 2026-11-24; CB14.csv sha256 4d7ee5c1d892bf2a52e5334cf651d38639441c1666c646302aa05c037480c9fb"
+files = "crates/seismira-core/src/gmpe/cb14.csv"
+
+[[dataset]]
 id = "psbah20-coefficients"
 name = "Parker vd. (2020) NGA-Subduction GMPE katsayıları (küresel arayüz ve levha içi)"
 url = "https://code.usgs.gov/ghsc/nshmp/nshmp-lib"
