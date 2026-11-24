@@ -548,9 +548,10 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   (dalganın dolaştığı Suzu / Iida koyu) korunaklı saydığı için 20 km
   seçildi (docs/dogrulama.md). Hedef tepe noktası değil denizdeki kaynak:
   Noto'da en büyük yükselme karada.
-- KÜÇÜK ADA (2026-11-24): `tsunami::forecast::small_island_cells`: derinlik
-  penceresinde kara parçaları etiketlenir; doğu-batı ve kuzey-güney
-  uzanımının büyüğü < 30 km ise (pencere kenarına değmiyorsa) küçük ada.
+- KÜÇÜK ADA (2026-11-24): `tsunami::forecast::small_land`: kıyı noktasının
+  komşu kara hücresinden sınırlı taşma doldurma; kara parçasının doğu-batı
+  ve kuzey-güney uzanımının büyüğü < 30 km ise (pencere kenarına
+  değmiyorsa) küçük ada (arama 30 km'de durur; süre etkisi yok).
   Komşu kara hücreleri yalnızca küçük adaya ait kıyı noktasına yakın alan
   yüksekliği VERİLMEZ (korunaklı kıyı gibi). Kaynak: Riquelme vd. (2015)
   adaları kapsam dışı sayar; 30 km PTWC'nin (IOC TS 135, Bölüm II) "küçük

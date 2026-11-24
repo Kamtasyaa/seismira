@@ -999,62 +999,48 @@ pub mod forecast {
     /// belirtir. Bu adaların kıyılarına yakın alan yüksekliği VERİLMEZ.
     pub const SMALL_ISLAND_KM: f64 = 30.0;
 
-    /// Pencerede küçük adalara ait kara hücreleri (`true`). Pencere kenarına
-    /// değen kara parçası büyük sayılır (kıtanın parçası olabilir).
-    pub fn small_island_cells(depth: &Depth) -> Vec<bool> {
+    /// Kara hücresi `start`ın kara parçası küçük ada mı: sınırlı taşma
+    /// doldurma; uzanım [`SMALL_ISLAND_KM`]'yi aşar ya da pencere kenarına
+    /// değerse (kıtanın parçası olabilir) hemen `false`.
+    fn small_land(depth: &Depth, start: usize) -> bool {
         let (w, h) = (depth.width, depth.height);
         let land = |i: usize| !depth.depth[i].is_finite();
-        let mut label = vec![u32::MAX; w * h];
-        let mut small = vec![false; w * h];
-        let mut stack = Vec::new();
-        let mut cells = Vec::new();
-        for start in 0..w * h {
-            if !land(start) || label[start] != u32::MAX {
-                continue;
+        let km = depth.cell * geo::deg_to_km(1.0);
+        let lat = depth.north - ((start / w) as f64 + 0.5) * depth.cell;
+        let ew_km = km * lat.to_radians().cos().max(0.05);
+        let mut seen = std::collections::HashSet::from([start]);
+        let mut stack = vec![start];
+        let (r, c) = (start / w, start % w);
+        let (mut r0, mut r1, mut c0, mut c1) = (r, r, c, c);
+        while let Some(i) = stack.pop() {
+            let (r, c) = (i / w, i % w);
+            if r == 0 || c == 0 || r + 1 == h || c + 1 == w {
+                return false;
             }
-            label[start] = 0;
-            stack.push(start);
-            cells.clear();
-            let (mut r0, mut r1, mut c0, mut c1) = (h, 0, w, 0);
-            while let Some(i) = stack.pop() {
-                cells.push(i);
-                let (r, c) = (i / w, i % w);
-                (r0, r1, c0, c1) = (r0.min(r), r1.max(r), c0.min(c), c1.max(c));
-                for (dr, dc) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
-                    let (nr, nc) = (r as i64 + dr, c as i64 + dc);
-                    if nr < 0 || nc < 0 || nr >= h as i64 || nc >= w as i64 {
-                        continue;
-                    }
-                    let j = nr as usize * w + nc as usize;
-                    if land(j) && label[j] == u32::MAX {
-                        label[j] = 0;
-                        stack.push(j);
-                    }
-                }
-            }
-            let edge = r0 == 0 || c0 == 0 || r1 + 1 == h || c1 + 1 == w;
-            let lat = depth.north - (r0 + r1 + 1) as f64 / 2.0 * depth.cell;
-            let km = depth.cell * geo::deg_to_km(1.0);
+            (r0, r1, c0, c1) = (r0.min(r), r1.max(r), c0.min(c), c1.max(c));
             let ns = (r1 - r0 + 1) as f64 * km;
-            let ew = (c1 - c0 + 1) as f64 * km * lat.to_radians().cos();
-            if !edge && ns.max(ew) < SMALL_ISLAND_KM {
-                for &i in &cells {
-                    small[i] = true;
+            let ew = (c1 - c0 + 1) as f64 * ew_km;
+            if ns.max(ew) >= SMALL_ISLAND_KM {
+                return false;
+            }
+            for j in [i - w, i + w, i - 1, i + 1] {
+                if land(j) && seen.insert(j) {
+                    stack.push(j);
                 }
             }
         }
-        small
+        true
     }
 
     /// Kıyı noktasının (deniz hücresi) komşu kara hücreleri yalnızca küçük
     /// adalara mı ait.
-    fn on_small_island(depth: &Depth, small: &[bool], pt: (f64, f64)) -> bool {
+    fn on_small_island(depth: &Depth, pt: (f64, f64)) -> bool {
         let Some(i) = depth.index(pt.0, pt.1) else {
             return false;
         };
         let (w, h) = (depth.width as i64, depth.height as i64);
         let (r, c) = ((i / depth.width) as i64, (i % depth.width) as i64);
-        let (mut any_small, mut any_big) = (false, false);
+        let mut any = false;
         for dr in -1..=1 {
             for dc in -1..=1 {
                 let (nr, nc) = (r + dr, c + dc);
@@ -1063,15 +1049,14 @@ pub mod forecast {
                 }
                 let j = (nr * w + nc) as usize;
                 if !depth.depth[j].is_finite() {
-                    if small[j] {
-                        any_small = true;
-                    } else {
-                        any_big = true;
+                    if !small_land(depth, j) {
+                        return false;
                     }
+                    any = true;
                 }
             }
         }
-        any_small && !any_big
+        any
     }
 
     /// Kıyı noktası denizdeki kaynağı doğrudan görmüyor mu (bkz.
@@ -1290,13 +1275,6 @@ pub mod forecast {
             trigger::Assessment::Threat { radius_km } => Some(radius_km),
             _ => None,
         };
-        // Küçük ada etiketleri yalnızca bir yakın alan noktası çıkarsa.
-        let island_cells = std::cell::OnceCell::new();
-        let islands = || {
-            island_cells
-                .get_or_init(|| small_island_cells(depth))
-                .as_slice()
-        };
         let mut out = Vec::new();
         for (k, p) in coast.iter().enumerate() {
             let pt = (f64::from(p.lon), f64::from(p.lat));
@@ -1322,7 +1300,7 @@ pub mod forecast {
                     .unwrap_or(up.at);
                 sheltered(depth, pt, target)
             };
-            let island = near && !shelter && on_small_island(depth, islands(), pt);
+            let island = near && !shelter && on_small_island(depth, pt);
             let runup_m = (near && !shelter && !island)
                 .then(|| r0 * runup::along_coast(alpha * along, fault.length));
             let threat = match threat_radius {
@@ -1414,15 +1392,13 @@ pub mod forecast {
                 }
             }
             let d = depth(&v);
-            let small = small_island_cells(&d);
-            let i = d.index(2.05, 0.5).unwrap();
-            assert!(small[i]);
-            assert!(on_small_island(&d, &small, (1.99, 0.5)));
-            assert!(!on_small_island(&d, &small, (1.5, 0.5)));
+            assert!(small_land(&d, d.index(2.05, 0.5).unwrap()));
+            assert!(on_small_island(&d, (1.99, 0.5)));
+            assert!(!on_small_island(&d, (1.5, 0.5)));
             let wall = grid(0.4);
             let dw = depth(&wall);
-            let s2 = small_island_cells(&dw);
-            assert!(!s2[dw.index(1.2, 0.5).unwrap()]);
+            assert!(!small_land(&dw, dw.index(1.2, 0.5).unwrap()));
+            assert!(!on_small_island(&dw, (0.99, 0.5)));
         }
     }
 }
