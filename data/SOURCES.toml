@@ -78,6 +78,17 @@ license_checked = "2026-11-14"
 files = "crates/seismira-core/src/gmpe/cy14.csv"
 
 [[dataset]]
+id = "bssa14-coefficients"
+name = "Boore, Stewart, Seyhan & Atkinson (2014) GMPE katsayıları"
+url = "https://code.usgs.gov/ghsc/nshmp/nshmp-lib"
+license = "CC0-1.0 / ABD kamu malı"
+attribution = "Boore, Stewart, Seyhan & Atkinson (2014), Earthquake Spectra 30(3), 1057–1085. Katsayı dosyası: USGS nshmp-lib."
+modified = true            # f4 katsayısı 7 periyotta yazarların 2014-07-15 düzeltmesiyle (pygmm ve OpenQuake ile aynı)
+license_checked = "2026-11-24"
+snapshot = "nshmp-lib main, 2026-11-24; BSSA14.csv sha256 710d717e9629bfa938585e4dee52ac9ce06ed693f1db44fa2ff9b0e440c7159f"
+files = "crates/seismira-core/src/gmpe/bssa14.csv"
+
+[[dataset]]
 id = "psbah20-coefficients"
 name = "Parker vd. (2020) NGA-Subduction GMPE katsayıları (küresel arayüz ve levha içi)"
 url = "https://code.usgs.gov/ghsc/nshmp/nshmp-lib"

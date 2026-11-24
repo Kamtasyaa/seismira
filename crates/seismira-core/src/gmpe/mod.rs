@@ -1,7 +1,42 @@
 //! Yer hareketi tahmin denklemleri (GMPE), CLAUDE.md Bölüm 7.4.
 
+pub mod bssa14;
 pub mod cy14;
 pub mod psbah20;
+
+/// Sığ kabuk NGA-West2 modellerinin bölgesel düzeltmeleri için bölge
+/// (merkez üssünün ülkesinden, [`CrustRegion::from_iso`]). Her model
+/// yalnızca kendi tanımladığı bölgeleri ayırır; diğerleri temel modeldir.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum CrustRegion {
+    /// Temel model (küresel / Kaliforniya; modellerin "varsayılan" kolu).
+    #[default]
+    Global,
+    California,
+    Japan,
+    Taiwan,
+    China,
+    Turkey,
+    Italy,
+    NewZealand,
+}
+
+impl CrustRegion {
+    /// ISO 3166-1 alpha-2 ülke kodundan. Kaliforniya ayrımı yapılmaz (ABD
+    /// küresel / Kaliforniya kolu aynıdır: BSSA14 Δc3 "global/CATW",
+    /// ASK14 ve CB14 Kaliforniya = temel model).
+    pub fn from_iso(code: &str) -> CrustRegion {
+        match code {
+            "JP" => CrustRegion::Japan,
+            "TW" => CrustRegion::Taiwan,
+            "CN" => CrustRegion::China,
+            "TR" => CrustRegion::Turkey,
+            "IT" => CrustRegion::Italy,
+            "NZ" => CrustRegion::NewZealand,
+            _ => CrustRegion::Global,
+        }
+    }
+}
 
 /// Yer hareketi ölçüsü.
 #[derive(Clone, Copy, Debug, PartialEq)]

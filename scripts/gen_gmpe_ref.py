@@ -9,7 +9,12 @@ Kurulum ve çalıştırma (depo kökünden):
     .venv/bin/pip install pygmm==0.9.1
     .venv/bin/python scripts/gen_gmpe_ref.py
 
-Çıktılar: data/test/cy14_ref.csv, data/test/psbah20_ref.csv
+Çıktılar: data/test/cy14_ref.csv, data/test/psbah20_ref.csv,
+data/test/{bssa14,ask14,cb14}_ref.csv (yalnızca bunlar için:
+`.venv/bin/python scripts/gen_gmpe_ref.py ngaw2 bssa14`).
+
+NGA-West2 diğer modeller (2026-11-24): pygmm 0.9.1, makale tabloları,
+bölgesel kollar ("region"); havza terimi kapalı (Z1 verilmez).
 
 Parker vd. (2020): pygmm sürümü nshmp-lib'in (USGS, CC0) uygulamasını ve
 katsayılarını izler; küresel model, epistemik dallar kapalı (orta dal).
@@ -139,5 +144,63 @@ def psbah20() -> None:
     print(f"{len(rows)} senaryo, pygmm {pygmm.__version__} → {path}")
 
 
+def write(name: str, rows: list) -> None:
+    rows = [
+        {k: (f"{v:.10g}" if isinstance(v, float) else v) for k, v in r.items()}
+        for r in rows
+    ]
+    path = OUT / f"{name}_ref.csv"
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    print(f"{len(rows)} senaryo, pygmm {pygmm.__version__} → {path}")
+
+
+def ngaw2(which: str) -> None:
+    """BSSA14 / ASK14 / CB14 referansı: bölgesel kollarla."""
+    cls = {
+        "bssa14": pygmm.BooreStewartSeyhanAtkinson2014,
+        "ask14": pygmm.AbrahamsonSilvaKamai2014,
+        "cb14": pygmm.CampbellBozorgnia2014,
+    }[which]
+    regions = {"bssa14": ["global", "turkey", "japan"]}.get(which, ["global"])
+    rows = []
+    mags = [4.5, 5.5, 6.5, 7.5, 8.2]
+    dists = [1.0, 5.0, 20.0, 60.0, 150.0, 300.0]
+    cases = [("SS", 90.0, 0.0, 0), ("RS", 40.0, 2.0, 1), ("RS", 40.0, 2.0, -1), ("NS", 55.0, 5.0, 1)]
+    for region, mag, rrup, (mech, dip, ztor, side), vs30 in itertools.product(
+        regions, mags, dists, cases, [760.0, 400.0, 250.0]
+    ):
+        if mech == "NS" and mag > 7.0 and which == "bssa14":
+            continue  # BSSA14 normal fay Mw ≤ 7
+        rjb = float(np.sqrt(max(rrup**2 - ztor**2, 0.0)))
+        rx = side * rjb if side != 0 else 0.0
+        s = pygmm.Scenario(
+            mag=mag, dist_rup=rrup, dist_jb=rjb, dist_x=rx, dip=dip, depth_tor=ztor,
+            mechanism=mech, v_s30=vs30, on_hanging_wall=side > 0, region=region,
+        )
+        m = cls(s)
+        row = dict(
+            region=region, mag=mag, rrup=rrup, rjb=rjb, rx=rx, ztor=ztor, dip=dip,
+            mech=mech, vs30=vs30,
+            ln_pga=float(np.log(m.pga)), sd_pga=float(m.ln_std_pga),
+            ln_pgv=float(np.log(m.pgv)), sd_pgv=float(m.ln_std_pgv),
+        )
+        psa = np.atleast_1d(m.interp_spec_accels(PERIODS))
+        sds = np.atleast_1d(m.interp_ln_stds(PERIODS))
+        for t, v, sd in zip(PERIODS, psa, sds):
+            row[f"ln_sa{t}"] = float(np.log(v))
+            row[f"sd_sa{t}"] = float(sd)
+        rows.append(row)
+    write(which, rows)
+
+
 if __name__ == "__main__":
+    import sys
+
+    if sys.argv[1:2] == ["ngaw2"]:
+        for name in sys.argv[2:]:
+            ngaw2(name)
+        raise SystemExit(0)
     raise SystemExit(main())
