@@ -470,8 +470,10 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
 ### 7.10 Tsunami
 
 - Renkler: SARI az tehlikeli, KIRMIZI tehlikeli, MOR çok tehlikeli.
-  JMA kategorileriyle uyumlu eşik önerisi (doğrula): sarı 0.2–1 m,
-  kırmızı 1–3 m, mor 3 m üstü. 0.2 m altı: uyarı yok.
+  JMA kategorileri, DOĞRULANDI (2026-11-24, jma.go.jp/jma/kishou/know/
+  jishin/joho/tsunamiinfo.html "発表基準"): sarı 津波注意報 0,2 m ≤ h ≤ 1 m,
+  kırmızı 津波警報 1 m < h ≤ 3 m, mor 大津波警報 h > 3 m ("高いところで",
+  bölgenin en yüksek değeri). 0,2 m altı: uyarı yok.
 - Aşama 1, tetikleme: deniz altında veya kıyıya yakın, sığ
   (~100 km'den az), büyük (~Mw 6.5–7 üstü) depremler. Eşikler
   yayımlanmış uyarı ölçütlerinden doğrulanır.
@@ -482,8 +484,10 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   KAYNAK ALANINDAN başlayan fast marching ile varış süresi haritası.
   Kıyı yüksekliği: Abe'nin ampirik bağıntısı (Abe 1995, doğrula)
   veya Green yasası; "kaba tahmin" etiketli.
-- İlk uyarı zamanı: depremden ~3 dakika sonra (JMA hedefi, doğrula;
-  ayarlanabilir). Bildirim ve kıyı vurgusu o anda başlar.
+- İlk uyarı zamanı: depremden ~3 dakika sonra, DOĞRULANDI (aynı JMA
+  sayfası: "地震が発生してから約３分（一部の地震については約２分）を目標に";
+  2 dk Japonya yakınında erken uyarı tekniğiyle hızlı çözülen depremler
+  için; uygulamada tek değer 3 dk, `ISSUE_S`). Bildirim ve kıyı vurgusu o anda başlar.
 - Yalnızca okyanusa bağlı kıyılar; göller ve iç sular maskelenir.
 - Aşama 3 (isteğe bağlı): sığ su denklemleri, wgpu compute shader.
 - KAYNAK (Faz 8 adım 2, 2026-11-23): IOC Technical Series 135 (2017),
@@ -498,7 +502,7 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
     "Kıyıya çok yakın" tanımı tabloda yok: uygulamada VARSAYIM (adım 6'da
     yazılacak).
   - Zaman çizelgesi (Tablo 1): ilk ürün depremden 3–10 dk sonra. İlk uyarı
-    anı için JMA hedefi (~3 dk) hâlâ DOĞRULANACAK.
+    anı için JMA hedefi (~3 dk) DOĞRULANDI (2026-11-24, yukarıda).
   - Kıyı yüksekliği (Bölüm II, RIFT): Green yasası A_kıyı = A_açık ·
     (D_açık / D_kıyı)^¼, D_kıyı = 1 m; açık nokta, kıyı noktasından daha
     derin olan EN YAKIN model noktası; 100 km'den uzaksa kıyı tahmini
