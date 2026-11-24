@@ -28,8 +28,9 @@ offline.
 - **Sonlu fay modeli** (tek dikdörtgen düzlem); sığ kabuk, dalma-batma
   arayüzü ve levha içi depremler. Slab2 ile levha geometrisi önerisi.
   / Finite-fault source; crustal, interface and intraslab earthquakes.
-- **Yer hareketi:** Chiou & Youngs (2014), Parker vd. (2020; bölgesel
-  katsayılarla), ak135 seyahat süreleri, USGS Vs30 zemin haritası.
+- **Yer hareketi:** sığ kabukta dört NGA-West2 modelinin (ASK14, BSSA14,
+  CB14, CY14) eşit ağırlıklı ortalaması, dalma-batmada Parker vd. (2020;
+  bölgesel katsayılarla), ak135 seyahat süreleri, USGS Vs30 zemin haritası.
 - **Şiddet:** JMA Shindo (0–7) ya da MMI (Worden vd. 2012), şehir
   kutuları, il / eyalet vurgusu, ±1σ belirsizlik aralığı.
 - **Varsayımsal erken uyarı** (JMA ölçütü) ve bildirim akışı.
@@ -55,6 +56,83 @@ are validated against real earthquakes (`docs/dogrulama.md`).
 Durum: ilk sürüm **v0.1.0** yayımlandı (2026-11-23). Geliştirme sürüyor.
 Status: first release **v0.1.0** is out (2026-11-23). Development
 continues.
+
+## Eklenecekler / Roadmap
+
+Planlanan özellikler, önceliğe göre. Sıra ve zamanlama kesin değildir.
+Planned features by priority; order and timing are not fixed.
+
+### Kritik öncelik / Critical
+
+- **Çoklu fay segmenti:** 2023 Kahramanmaraş depremleri gibi birden fazla
+  parçanın peş peşe kırıldığı çok segmentli fay tanımı. / Multi-segment
+  ruptures that break one after another.
+- **Kendi verini yükle:** Vs30 (GeoTIFF), fay geometrisi (GeoJSON) ya da
+  yerel bina envanteri dosyasını sürükleyip bırakarak simülasyonda
+  kullanma. / Drag and drop your own Vs30, fault geometry or building
+  inventory.
+- **Çıktı dışa aktarma:** ivme, hasar ve sıvılaşma haritaları CSV,
+  GeoJSON ya da GeoTIFF olarak (QGIS / ArcGIS için). / Export shaking,
+  damage and liquefaction maps as CSV, GeoJSON or GeoTIFF.
+
+### Önemli öncelik / High
+
+Sismoloji ve yapı / Seismology and structures:
+
+- **Tepki spektrumu:** tıklanan noktada 0,1–4,0 s spektral ivme (Sa)
+  eğrisi, TBDY-2018 (DD-1 / DD-2) ya da Eurocode 8 tasarım spektrumuyla
+  üst üste. / Response spectrum at any point, overlaid on TBDY-2018 or
+  Eurocode 8 design spectra.
+- **Yapay ivme kaydı:** seçilen deprem ve zemine göre tahmini ivme-zaman
+  kaydı; ETABS, SAP2000 gibi programlar için .txt / .csv dışa aktarma. /
+  Synthetic accelerograms, exportable for structural analysis software.
+- **GMPE seçimi ve mantık ağacı:** mevcut dört NGA-West2 ortalamasına
+  Akkar vd. (2014) gibi Türkiye ve Avrupa denklemleri, kullanıcı
+  tanımlı ağırlıklar. / More GMPEs (e.g. Akkar et al. 2014) with
+  user-defined logic-tree weights.
+- **Yönelim etkisi (directivity):** kırılmanın ilerlediği yönde
+  sarsıntının artması, kırılma başlangıç noktası seçimi. Doğrultu, eğim
+  ve kayma açısı zaten ayarlanabiliyor. / Rupture directivity and
+  hypocentre position on the fault.
+
+Altyapı / Infrastructure:
+
+- **Kritik tesisler:** hastane, köprü, viyadük, baraj, doğalgaz hattı ve
+  trafo merkezleri (OpenStreetMap verisi ya da kullanıcı dosyası); her
+  noktanın PGA / PGV listesi. / Lifelines and critical facilities with
+  their PGA / PGV.
+- **Yol kapanması ve erişim:** heyelan ve yıkım yoğunluğuna göre
+  kapanabilecek ana yollar, hastaneye ulaşım süresine etkisi. / Road
+  closures and hospital access times.
+
+Veri ve analiz / Data and analysis:
+
+- **Gerçek deprem verisi (isteğe bağlı, internet varsa):** USGS, AFAD ya
+  da EMSC'den son depremlerin fay çözümü ve ShakeMap'ini alıp simüle
+  etme, istasyon kayıtlarıyla karşılaştırma. / Import recent real
+  events and compare with station records.
+- **Toplu senaryo ve olasılıksal analiz (PSHA başlangıcı):** bir fay
+  üzerinde Mw 6,5–7,8 arası çok sayıda senaryo; ortalama hasar ve
+  "50 yılda %10 aşılma" haritaları. / Batch scenarios and first steps
+  towards probabilistic hazard maps.
+- **Otomatik teknik rapor (PDF / Markdown):** deprem parametreleri, en
+  çok etkilenen yerler, en yüksek PGA / PGV, tsunami varış süreleri,
+  hasar dağılımı. / One-page technical summary report.
+
+### Normal öncelik / Normal
+
+- Açık (beyaz) tema. / Light theme.
+- Görsel iyileştirmeler: harita stili, panel düzeni, yumuşak geçişler. /
+  Visual polish.
+- Yeni arayüz dilleri (Japonca, İspanyolca…). / More UI languages.
+- Daha fazla hazır senaryo (ör. 1999 Düzce, 2020 Elazığ, 2020 Sisam,
+  1995 Kobe). / More preset scenarios.
+- Ekran görüntüsü ve simülasyonu video / GIF olarak kaydetme. /
+  Screenshot and video / GIF capture.
+- Klavye kısayolları ve kısa bir ilk kullanım turu. / Keyboard shortcuts
+  and a short first-run tour.
+- Yüksek çözünürlüklü kıyı ve ayrıntı paketleri, GPU tsunami
+  simülasyonu. / High-resolution coast packs, GPU tsunami simulation.
 
 ## İndirme / Download
 
