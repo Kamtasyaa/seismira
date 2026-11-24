@@ -87,11 +87,11 @@ fn advance_shown(shown: Shown, actual: u8, passes_warning: bool, wall: f64, hold
 fn region_styles(
     results: &[compute::RegionResult],
     alert: Option<&Alert>,
-    t: f64,
-    wall: f64,
+    (t, wall): (f64, f64),
     reduce_motion: bool,
     shown: &mut std::collections::HashMap<seismira_core::region::RegionId, Shown>,
     hold: bool,
+    (scale, mw): (crate::mmi_style::Scale, f64),
 ) -> (Vec<crate::map::RegionStyle>, bool) {
     use seismira_core::region::RegionState;
     // 0–1 arası yumuşak dalga (kosinüs); "Hareketi azalt" açıkken ortada sabit.
@@ -107,6 +107,8 @@ fn region_styles(
     let mut blinking = false;
     for r in results {
         let s = &r.summary;
+        // Yaygın değerin seçili ölçekteki karşılığı (renk bununla).
+        let typical = region_level(scale, mw, s.typical, s.pgv_typical);
         let t_alert = alert.filter(|a| a.regions.contains(&s.id)).map(|a| a.t);
         let end = s.t_end.is_finite().then_some(s.t_end);
         // Sunum: gerçek durum → en az ~1 s görünen aşama (Bölüm 9).
@@ -146,7 +148,7 @@ fn region_styles(
                 true,
             )),
             RegionState::Shaking(now) => {
-                let c = shindo_style::color(now);
+                let c = typical.rising(now, s.typical).color();
                 // Nihai en yüksek Shindo'su 3'ün altındaki bölgeler yanıp sönmez.
                 if s.max >= Shindo::S3 {
                     Some((1 + now as u8, c, 2.5, blink_fill(c), true))
@@ -155,7 +157,7 @@ fn region_styles(
                 }
             }
             RegionState::Settled(max) => {
-                let c = shindo_style::color(max);
+                let c = typical.color();
                 let fill = if max >= Shindo::S3 {
                     c.gamma_multiply(0.12)
                 } else {
@@ -180,6 +182,23 @@ fn region_styles(
     // Güçlü olan üstte (ortak sınırlarda).
     out.sort_by_key(|(o, _)| *o);
     (out.into_iter().map(|(_, s)| s).collect(), blinking)
+}
+
+/// Bölge değerinin seçili ölçekteki karşılığı: Shindo ızgaradan, MMI
+/// aynı hücrelerin büyük bileşen PGV'sinden (Worden vd. 2012; mesafe
+/// katsayısı sıfır, Rrup etkisiz; ızgara gösterimiyle aynı kural).
+fn region_level(
+    scale: crate::mmi_style::Scale,
+    mw: f64,
+    shindo: Shindo,
+    pgv: f32,
+) -> crate::mmi_style::Level {
+    let mmi = if pgv.is_finite() && pgv > 0.0 {
+        seismira_core::mmi::mmi_from_pgv_larger(f64::from(pgv), mw, 10.0)
+    } else {
+        1.0
+    };
+    crate::mmi_style::Level::of(scale, shindo, mmi)
 }
 
 /// Şehir bildirimleri (bildirim akışında yer alır).
@@ -242,6 +261,8 @@ struct RegionEvent {
     t: f64,
     region: seismira_core::region::RegionId,
     shindo: Shindo,
+    /// Bölgenin en yüksek PGV'si (MMI gösterimi için).
+    pgv: f32,
     best_city: Option<usize>,
     at: (f64, f64),
 }
@@ -266,6 +287,7 @@ fn region_events(results: &[compute::RegionResult]) -> Vec<RegionEvent> {
             t: r.summary.t_peak,
             region: r.summary.id,
             shindo: r.summary.max,
+            pgv: r.summary.pgv_max,
             best_city: r.best_city,
             at: r.summary.at,
         })
@@ -736,11 +758,11 @@ impl SeismiraApp {
             let (styles, blinking) = region_styles(
                 &self.region_results,
                 self.alert.as_ref(),
-                self.clock.t,
-                wall,
+                (self.clock.t, wall),
                 self.reduce_motion,
                 &mut self.region_shown,
                 self.clock.playing,
+                (self.scale, self.sim.as_ref().map_or(0.0, |s| s.quake.mw)),
             );
             self.map.set_region_styles(styles);
             if blinking {
@@ -904,14 +926,15 @@ impl SeismiraApp {
     }
 }
 
-/// Harita üstünde bilgi kartı: satırlar ve (varsa) sol üstte Shindo kutusu.
+/// Harita üstünde bilgi kartı: satırlar ve (varsa) sol üstte şiddet kutusu
+/// (seçili ölçekte).
 /// Kart `at` noktasının sağ altına, sığmazsa öbür yanına yerleşir.
 fn paint_card(
     ui: &egui::Ui,
     rect: egui::Rect,
     at: egui::Pos2,
     lines: Vec<(String, Color32)>,
-    shindo: Option<Shindo>,
+    level: Option<crate::mmi_style::Level>,
 ) {
     let text = ui.visuals().text_color();
     let painter = ui.painter_at(rect);
@@ -922,7 +945,7 @@ fn paint_card(
         .collect();
     let w = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
     let h: f32 = galleys.iter().map(|g| g.size().y + 2.0).sum();
-    let badge = if shindo.is_some() { 26.0 } else { 0.0 };
+    let badge = level.map_or(0.0, |l| shindo_style::box_size(l.label()).x + 6.0);
     let mut origin = at + egui::vec2(14.0, 14.0);
     let size = egui::vec2(w + badge + 16.0, h + 12.0);
     if origin.x + size.x > rect.right() {
@@ -939,11 +962,13 @@ fn paint_card(
         ui.visuals().window_stroke,
         egui::StrokeKind::Inside,
     );
-    if let Some(s) = shindo {
-        shindo_style::draw_box(
+    if let Some(l) = level {
+        let size = shindo_style::box_size(l.label());
+        shindo_style::draw_labeled_box(
             &painter,
-            card.left_top() + egui::vec2(8.0 + 10.0, 8.0 + 9.0),
-            s,
+            card.left_top() + egui::vec2(8.0, 8.0) + size / 2.0,
+            l.color(),
+            l.label(),
         );
     }
     let mut y = card.top() + 6.0;
@@ -1002,6 +1027,12 @@ impl SeismiraApp {
         self.map.draw_lonlat_line(ui, rect, &densify(a, b), edge);
     }
 
+    /// Şehrin nihai şiddeti seçili ölçekte (sonuç yoksa `None`).
+    fn city_level(&self, i: usize) -> Option<crate::mmi_style::Level> {
+        let m = self.results.as_ref()?.sites[i].motion?;
+        Some(crate::mmi_style::Level::of(self.scale, m.shindo(), m.mmi))
+    }
+
     /// Şehir kartı (fare üzerindeyken): Shindo ve olası aralık, PGA, PGV,
     /// varış zamanları, S − P. Tam şehir kartı Faz 4'te.
     fn city_card(&self, ui: &egui::Ui, rect: egui::Rect, i: usize, at: egui::Pos2) {
@@ -1018,13 +1049,15 @@ impl SeismiraApp {
         };
         lines.push((c.name.clone(), text));
         lines.push((place, weak));
-        let mut shindo = None;
+        let mut level = None;
         if let (Some(sim), Some(res)) = (&self.sim, &self.results) {
             let r = &res.sites[i];
             match r.motion {
                 Some(m) => {
                     let (lo, hi) = m.shindo_range();
-                    shindo = Some(m.shindo());
+                    level = Some(crate::mmi_style::Level::of(self.scale, m.shindo(), m.mmi));
+                    // Seçili ölçeğin satırı önce (kutuyla aynı ölçek).
+                    let first = lines.len();
                     lines.push((
                         lang.t_args(
                             "tip-shindo",
@@ -1038,7 +1071,7 @@ impl SeismiraApp {
                         text,
                     ));
                     let (mmi_lo, mmi_hi) = m.mmi_range();
-                    lines.push((
+                    let mmi_line = (
                         lang.t_args(
                             "tip-mmi",
                             &[
@@ -1049,7 +1082,11 @@ impl SeismiraApp {
                             ],
                         ),
                         text,
-                    ));
+                    );
+                    match self.scale {
+                        crate::mmi_style::Scale::Shindo => lines.push(mmi_line),
+                        crate::mmi_style::Scale::Mmi => lines.insert(first, mmi_line),
+                    }
                     lines.push((
                         lang.t_args("tip-pga", &[("v", lang.num(m.pga.median() * 100.0, 1))]),
                         text,
@@ -1144,7 +1181,7 @@ impl SeismiraApp {
                 }
             }
         }
-        paint_card(ui, rect, at, lines, shindo);
+        paint_card(ui, rect, at, lines, level);
     }
 
     /// `t`'den sonraki ilk bildirimin zamanı ("sonraki olaya atla"):
@@ -1210,6 +1247,9 @@ impl SeismiraApp {
             Lang::En => info.name_en.clone(),
         };
         let mut lines = vec![(name, text), (info.iso.clone(), weak)];
+        let mw = self.sim.as_ref().map_or(0.0, |s| s.quake.mw);
+        let max = region_level(self.scale, mw, s.max, s.pgv_max);
+        let typical = region_level(self.scale, mw, s.typical, s.pgv_typical);
         // "En yüksek: şehir" yalnızca şehrin değeri bölgeninkine eşitse
         // (bölge değeri ızgaradan gelir; bildirimlerle aynı kural).
         let city = self
@@ -1217,24 +1257,19 @@ impl SeismiraApp {
             .as_ref()
             .ok()
             .zip(res.best_city)
-            .filter(|&(_, i)| {
-                self.results
-                    .as_ref()
-                    .is_some_and(|r| r.sites[i].motion.is_some_and(|m| m.shindo() == s.max))
-            })
+            .filter(|&(_, i)| self.city_level(i) == Some(max))
             .map(|(l, i)| l.cities[i].name.clone());
         lines.push((
             match city {
-                Some(city) => lang.t_args(
-                    "region-max-city",
-                    &[("s", s.max.to_string()), ("city", city)],
-                ),
-                None => lang.t_args("region-max", &[("s", s.max.to_string())]),
+                Some(city) => {
+                    lang.t_args("region-max-city", &[("s", max.text(lang)), ("city", city)])
+                }
+                None => lang.t_args("region-max", &[("s", max.text(lang))]),
             },
             text,
         ));
         lines.push((
-            lang.t_args("region-typical", &[("s", s.typical.to_string())]),
+            lang.t_args("region-typical", &[("s", typical.text(lang))]),
             text,
         ));
         lines.push((
@@ -1378,7 +1413,7 @@ impl SeismiraApp {
                 _ => {}
             },
         }
-        paint_card(ui, rect, at, lines, Some(s.max));
+        paint_card(ui, rect, at, lines, Some(max));
     }
 
     /// Simülasyonun sonu: S cephesi ya da son tsunami varışı (+10 dk).
@@ -1754,9 +1789,10 @@ impl SeismiraApp {
             t: f64,
             text: String,
             color: Color32,
-            badge: Option<Shindo>,
+            badge: Option<crate::mmi_style::Level>,
             at: (f64, f64),
         }
+        let mw = sim.quake.mw;
         let now = self.clock.t;
         let mut notes: Vec<Note> = sim
             .events_until(now)
@@ -1782,6 +1818,9 @@ impl SeismiraApp {
                         None,
                     ),
                     CityEventKind::Shindo(s) => {
+                        let level = self
+                            .city_level(e.city)
+                            .unwrap_or(crate::mmi_style::Level::Shindo(s));
                         let main = &layer.cities[e.region_main];
                         // Bölge adı: il/eyalet (GeoNames admin1); yoksa
                         // bölgenin en kalabalık şehri.
@@ -1793,7 +1832,7 @@ impl SeismiraApp {
                         let text = if region == c.name {
                             lang.t_args(
                                 "city-shindo",
-                                &[("city", c.name.clone()), ("shindo", s.to_string())],
+                                &[("city", c.name.clone()), ("shindo", level.text(lang))],
                             )
                         } else {
                             lang.t_args(
@@ -1801,22 +1840,23 @@ impl SeismiraApp {
                                 &[
                                     ("region", region),
                                     ("city", c.name.clone()),
-                                    ("shindo", s.to_string()),
+                                    ("shindo", level.text(lang)),
                                 ],
                             )
                         };
-                        (text, Some(s))
+                        (text, Some((level, s)))
                     }
                 };
                 notes.push(Note {
                     t: e.t,
                     text,
-                    color: if badge.is_some_and(|s| s >= Shindo::S5Lower) {
+                    // Vurgu: bildirim seçimiyle aynı Shindo ölçütü.
+                    color: if badge.is_some_and(|(_, s)| s >= Shindo::S5Lower) {
                         Color32::from_rgb(0xFF, 0x9A, 0x6B)
                     } else {
                         ui.visuals().text_color()
                     },
-                    badge,
+                    badge: badge.map(|(l, _)| l),
                     at: (c.lon, c.lat),
                 });
             }
@@ -1830,18 +1870,15 @@ impl SeismiraApp {
                     Lang::Tr => info.name_tr.clone(),
                     Lang::En => info.name_en.clone(),
                 };
-                // "En yüksek: şehir" yalnızca şehrin Shindo'su bölgenin en
+                let level = region_level(self.scale, mw, e.shindo, e.pgv);
+                // "En yüksek: şehir" yalnızca şehrin değeri bölgenin en
                 // yüksek değerine eşitse (bölge değeri ızgaradan gelir).
                 let city = self
                     .cities
                     .as_ref()
                     .ok()
                     .zip(e.best_city)
-                    .filter(|&(_, i)| {
-                        self.results.as_ref().is_some_and(|r| {
-                            r.sites[i].motion.is_some_and(|m| m.shindo() == e.shindo)
-                        })
-                    })
+                    .filter(|&(_, i)| self.city_level(i) == Some(level))
                     .map(|(l, i)| l.cities[i].name.clone())
                     .filter(|c| *c != region);
                 let text = match city {
@@ -1850,12 +1887,12 @@ impl SeismiraApp {
                         &[
                             ("region", region),
                             ("city", city),
-                            ("shindo", e.shindo.to_string()),
+                            ("shindo", level.text(lang)),
                         ],
                     ),
                     None => lang.t_args(
                         "city-shindo",
-                        &[("city", region), ("shindo", e.shindo.to_string())],
+                        &[("city", region), ("shindo", level.text(lang))],
                     ),
                 };
                 notes.push(Note {
@@ -1866,7 +1903,7 @@ impl SeismiraApp {
                     } else {
                         ui.visuals().text_color()
                     },
-                    badge: Some(e.shindo),
+                    badge: Some(level),
                     at: e.at,
                 });
             }
@@ -2078,12 +2115,17 @@ impl SeismiraApp {
                         ui.set_width(ui.available_width());
                         ui.label(RichText::new(time).small().weak().monospace());
                         ui.horizontal_top(|ui| {
-                            if let Some(s) = n.badge {
+                            if let Some(l) = n.badge {
                                 let (rect, _) = ui.allocate_exact_size(
-                                    shindo_style::BOX_SIZE,
+                                    shindo_style::box_size(l.label()),
                                     egui::Sense::hover(),
                                 );
-                                shindo_style::draw_box(ui.painter(), rect.center(), s);
+                                shindo_style::draw_labeled_box(
+                                    ui.painter(),
+                                    rect.center(),
+                                    l.color(),
+                                    l.label(),
+                                );
                             }
                             // Kalan genişlikte alt satıra geçsin.
                             ui.vertical(|ui| {

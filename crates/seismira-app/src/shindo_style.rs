@@ -69,11 +69,6 @@ pub fn box_size(label: &str) -> egui::Vec2 {
     vec2(BOX_SIZE.x.max(8.0 + 7.0 * label.len() as f32), BOX_SIZE.y)
 }
 
-/// Merkezi `center` olan Shindo kutusu.
-pub fn draw_box(painter: &egui::Painter, center: Pos2, s: Shindo) -> Rect {
-    draw_labeled_box(painter, center, color(s), s.label())
-}
-
 /// Merkezi `center` olan renkli etiket kutusu (Shindo ya da MMI).
 pub fn draw_labeled_box(painter: &egui::Painter, center: Pos2, fill: Color32, label: &str) -> Rect {
     let rect = Rect::from_center_size(center, box_size(label));

@@ -201,6 +201,13 @@ pub struct RegionSummary {
     /// `class_times[k]`: bölgede gösterilen en yüksek Shindo'nun k'ya
     /// ulaştığı an (kademeli yükselişle; hiç ulaşmazsa sonsuz).
     pub class_times: [f64; 10],
+    /// Seçilen hücrelerdeki en yüksek medyan PGV (cm/s, büyük bileşen;
+    /// [`ShakeGrid::pgv`]). Arayüz, MMI ölçeğinde bölgenin en yüksek
+    /// değerini bundan hesaplar (Shindo ve MMI ikisi de PGV'den).
+    pub pgv_max: f32,
+    /// Yaygın PGV: seçilen hücrelerin en az [`TYPICAL_FRACTION`]'ının
+    /// ulaştığı en yüksek PGV (cm/s); `typical`'ın MMI karşılığı için.
+    pub pgv_typical: f32,
 }
 
 /// Yaygın Shindo eşiği: bölgedeki seçilen (yerleşim) hücrelerinin oranı.
@@ -277,8 +284,12 @@ pub fn summarize(
                   (tp, ts, rise): (f64, f64, f64),
                   peak: f64,
                   end: f64,
-                  at: (f64, f64)| {
+                  at: (f64, f64),
+                  pgv: f32| {
         e.t_end = e.t_end.max(end);
+        if pgv.is_finite() {
+            e.pgv_max = e.pgv_max.max(pgv);
+        }
         e.t_first_p = e.t_first_p.min(tp);
         for (k, slot) in e
             .class_times
@@ -318,6 +329,7 @@ pub fn summarize(
             let peak = ts + f64::from(class.saturating_sub(Shindo::S1 as u8)) * rise;
             let at = grid.spec.center(col, row);
             let end = f64::from(grid.t_end[i]);
+            let pgv = grid.pgv[i];
             let fresh = RegionSummary {
                 t_end: f64::NEG_INFINITY,
                 t_first_p: tp,
@@ -331,11 +343,21 @@ pub fn summarize(
                 class_times: [f64::INFINITY; 10],
                 typical: Shindo::S0,
                 typical_times: [f64::INFINITY; 10],
+                pgv_max: 0.0,
+                pgv_typical: 0.0,
             };
             let e = acc.entry(id).or_insert((fresh, None));
-            update(&mut e.0, s, (tp, ts, rise), peak, end, at);
+            update(&mut e.0, s, (tp, ts, rise), peak, end, at, pgv);
             if raw & BUILT_BIT != 0 {
-                update(e.1.get_or_insert(fresh), s, (tp, ts, rise), peak, end, at);
+                update(
+                    e.1.get_or_insert(fresh),
+                    s,
+                    (tp, ts, rise),
+                    peak,
+                    end,
+                    at,
+                    pgv,
+                );
             }
         }
     }
@@ -358,6 +380,7 @@ pub fn summarize(
     // (yerleşim hücresi varsa yalnızca onlar) sınıf başına ulaşma anları.
     let index: HashMap<RegionId, usize> = out.iter().enumerate().map(|(k, r)| (r.id, k)).collect();
     let mut times: Vec<[Vec<f64>; 10]> = vec![Default::default(); out.len()];
+    let mut pgvs: Vec<Vec<f32>> = vec![Vec::new(); out.len()];
     for row in 0..grid.spec.height {
         for col in 0..grid.spec.width {
             let i = (row * grid.spec.width + col) as usize;
@@ -376,6 +399,9 @@ pub fn summarize(
             }
             let ts = f64::from(grid.t_s[i]);
             let rise = f64::from(grid.rise[i]);
+            if grid.pgv[i].is_finite() {
+                pgvs[k].push(grid.pgv[i]);
+            }
             for (c, list) in times[k]
                 .iter_mut()
                 .enumerate()
@@ -386,7 +412,7 @@ pub fn summarize(
             }
         }
     }
-    for (r, mut t) in out.iter_mut().zip(times) {
+    for ((r, mut t), mut pgv) in out.iter_mut().zip(times).zip(pgvs) {
         let n = if r.built_cells > 0 {
             r.built_cells
         } else {
@@ -399,6 +425,10 @@ pub fn summarize(
                 r.typical_times[c] = list[need - 1];
                 r.typical = Shindo::ALL[c];
             }
+        }
+        if pgv.len() >= need {
+            pgv.sort_by(|a, b| b.total_cmp(a));
+            r.pgv_typical = pgv[need - 1];
         }
     }
     out
@@ -730,7 +760,7 @@ mod tests {
             t_s: (0..n).map(|i| 10.0 + i as f32).collect(),
             t_end: vec![60.0; n as usize],
             rise: vec![crate::shaking::RISE_STEP_S as f32; n as usize],
-            pgv: vec![f32::NAN; n as usize],
+            pgv: (0..n).map(|i| 100.0 - i as f32).collect(),
             pga: vec![f32::NAN; n as usize],
             pgv_tau: vec![f32::NAN; n as usize],
             pga_tau: vec![f32::NAN; n as usize],
@@ -739,6 +769,9 @@ mod tests {
         let r = summarize(&grid, &domain, 1, &ids)[0];
         assert_eq!(r.max, Shindo::S6Lower);
         assert_eq!(r.typical, Shindo::S4);
+        // PGV: en yüksek 100; yaygın = %10'un (2 hücre) ulaştığı 99.
+        assert_eq!(r.pgv_max, 100.0);
+        assert_eq!(r.pgv_typical, 99.0);
         // %10 = 2 hücre: 4'e ulaşan 2. hücre (S varışı 11 s) + 3 adım.
         let rise = crate::shaking::RISE_STEP_S;
         assert!((r.typical_times[Shindo::S4 as usize] - (11.0 + 3.0 * rise)).abs() < 1e-6);
@@ -773,6 +806,8 @@ mod tests {
             class_times,
             typical: Shindo::S5Upper,
             typical_times: class_times,
+            pgv_max: 0.0,
+            pgv_typical: 0.0,
         };
         assert_eq!(r.state(5.0, Some(8.0), None), RegionState::Quiet);
         // Uyarı yayımlandı ama P henüz ulaşmadı → sessiz.

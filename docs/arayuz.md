@@ -122,9 +122,20 @@ Görünüm:
   (2012), büyük bileşen PGV'den (mesafe katsayısı 0); renkler USGS
   ShakeMap ArcGIS servisi katman "mi" (crates/seismira-app/src/mmi_style.rs).
   I gösterilmez, II–III aynı renk. Kademeli yükselme Shindo ile aynı anda
-  tamamlanır. Bölge dolgusu, uyarılar ve bildirimler HER ZAMAN Shindo
-  (erken uyarı JMA ölçütü); açıklama başlığı bunu söyler. "İkisi birlikte"
-  YAPILMADI (kutular iki kat yer kaplar). Geliştirme: `SEISMIRA_SCALE=mmi`.
+  tamamlanır. "İkisi birlikte" YAPILMADI (kutular iki kat yer kaplar).
+  Geliştirme: `SEISMIRA_SCALE=mmi`.
+  DEĞİŞTİ (2026-11-24, kullanıcı şikâyeti "ölçekler karışık"): MMI
+  seçiliyken bildirimler, bölge sınırı / dolgu renkleri, şehir kartı
+  (kutu + ilk satır MMI, Shindo satırı ikinci) ve bölge kartı da MMI
+  yazar. Bölgenin en yüksek ve yaygın MMI'si ızgara hücrelerinin büyük
+  bileşen PGV'sinden (en yüksek PGV; seçilen hücrelerin %10'unun ulaştığı
+  PGV), ızgarayla aynı Worden vd. (2012) dönüşümüyle; kademeli yükselme
+  Shindo ile aynı anda tamamlanır. Ölçekten BAĞIMSIZ kalanlar (JMA
+  ölçütü): erken uyarının yayımlanması ve kapsamı ("Shindo 4'ün altı"
+  yazısı), hangi bölge / şehir bildiriminin akışa gireceği (Shindo 5- ve
+  üstü + en güçlü 3) ve turuncu vurgu, yanıp sönme eşiği (Shindo 3). MMI
+  için yayımlanmış bir uyarı eşiği seçilmedi; seçim ölçüte göre, gösterim
+  ölçeğe göre yapılır.
 - Katmanlar: bölge sınırı vurgusu, sıvılaşma, heyelan, tsunami
 - Simülasyon sonunda fay izini göster (varsayılan: kapalı). UYGULANDI
   (Faz 5, 2026-11-20): Görünüm menüsünde, kaydedilir; zaman çizgisinin

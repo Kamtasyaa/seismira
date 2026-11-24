@@ -9,9 +9,14 @@
 //! (ör. IV: 4 ≤ MMI < 5).
 
 use eframe::egui::Color32;
+use seismira_core::intensity::Shindo;
 
-/// Haritada gösterilen şiddet ölçeği (Görünüm → Şiddet ölçeği). Bölge
-/// uyarıları ve bildirimler her zaman JMA Shindo'dur (erken uyarı ölçütü).
+use crate::{i18n::Lang, shindo_style};
+
+/// Gösterilen şiddet ölçeği (Görünüm → Şiddet ölçeği): harita ızgarası,
+/// şehir kutuları, bölge renkleri, bildirimler ve kartlar bu ölçekte
+/// yazılır. Erken uyarının yayımlanması ve kapsamı ile bildirim seçimi
+/// her zaman JMA Shindo ölçütüne göredir (Bölüm 7.3).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Scale {
     #[default]
@@ -31,6 +36,57 @@ impl Scale {
         [Self::Shindo, Self::Mmi]
             .into_iter()
             .find(|x| x.code() == s)
+    }
+}
+
+/// Seçili ölçekte gösterilen şiddet: kutu rengi, kutu etiketi, metin.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Level {
+    Shindo(Shindo),
+    /// MMI sınıfı 1–10.
+    Mmi(u8),
+}
+
+impl Level {
+    /// Nihai değer: Shindo ölçeğinde `shindo`, MMI'da `mmi`'nin sınıfı.
+    pub fn of(scale: Scale, shindo: Shindo, mmi: f64) -> Self {
+        match scale {
+            Scale::Shindo => Self::Shindo(shindo),
+            Scale::Mmi => Self::Mmi(class(mmi)),
+        }
+    }
+
+    /// Kademeli yükselişte `now` anındaki değer: MMI, Shindo ile aynı anda
+    /// son değerine varır ([`class_at`]).
+    pub fn rising(self, now: Shindo, fin: Shindo) -> Self {
+        match self {
+            Self::Shindo(_) => Self::Shindo(now),
+            Self::Mmi(k) => Self::Mmi(class_at(k, now as usize, fin as usize)),
+        }
+    }
+
+    /// Kutu / sınır rengi. MMI I'in rengi yok (USGS); Shindo 0'ın grisi.
+    pub fn color(self) -> Color32 {
+        match self {
+            Self::Shindo(s) => shindo_style::color(s),
+            Self::Mmi(k) => color(k).unwrap_or_else(|| shindo_style::color(Shindo::S0)),
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Shindo(s) => s.label(),
+            Self::Mmi(k) => label(k),
+        }
+    }
+
+    /// "Shindo 5-" / "MMI VII".
+    pub fn text(self, lang: Lang) -> String {
+        let key = match self {
+            Self::Shindo(_) => "level-shindo",
+            Self::Mmi(_) => "level-mmi",
+        };
+        lang.t_args(key, &[("v", self.label().to_owned())])
     }
 }
 
@@ -84,5 +140,19 @@ mod tests {
         assert_eq!(color(2), color(3));
         assert_eq!(color(6), Some(Color32::from_rgb(255, 255, 0)));
         assert_eq!(label(8), "VIII");
+    }
+
+    #[test]
+    fn duzey_kademeli_ve_renk() {
+        let l = Level::of(Scale::Mmi, Shindo::S5Upper, 7.4);
+        assert_eq!(l, Level::Mmi(7));
+        // Shindo son değere vardığında MMI de varır.
+        assert_eq!(l.rising(Shindo::S5Upper, Shindo::S5Upper), Level::Mmi(7));
+        // 1 + floor(6 · 1/6) = 2 (ızgaradaki kuralla aynı).
+        assert_eq!(l.rising(Shindo::S1, Shindo::S5Upper), Level::Mmi(2));
+        assert_eq!(Level::Mmi(1).color(), shindo_style::color(Shindo::S0));
+        let s = Level::of(Scale::Shindo, Shindo::S4, 7.4);
+        assert_eq!(s.rising(Shindo::S2, Shindo::S4), Level::Shindo(Shindo::S2));
+        assert_eq!(s.label(), "4");
     }
 }
