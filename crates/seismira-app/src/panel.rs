@@ -571,6 +571,13 @@ pub fn ui(
                     [auto.length.round(), auto.width.round()]
                 });
             }
+            // Fay izi varsa uzunluk kutusu izin gerçek uzunluğunu gösterir
+            // (saklı tek düzlem uzunluğu kullanılmıyor, kafa karıştırmasın).
+            let trace_len = q.trace.map(|_| {
+                seismira_core::rupture::Rupture::from_quake(q)
+                    .length
+                    .round()
+            });
             if let Some([l, w]) = &mut q.rupture_km {
                 egui::Grid::new("quake-rupture")
                     .num_columns(2)
@@ -578,12 +585,15 @@ pub fn ui(
                     .show(ui, |ui| {
                         let (max_l, max_w) = seismira_core::quake::limits::RUPTURE_MAX_KM;
                         let id = ui.label(t("rupture-length")).id;
-                        // Fay izinde uzunluk izden gelir.
-                        let has_trace = q.trace.is_some();
-                        ui.add_enabled(
-                            !has_trace,
-                            number(lang, l, 1.0..=max_l, 0, 1.0).suffix(" km"),
-                        )
+                        // Fay izinde uzunluk izden gelir: kutu izin uzunluğunu
+                        // gösterir, düzenlenemez.
+                        match trace_len {
+                            Some(mut tl) => ui.add_enabled(
+                                false,
+                                number(lang, &mut tl, 1.0..=max_l, 0, 1.0).suffix(" km"),
+                            ),
+                            None => ui.add(number(lang, l, 1.0..=max_l, 0, 1.0).suffix(" km")),
+                        }
                         .labelled_by(id);
                         ui.end_row();
                         let id = ui.label(t("rupture-width")).id;
