@@ -167,10 +167,11 @@ pub enum Issue {
     /// 20 km). Küçük ve derin depremlerde olur; derinlik aralığı (0–35 km)
     /// tek başına bunu yakalamaz, çünkü Ztor büyüklüğe de bağlıdır.
     ZtorOutOfRange { ztor: f64, max: f64 },
-    /// Sığ kabukta büyüklük, kırılma boyutu bağıntısının veri aralığının
-    /// üstünde ([`crate::source::auto_size_mw_max`]: WC94 7.9; doğrultu
-    /// atımlıda TMG17 8.7, girdi sınırı 8.5 olduğundan oluşmaz): fay boyutları
-    /// ekstrapolasyondur. Engellemez, açıkça uyarır.
+    /// Otomatik boyutta büyüklük, kırılma boyutu bağıntısının veri aralığının
+    /// üstünde ([`crate::source::auto_size_mw_max`]: WC94 7.9; kabuk doğrultu
+    /// atımlıda TMG17 8.7, girdi sınırı 8.5 olduğundan oluşmaz; arayüz ve
+    /// levha içi de 7.9): fay boyutları ekstrapolasyondur. Engellemez, açıkça
+    /// uyarır.
     RuptureSizeExtrapolated { max: f64 },
     /// Elle kırılma boyutu aralık dışı ya da sayı değil (uzunluk
     /// 1–[`limits::RUPTURE_MAX_KM`].0, genişlik 1–[`limits::RUPTURE_MAX_KM`].1).
@@ -265,6 +266,12 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
                 out.push(Issue::RuptureAreaUnusual { ratio });
             }
         }
+        // Otomatik boyut bağıntısının veri aralığı (tüm ortamlar; bilim.md
+        // 7.1: sessiz ekstrapolasyon yok).
+        let max = crate::source::auto_size_mw_max(q);
+        if q.rupture_km.is_none() && q.mw > max {
+            out.push(Issue::RuptureSizeExtrapolated { max });
+        }
         if q.setting == Setting::ShallowCrust {
             crust_checks(q, &mut out);
         }
@@ -272,19 +279,13 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
     out
 }
 
-/// Sığ kabuk: boyut bağıntısı aralığı ve Ztor sınırı.
+/// Sığ kabuk: Ztor sınırı.
 fn crust_checks(q: &Quake, out: &mut Vec<Issue>) {
-    {
-        let max = crate::source::auto_size_mw_max(q);
-        if q.rupture_km.is_none() && q.mw > max {
-            out.push(Issue::RuptureSizeExtrapolated { max });
-        }
-        // Kaynak geometrisi kurulabiliyorsa: üst kenar modelin sınırında mı?
-        let ztor = crate::source::Fault::from_quake(q).ztor;
-        let max = crate::gmpe::cy14::ZTOR_MAX_KM;
-        if ztor > max {
-            out.push(Issue::ZtorOutOfRange { ztor, max });
-        }
+    // Kaynak geometrisi kurulabiliyorsa: üst kenar modelin sınırında mı?
+    let ztor = crate::source::Fault::from_quake(q).ztor;
+    let max = crate::gmpe::cy14::ZTOR_MAX_KM;
+    if ztor > max {
+        out.push(Issue::ZtorOutOfRange { ztor, max });
     }
 }
 
@@ -382,7 +383,7 @@ mod tests {
     fn arayuz_yalnizca_ters_fay() {
         let mut q = quake();
         q.setting = Setting::Interface;
-        q.mw = 9.0;
+        q.mw = 7.9;
         q.depth_km = 25.0;
         assert_eq!(validate(&q), vec![Issue::InterfaceNotReverse]);
         q.fault = FaultType::Reverse;
@@ -398,7 +399,7 @@ mod tests {
         );
         q.depth_km = 40.0;
         q.mw = 9.6;
-        assert!(matches!(validate(&q)[..], [Issue::MwOutOfRange { max, .. }] if max == 9.5));
+        assert!(matches!(validate(&q)[..], [Issue::MwOutOfRange { max, .. }, _] if max == 9.5));
     }
 
     #[test]
@@ -406,10 +407,30 @@ mod tests {
         let mut q = quake();
         q.setting = Setting::Intraslab;
         q.depth_km = 60.0;
-        q.mw = 8.5;
+        q.mw = 7.9;
         assert!(validate(&q).is_empty());
         q.mw = 8.6;
-        assert!(matches!(validate(&q)[..], [Issue::MwOutOfRange { max, .. }] if max == 8.5));
+        assert!(matches!(validate(&q)[..], [Issue::MwOutOfRange { max, .. }, _] if max == 8.5));
+    }
+
+    /// Otomatik boyutun WC94 ekstrapolasyon uyarısı arayüz ve levha içinde
+    /// de çıkar (önce yalnızca kabukta); elle boyutta çıkmaz.
+    #[test]
+    fn dalma_batmada_boyut_ekstrapolasyon_uyarisi() {
+        let warn = Issue::RuptureSizeExtrapolated { max: 7.9 };
+        for (setting, fault, depth) in [
+            (Setting::Interface, FaultType::Reverse, 25.0),
+            (Setting::Intraslab, FaultType::Normal, 60.0),
+        ] {
+            let mut q = quake();
+            q.setting = setting;
+            q.fault = fault;
+            q.depth_km = depth;
+            q.mw = 8.2;
+            assert_eq!(validate(&q), vec![warn], "{setting:?}");
+            q.rupture_km = Some([300.0, 60.0]);
+            assert!(!validate(&q).contains(&warn), "{setting:?}");
+        }
     }
 
     #[test]

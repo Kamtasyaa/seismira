@@ -101,15 +101,53 @@ pub fn width_tmg17_ss(mw: f64) -> f64 {
 /// Kabukta doğrultu atımlı girdi sınırı (8.5) bunun içinde kalır.
 pub const TMG17_SS_MW: (f64, f64) = (5.38, 8.70);
 
+/// Dalma-batma arayüzü kırılma uzunluğu (km): Thingbaijam, Mai & Goda
+/// (2017), BSSA 107(5), 2225–2246, doi:10.1785/0120170017, Tablo 1,
+/// "Subduction-interface" satırı: log10 L = −2.412 + 0.583·Mw (σ = 0.107;
+/// genel ortogonal regresyon). Birincil kaynaktan DOĞRULANDI (2026-11-25,
+/// yazar kabul kopyası, s. 68 Tablo 1). Veri aralığı Mw 6.68–9.19, L 29.2–
+/// 1420.0 km ([`TMG17_SI_MW`]).
+///
+/// Kullanım (2026-11-25): arayüzde uzunluk = min(WC94 alanından uzunluk,
+/// bu), doğrultu atımlıdaki [`length_tmg17_ss`] ile aynı yol. Neden: WC94
+/// alanı + doymuş genişlik dik eğimde fayı aşırı uzatıyordu (eğim 40°, yani
+/// kabuk ters fay varsayılanı: genişlik 50 / sin 40° ≈ 78 km, Mw 9.3'te
+/// 2 791 km; 2004 Sumatra Mw ~9.1 ~1 000–1 500 km). Sığ eğimde (Slab2,
+/// ~10–20°) WC94 uzunluğu genelde daha kısa, değişmez (Tōhoku benzeri Mw 9,
+/// 14°: 547 km). Yalnızca TMG17 kullanılmadı: makaleye göre ilişki 2004
+/// Sumatra'ya uyar ama Tōhoku'yu (~350 km) uzun verir (Mw 9.0: 684 km).
+pub fn length_tmg17_si(mw: f64) -> f64 {
+    10f64.powf(-2.412 + 0.583 * mw)
+}
+
+/// [`length_tmg17_si`] veri aralığı (Mw), Tablo 1.
+pub const TMG17_SI_MW: (f64, f64) = (6.68, 9.19);
+
 /// Otomatik kırılma uzunluğu TMG17 ile sınırlanıyor mu (yalnızca sığ
 /// kabuk doğrultu atımlı); değilse yalnızca WC94 alanı.
 pub fn uses_tmg17_ss(q: &Quake) -> bool {
     q.setting == Setting::ShallowCrust && q.fault == FaultType::StrikeSlip
 }
 
+/// Otomatik kırılma uzunluğunun TMG17 üst sınırı (km): sığ kabuk doğrultu
+/// atımlıda [`length_tmg17_ss`], arayüzde [`length_tmg17_si`]; diğerlerinde
+/// yok (levha içi için TMG17'de ayrı ilişki yok; normal fay satırı kabuk ve
+/// levha içi olayları karıştırır).
+pub fn tmg17_length_cap(q: &Quake) -> Option<f64> {
+    if uses_tmg17_ss(q) {
+        Some(length_tmg17_ss(q.mw))
+    } else if q.setting == Setting::Interface {
+        Some(length_tmg17_si(q.mw))
+    } else {
+        None
+    }
+}
+
 /// Otomatik kırılma boyutu bağıntısının veri aralığı üst sınırı (Mw):
 /// üstü ekstrapolasyondur. Doğrultu atımlıda Mw > 7.9'da uzunluk her zaman
 /// TMG17'den gelir (WC94 uzunluğu ~7.4'ten sonra daha uzun) ([`crate::quake::Issue::RuptureSizeExtrapolated`]).
+/// Arayüz ve levha içinde alan ve genişlik WC94'ten geldiği için 7.9
+/// (arayüzde uzunluk TMG17 ile sınırlansa da).
 pub fn auto_size_mw_max(q: &Quake) -> f64 {
     if uses_tmg17_ss(q) {
         TMG17_SS_MW.1
@@ -192,8 +230,8 @@ impl Fault {
     /// `Quake::hypo_along` ve `hypo_down` ile (varsayılan ikisi de ortada);
     /// düzlem yüzeyin üstüne çıkamaz (Ztor ≥ 0) ve kabukta sismojenik tabanı
     /// aşamaz. Otomatik boyut: WC94 alanı, genişlik doyunca alan korunacak
-    /// şekilde uzunluk artar; sığ kabuk doğrultu atımlıda uzunluk TMG17
-    /// uzunluğuyla sınırlıdır ([`length_tmg17_ss`]).
+    /// şekilde uzunluk artar; sığ kabuk doğrultu atımlıda ve arayüzde
+    /// uzunluk TMG17 uzunluğuyla sınırlıdır ([`tmg17_length_cap`]).
     /// `Quake::rupture_km` verilmişse boyutlar ondan (genişlik kırpılabilir).
     pub fn from_quake(q: &Quake) -> Self {
         let dip = q.dip.clamp(1.0, 90.0);
@@ -217,12 +255,12 @@ impl Fault {
                 let area = area_wc94(q.mw);
                 let width = area.sqrt().min(w_max);
                 let length = area / width;
-                // Doğrultu atımlı kabuk: WC94 uzunluğu TMG17'yi aşarsa
-                // TMG17 (Mw ≳ 7.4; alan korunmaz). Gerekçe: [`length_tmg17_ss`].
-                if uses_tmg17_ss(q) {
-                    (length.min(length_tmg17_ss(q.mw)), width)
-                } else {
-                    (length, width)
+                // Doğrultu atımlı kabuk ve arayüz: WC94 uzunluğu TMG17'yi
+                // aşarsa TMG17 (alan korunmaz). Gerekçe: [`length_tmg17_ss`],
+                // [`length_tmg17_si`].
+                match tmg17_length_cap(q) {
+                    Some(cap) => (length.min(cap), width),
+                    None => (length, width),
                 }
             }
         };
@@ -509,6 +547,32 @@ mod tests {
     /// 50 / sin 14° ≈ 207 km, Allen & Hayes (2017) üst sınırı 196 km; L = A / W
     /// ≈ 549 km (gözlenen kırılma ~450–500 × 200 km). Sınır olmadan kare
     /// (~328 × 328 km) çıkıyordu. Eğim 25°'de 50 km taban sınırı bağlar.
+    /// TMG17 Tablo 1 arayüz satırı elle: Mw 9.0 → log10 L = −2.412 + 5.247
+    /// = 2.835 → 683.9 km; Mw 8.0 → 1.6520 + ... = 10^2.252 = 178.6 km.
+    #[test]
+    fn tmg17_arayuz() {
+        assert!((length_tmg17_si(9.0) - 683.9).abs() < 0.1);
+        assert!((length_tmg17_si(8.0) - 178.6).abs() < 0.1);
+        let interface = |mw: f64, dip: f64| {
+            let mut q = quake(mw, 25.0, FaultType::Reverse, 0.0);
+            q.setting = Setting::Interface;
+            q.dip = dip;
+            Fault::from_quake(&q)
+        };
+        // Eğim 40° (kabuk ters fay varsayılanı), Mw 9.3: 2 791 km idi.
+        let f = interface(9.3, 40.0);
+        assert!((f.length - length_tmg17_si(9.3)).abs() < 1e-9, "{f:?}");
+        assert!((1000.0..1050.0).contains(&f.length), "{f:?}");
+        // Sığ eğimde WC94 daha kısa, değişmez (alan korunur).
+        let g = interface(9.0, 14.0);
+        assert!((g.length * g.width - area_wc94(9.0)).abs() < 1e-6, "{g:?}");
+        assert!(g.length < length_tmg17_si(9.0));
+        // Levha içi sınırlanmaz.
+        let mut q = quake(8.0, 60.0, FaultType::Normal, 0.0);
+        q.setting = Setting::Intraslab;
+        assert!(tmg17_length_cap(&q).is_none());
+    }
+
     #[test]
     fn arayuz_genisligi_doyar() {
         let mut q = quake(9.0, 29.0, FaultType::Reverse, 193.0);

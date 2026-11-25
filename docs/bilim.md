@@ -21,7 +21,8 @@ karşılaştırılır). Katsayılar makalelerin elektronik eklerinden alınır.
   `tsunami::source::moment`).
 - Kırılma boyutları: Wells & Coppersmith (1994) alanı; sığ kabuk doğrultu
   atımlıda uzunluk Thingbaijam vd. (2017) uzunluğuyla sınırlı (Bölüm 7.1,
-  2026-11-24). Dalma-batma: WC94 + genişlik sınırları (Bölüm 7.1, Faz 5).
+  2026-11-24). Dalma-batma: WC94 + genişlik sınırları (Bölüm 7.1, Faz 5);
+  arayüzde uzunluk TMG17 arayüz uzunluğuyla sınırlı (2026-11-25).
 - Tek düzlem dikdörtgen: strike, dip, rake, odağın düzlemdeki konumu.
 - Kısıtlar: üst kenar yüzeyin üstüne çıkamaz (Ztor ≥ 0). Kabukta
   genişlik sismojenik kalınlıkla sınırlı (~15–25 km, doğrula);
@@ -631,8 +632,25 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   için çıkmaz. Neden yalnız TMG17 değil: Mw ~7'de gözlenenden uzun
   (Kumamoto 67 km, Düzce 83 km) ve doğrulamada sapmayı büyüttü
   (docs/dogrulama.md "Doğrultu atımlı fay uzunluğu"). Ters/normal kabuk
-  ve dalma-batma WC94'te kaldı (TMG17 ters fay verisi Mw ≤ 7.69; arayüz
-  uzunluğu Tōhoku'da WC94'ten de uzun: 782 km).
+  WC94'te kaldı (TMG17 ters fay verisi Mw ≤ 7.69). Arayüz için bkz.
+  aşağıdaki madde.
+- Dalma-batma arayüzü (2026-11-25): uzunluk = min(WC94 alanından uzunluk,
+  TMG17 arayüz uzunluğu), doğrultu atımlıyla aynı yol. Tablo 1
+  "Subduction-interface": log10 L = −2.412 + 0.583·Mw (σ 0.107), veri
+  Mw 6.68–9.19, L 29.2–1 420 km (yazar kopyası s. 68, birincil kaynaktan
+  DOĞRULANDI). Gerekçe: eğim kabuk ters fay varsayılanında (40°) kalırsa
+  genişlik 50 / sin 40° ≈ 78 km'de doyuyor, WC94 alanı uzunluğu
+  patlatıyordu (Mw 9.0 → 1 379 km, 9.3 → 2 791 km; sonra 684 ve 1 023 km).
+  Slab2 eğiminde (~10–20°) WC94 uzunluğu genelde daha kısa ve değişmez
+  (Mw 9.0, 14° → 547 km). Yalnız TMG17 kullanılmadı: makale (s. 23)
+  ilişkinin 2004 Sumatra'ya (~1 000 km) uyduğunu, Tōhoku'yu (~350 km) uzun
+  verdiğini söylüyor. Makale ayrıca küresel ölçekte arayüz genişliği
+  doygunluğunun "belirgin olmadığını" yazıyor; Allen & Hayes (2017) 196 km
+  sınırı (aşağıda) yine de korunuyor (o makale doygunluğu bulmuş).
+  Hazır senaryolar elle boyutlu olduğu için doğrulama sonuçları değişmez.
+- Ekstrapolasyon uyarısı (2026-11-25'ten beri tüm ortamlarda): otomatik
+  boyutta Mw > 7.9 (WC94 alanı) arayüz ve levha içinde de uyarılır; önce
+  yalnızca kabukta çıkıyordu (Bölüm 6 "sessiz ekstrapolasyon yok" ihlali).
 - Genişlik = min(√A, sismojenik taban / sin δ); doyunca L = A / W.
   Sismojenik taban: 20 km (VARSAYIM; CLAUDE.md "15–25 km"). Hiposantr
   tabandan derinse taban hiposantr + 1 km'ye iner.
@@ -644,7 +662,13 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   153373648, SHA256 a7baaf67…) böyle bir not YOK ("made available in
   accordance with publisher policies"); yalnızca Tablo 1'deki katsayılar
   (bilimsel olgu) künyeyle kullanıldı, metin kopyalanmadı.
-- Dalma-batma ve levha içi ölçekleme (Strasser vd. 2010) Faz 5'te.
+- Levha içi: WC94 alanı, genişlik sınırı yok (kaynak yok). Mw 8.5, eğim
+  40°, odak 50 km: 182 × 182 km kare, düzlem 0–117 km derinlik (yüzeye
+  çıkıyor; 2017 Chiapas Mw 8.2 ~180 × 60 km, hafızadan, doğrula). Aday: TMG17 normal
+  fay satırı (veride levha içi ve dış yükselim olayları da var; log10 W =
+  −0.829 + 0.323·Mw, Mw 8.5 → 82 km), UYGULANMADI (kullanıcıya sorulacak:
+  ters mekanizmalı levha içi olaylara da uygulanır mı belirsiz).
+  Strasser vd. (2010) levha içi bağıntısı erişilemedi.
 - Mesafe ölçüleri NGA-West2 tanımlarıyla; saha, merkez üssü çevresinde
   azimutal eşit uzaklık düzlemine taşınır (300 km içinde hatası ihmal
   edilebilir). Testler: dikey/eğimli fay, tavan/taban bloğu, analitik
@@ -855,7 +879,9 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   Etkisi: Mw 9 arayüz, 300 km, Vs30 400: ~108 s (AS16 uca çekilmiş haliyle ~60 s
   kalıyordu); Tōhoku kayıtlarında 100–200 s.
 - Fay boyutu, dalma-batma arayüzü (2026-11-20): alan yine Wells &
-  Coppersmith (1994) (doğrulanmış; M > 7,9 ekstrapolasyon uyarısı sürüyor),
+  Coppersmith (1994) (doğrulanmış; M > 7,9 ekstrapolasyon uyarısı arayüzde
+  2026-11-25'e kadar ÇIKMIYORDU, düzeltildi; uzunluk 2026-11-25'ten beri
+  TMG17 ile sınırlı, Bölüm 7.1),
   ama genişlik artık arayüzün sismojenik alt sınırıyla doyuyor:
   `source::INTERFACE_BOTTOM_KM` = 50 km. Kaynak: PEER Report 2020/02
   (NGA-Sub veri tabanı), Bölüm 4.4, s. 65–66: Z_BC, "arayüz depremlerinin
