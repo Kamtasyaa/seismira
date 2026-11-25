@@ -60,10 +60,10 @@ impl FaultType {
     }
 }
 
-/// Fay izindeki en çok nokta (en çok 12 parça; NGA-West2 veritabanında
-/// en çok parçalı kırılma 12 parça, PEER 2013/03 Ek D "Number of fault
-/// segments ... The maximum is 12").
-pub const MAX_TRACE_POINTS: usize = 13;
+/// Fay izindeki en çok nokta (31 parça). NGA-West2 veritabanında en çok
+/// parçalı kırılma 12 parça (PEER 2013/03 Ek D), ama USGS ShakeMap izleri
+/// daha ayrıntılı (2023 Pazarcık: 16 nokta); pay bırakıldı.
+pub const MAX_TRACE_POINTS: usize = 32;
 
 /// Çok parçalı kırılmanın üst kenar izi (yüzeydeki izdüşümü): ardışık
 /// noktalar arasındaki her doğru bir parça ([`crate::rupture`]). Nokta sırası

@@ -135,6 +135,8 @@ rupture-size = Rupture: { $l } × { $w } km, top edge at { $ztor } km depth
 rupture-manual = Enter rupture size manually
 rupture-length = Rupture length
 rupture-width = Rupture width
+trace-info = Multi-segment fault trace: { $n } segments, { $l } km in total. Strike, length and the hypocentre position along strike come from the trace.
+trace-remove = Remove fault trace (back to a single plane)
 model-limit = Estimate limit: { $km } km from fault
 
 # Erken uyarı (Faz 4)
@@ -250,7 +252,7 @@ tsunami-unnamed = Coast
 # Hazır senaryolar (Faz 10)
 scenario = Preset scenario
 scenario-custom = Custom (manual)
-scenario-note = Rough single-plane equivalent from the USGS event record and ShakeMap rupture model; the real rupture may have several segments. Changing any value makes the scenario "Custom".
+scenario-note = From the USGS event record and ShakeMap rupture model. Earthquakes whose rupture is mapped segment by segment use a multi-segment fault trace (branches excluded), the others a single-plane equivalent. Changing any value makes the scenario "Custom".
 scenario-kahramanmaras2023 = 2023 Kahramanmaraş (Pazarcık), Mw 7.8 — first mainshock only
 scenario-izmit1999 = 1999 İzmit (Gölcük), Mw 7.6
 scenario-kumamoto2016 = 2016 Kumamoto (Japan), Mw 7.0

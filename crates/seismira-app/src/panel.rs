@@ -341,9 +341,14 @@ pub fn ui(
                 .num_columns(2)
                 .spacing([10.0, 8.0])
                 .show(ui, |ui| {
+                    // Fay izi varsa doğrultu her parçanın yönüdür: alan
+                    // kullanılmaz, devre dışı gösterilir.
                     let l = ui.label(t("strike")).id;
                     let r = ui
-                        .add(number(lang, &mut q.strike, 0.0..=360.0, 0, 1.0))
+                        .add_enabled(
+                            q.trace.is_none(),
+                            number(lang, &mut q.strike, 0.0..=360.0, 0, 1.0),
+                        )
                         .labelled_by(l);
                     if r.changed() {
                         q.strike = q.strike.rem_euclid(360.0);
@@ -365,6 +370,22 @@ pub fn ui(
                     }
                     ui.end_row();
                 });
+            if let Some(tr) = q.trace {
+                let r = seismira_core::rupture::Rupture::from_quake(q);
+                ui.label(
+                    RichText::new(lang.t_args(
+                        "trace-info",
+                        &[
+                            ("n", lang.num(tr.segments() as f64, 0)),
+                            ("l", lang.num(r.length, 0)),
+                        ],
+                    ))
+                    .small(),
+                );
+                if ui.button(t("trace-remove")).clicked() {
+                    q.trace = None;
+                }
+            }
         });
 
     egui::CollapsingHeader::new(t("advanced"))
@@ -396,7 +417,10 @@ pub fn ui(
                 }
                 ui.add_space(4.0);
             };
-            slider(ui, "hypo-along", &mut q.hypo_along);
+            // Fay izinde hiposantrın iz boyunca konumu merkez üssünden gelir.
+            ui.add_enabled_ui(q.trace.is_none(), |ui| {
+                slider(ui, "hypo-along", &mut q.hypo_along);
+            });
             slider(ui, "hypo-down", &mut q.hypo_down);
             // Kırılma boyutu: otomatik (WC94 / TMG17) ya da elle. Elle'ye
             // geçince o anki otomatik değerlerle başlar.
@@ -417,8 +441,13 @@ pub fn ui(
                     .show(ui, |ui| {
                         let (max_l, max_w) = seismira_core::quake::limits::RUPTURE_MAX_KM;
                         let id = ui.label(t("rupture-length")).id;
-                        ui.add(number(lang, l, 1.0..=max_l, 0, 1.0).suffix(" km"))
-                            .labelled_by(id);
+                        // Fay izinde uzunluk izden gelir.
+                        let has_trace = q.trace.is_some();
+                        ui.add_enabled(
+                            !has_trace,
+                            number(lang, l, 1.0..=max_l, 0, 1.0).suffix(" km"),
+                        )
+                        .labelled_by(id);
                         ui.end_row();
                         let id = ui.label(t("rupture-width")).id;
                         ui.add(number(lang, w, 1.0..=max_w, 0, 0.5).suffix(" km"))

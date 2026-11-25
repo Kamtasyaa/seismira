@@ -21,8 +21,75 @@
     "event": "USGS ComCat us6000jllz, Mww düğüm düzlemi 228/89/-1",
     "rupture": "USGS ShakeMap (us v19) rupture.json: Source: Wald Finite Fault Model (surface trace, FF model, known faults)Event ID: us6000jllzModel created: 2023-02-09 19:17 MST",
     "dip_from": "Mww",
-    "skipped_quads": 0
-   }
+    "skipped_quads": 0,
+    "trace": "15 parça, 285 km (1 kuad uç uca, 1 kol/dallanma kuadı atlandı)"
+   },
+   "trace": [
+    [
+     38.435,
+     38.056
+    ],
+    [
+     38.273,
+     38.036
+    ],
+    [
+     38.076,
+     37.95
+    ],
+    [
+     37.761,
+     37.87
+    ],
+    [
+     37.59,
+     37.738
+    ],
+    [
+     37.438,
+     37.63
+    ],
+    [
+     37.242,
+     37.537
+    ],
+    [
+     37.108,
+     37.501
+    ],
+    [
+     36.912,
+     37.4
+    ],
+    [
+     36.646,
+     37.086
+    ],
+    [
+     36.561,
+     36.874
+    ],
+    [
+     36.453,
+     36.679
+    ],
+    [
+     36.422,
+     36.671
+    ],
+    [
+     36.394,
+     36.612
+    ],
+    [
+     36.389,
+     36.547
+    ],
+    [
+     36.273,
+     36.369
+    ]
+   ]
   },
   {
    "id": "izmit1999",
@@ -44,8 +111,75 @@
     "event": "USGS ComCat usp0009d4z, Mww düğüm düzlemi 85/81/163",
     "rupture": "USGS ShakeMap (atlas v1) rupture.json: SOURCE: Barka, A., H. S. Akyüz, E. Altunel, G. Sunal, Z. Çakir, A. Dikbas, B. Yerli, R. Armijo, B. Meyer, J. B. d. Chabalier, T. Rockwell, J. R. Dolan, R. Hartleb, T. Dawson, S. Christofferson, A. Tucker, T. Fumal, R. Langridge, H. Stenner, W. Lettis, J. Bachhuber, and W. Page (2002). The Surface Rupture and Slip Distribution of the 17 August 1999 Izmit Earthquake (M 7.4), North Anatolian Fault, Bull. Seism. Soc. Am. 92, 43-60.",
     "dip_from": "Mww",
-    "skipped_quads": 0
-   }
+    "skipped_quads": 0,
+    "trace": "15 parça, 150 km (7 kuad uç uca, 0 kol/dallanma kuadı atlandı)"
+   },
+   "trace": [
+    [
+     29.3376,
+     40.7099
+    ],
+    [
+     29.5153,
+     40.7273
+    ],
+    [
+     29.6115,
+     40.7051
+    ],
+    [
+     29.8752,
+     40.749
+    ],
+    [
+     29.8866,
+     40.7258
+    ],
+    [
+     30.1113,
+     40.7234
+    ],
+    [
+     30.1927,
+     40.7343
+    ],
+    [
+     30.3049,
+     40.7121
+    ],
+    [
+     30.4654,
+     40.7108
+    ],
+    [
+     30.5651,
+     40.7074
+    ],
+    [
+     30.5766,
+     40.7162
+    ],
+    [
+     30.6373,
+     40.7007
+    ],
+    [
+     30.729,
+     40.6995
+    ],
+    [
+     30.9366,
+     40.7965
+    ],
+    [
+     30.9469,
+     40.802
+    ],
+    [
+     31.018,
+     40.845
+    ]
+   ]
   },
   {
    "id": "kumamoto2016",
@@ -67,7 +201,8 @@
     "event": "USGS ComCat us20005iis, Mww düğüm düzlemi 224/66/-151",
     "rupture": "USGS ShakeMap (atlas v1) rupture.json: Combination of NIED GPS & Seismic Models. 4.18.2016",
     "dip_from": "ShakeMap kuadı",
-    "skipped_quads": 0
+    "skipped_quads": 0,
+    "trace": "tek düzlem (tek parça)"
    }
   },
   {
@@ -90,8 +225,115 @@
     "event": "USGS ComCat ci38457511, Mww düğüm düzlemi 321/84/-171",
     "rupture": "USGS ShakeMap (atlas v1) rupture.json: ARIA Coseismic Interferogram from ALOS-2",
     "dip_from": "Mww",
-    "skipped_quads": 0
-   }
+    "skipped_quads": 0,
+    "trace": "25 parça, 51 km (7 kuad uç uca, 4 kol/dallanma kuadı atlandı)"
+   },
+   "trace": [
+    [
+     -117.3708,
+     35.5742
+    ],
+    [
+     -117.3981,
+     35.5928
+    ],
+    [
+     -117.414,
+     35.6087
+    ],
+    [
+     -117.4332,
+     35.6267
+    ],
+    [
+     -117.4477,
+     35.6352
+    ],
+    [
+     -117.4588,
+     35.6381
+    ],
+    [
+     -117.4769,
+     35.6471
+    ],
+    [
+     -117.514,
+     35.6737
+    ],
+    [
+     -117.5368,
+     35.6881
+    ],
+    [
+     -117.5526,
+     35.6993
+    ],
+    [
+     -117.5673,
+     35.7161
+    ],
+    [
+     -117.5809,
+     35.7331
+    ],
+    [
+     -117.5936,
+     35.751
+    ],
+    [
+     -117.6004,
+     35.7646
+    ],
+    [
+     -117.6041,
+     35.7752
+    ],
+    [
+     -117.6091,
+     35.7835
+    ],
+    [
+     -117.6148,
+     35.7933
+    ],
+    [
+     -117.6187,
+     35.8056
+    ],
+    [
+     -117.6244,
+     35.8154
+    ],
+    [
+     -117.6416,
+     35.8322
+    ],
+    [
+     -117.6733,
+     35.8556
+    ],
+    [
+     -117.6844,
+     35.8669
+    ],
+    [
+     -117.6991,
+     35.878
+    ],
+    [
+     -117.7088,
+     35.8849
+    ],
+    [
+     -117.7196,
+     35.8987
+    ],
+    [
+     -117.7361,
+     35.9077
+    ]
+   ]
   },
   {
    "id": "tohoku2011",
@@ -113,7 +355,8 @@
     "event": "USGS ComCat official20110311054624120_30, Mww düğüm düzlemi 192/8/78",
     "rupture": "USGS ShakeMap (atlas v1) rupture.json: Suzuki, W., Aoi, S., Sekiguchi, H., and Kunugi, T. (2011): Rupture process of the 2011 Tohoku-Oki mega-thrust earthquake (M9.0) inverted from strong-motion data. Geophysical Research Letters 38, doi:10.1029/2011GL049136, L00G16, October 2011.http://dx.doi.org/10.1029/2011GL049136",
     "dip_from": "ShakeMap kuadı",
-    "skipped_quads": 0
+    "skipped_quads": 0,
+    "trace": "tek düzlem (tek parça)"
    }
   },
   {
@@ -136,7 +379,8 @@
     "event": "USGS ComCat us6000m0xl, Mww düğüm düzlemi 49/41/102",
     "rupture": "USGS ShakeMap (us v10) rupture.json: Source: USGS NEIC Rapid Finite Fault - Modified by D.WaldEvent ID: 6000m0xlModel created: 2024-01-01 10:14 MST",
     "dip_from": "ShakeMap kuadı",
-    "skipped_quads": 0
+    "skipped_quads": 0,
+    "trace": "tek düzlem (tek parça)"
    }
   },
   {
@@ -159,7 +403,8 @@
     "event": "USGS ComCat official20100227063411530_30, Mww düğüm düzlemi 17/13/108",
     "rupture": "USGS ShakeMap (atlas v1) rupture.json: Source: Hayes, G. (2011b) (cut). USGS NEIC",
     "dip_from": "ShakeMap kuadı",
-    "skipped_quads": 0
+    "skipped_quads": 0,
+    "trace": "tek düzlem (tek parça)"
    }
   },
   {
@@ -182,7 +427,8 @@
     "event": "USGS ComCat us2000ar20, Mww düğüm düzlemi 108/47/-98",
     "rupture": "USGS ShakeMap (atlas v1) rupture.json: Gavin Hayes teleseismic model V2 9.22.17 5 pm MST",
     "dip_from": "ShakeMap kuadı",
-    "skipped_quads": 0
+    "skipped_quads": 0,
+    "trace": "tek düzlem (tek parça)"
    }
   }
  ]

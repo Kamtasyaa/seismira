@@ -135,6 +135,8 @@ rupture-size = Kırılma: { $l } × { $w } km, üst kenar { $ztor } km derinlikt
 rupture-manual = Kırılma boyutunu elle gir
 rupture-length = Kırılma uzunluğu
 rupture-width = Kırılma genişliği
+trace-info = Çok parçalı fay izi: { $n } parça, toplam { $l } km. Doğrultu, uzunluk ve odağın doğrultu boyunca konumu izden gelir.
+trace-remove = Fay izini kaldır (tek düzleme dön)
 model-limit = Tahmin sınırı: faya { $km } km
 
 # Erken uyarı (Faz 4)
@@ -250,7 +252,7 @@ tsunami-unnamed = Kıyı
 # Hazır senaryolar (Faz 10)
 scenario = Hazır senaryo
 scenario-custom = Özel (elle)
-scenario-note = USGS olay kaydı ve ShakeMap kırılma modelinden tek düzlemli kaba eşdeğer; gerçek kırılma birden çok parçalı olabilir. Değerleri değiştirirsen senaryo "Özel" olur.
+scenario-note = USGS olay kaydı ve ShakeMap kırılma modelinden. Kırılması parça parça çizilmiş depremler çok parçalı fay izi olarak (kollar ve dallanmalar hariç), diğerleri tek düzlemli eşdeğer olarak. Değerleri değiştirirsen senaryo "Özel" olur.
 scenario-kahramanmaras2023 = 2023 Kahramanmaraş (Pazarcık), Mw 7,8 — yalnızca ilk ana şok
 scenario-izmit1999 = 1999 İzmit (Gölcük), Mw 7,6
 scenario-kumamoto2016 = 2016 Kumamoto (Japonya), Mw 7,0

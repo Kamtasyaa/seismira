@@ -331,7 +331,7 @@ struct Row {
 /// [`compare_shakemap`] sonucu.
 struct Compared {
     /// Bizim fay geometrimiz.
-    fault: seismira_core::source::Fault,
+    fault: seismira_core::rupture::Rupture,
     rows: Vec<Row>,
     /// ShakeMap'in mesafe vermediği (atlanan) istasyon sayısı.
     missing: usize,
@@ -417,9 +417,8 @@ fn compare_shakemap(
     use seismira_core::gmpe::psbah20::{self, EventType, Region};
     use seismira_core::gmpe::{Imt, ngaw2};
     use seismira_core::quake::Setting;
-    use seismira_core::source::Fault;
 
-    let ours = Fault::from_quake(q);
+    let ours = seismira_core::rupture::Rupture::from_quake(q);
     let crust_region = crust_region_at(q.epicenter)?;
     let fault = q.fault;
     let event = match q.setting {
@@ -622,6 +621,8 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
     };
     let csv = flag("--csv")?;
     let scenario = flag("--scenario")?;
+    let no_trace = args.iter().any(|a| a == "--no-trace");
+    args.retain(|a| a != "--no-trace");
     let args = args.as_slice();
     if let Some(id) = scenario {
         // Hazır senaryo (data/scenarios/scenarios.json): uygulamanın kullandığı
@@ -629,7 +630,11 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         if !args.is_empty() {
             bail!("--scenario ile konum argümanları verilmez");
         }
-        let q = scenario_quake(&id)?;
+        let mut q = scenario_quake(&id)?;
+        if no_trace {
+            // Karşılaştırma: senaryonun eski tek düzlemli eşdeğeri.
+            q.trace = None;
+        }
         return report_shakemap(stations, &q, vs30_map.as_ref(), slab.as_ref(), csv);
     }
     let (base, along) = match args {
@@ -705,6 +710,14 @@ fn scenario_quake(id: &str) -> Result<seismira_core::quake::Quake> {
     q.hypo_along = num("hypo_along")?;
     q.hypo_down = num("hypo_down")?;
     q.rupture_km = Some([num("length_km")?, num("width_km")?]);
+    if let Some(tr) = s["trace"].as_array() {
+        let pts = tr
+            .iter()
+            .map(|p| Some((p[0].as_f64()?, p[1].as_f64()?)))
+            .collect::<Option<Vec<_>>>()
+            .context("iz noktası")?;
+        q.trace = Some(seismira_core::quake::Trace::new(&pts).context("iz nokta sayısı")?);
+    }
     Ok(q)
 }
 

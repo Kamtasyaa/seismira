@@ -970,3 +970,27 @@ Küçük ada (< 30 km) kıyılarına yakın alan yüksekliği verilmez (docs/bil
   etmez). 2026-11-24 kullanıcı kararı: Windows testi bırakıldı; README ve
   KURULUM.txt'ye "Windows'ta denenmedi" notu ve GL yedeği talimatı
   eklendi. Windows yalnızca CI'da (derleme + testler) doğrulanıyor.
+
+## Çok parçalı fay izi: hazır senaryolar (2026-11-25)
+
+Hazır senaryolardan kırılması ShakeMap'te parça parça çizilmiş olanlar artık
+çok parçalı iz kullanıyor (scripts/gen_scenarios.py `chain_trace`, çekirdek
+`rupture.rs`, bilim.md 7.1): Kahramanmaraş 15 parça / 285 km (Narlı kolu
+atlandı, merkez üssü ana ize 18 km), İzmit 15 parça / 150 km (7 kuad, ≤ 10 km
+basamaklar köprülendi), Ridgecrest 25 parça / 51 km (4 kol kuadı atlandı).
+Diğer beş senaryo tek düzlem (tek kuad). Komut: `validate-shakemap
+<stationlist> --scenario <id> --vs30 data/vs30/vs30.sras --slab
+data/slab2/slab2.sslb [--no-trace]` (`--no-trace`: eski tek düzlem). Dört
+NGA-West2 ortalaması (2026-11-24'ten beri), C satırı (bizim geometri + Vs30):
+
+| Deprem (istasyon) | Tek düzlem ort. ΔI / std ln / %<1 | Çok parçalı iz |
+|---|---|---|
+| Kahramanmaraş (191/192) | +0,01 / 0,63 / %94 | −0,02 / **0,58** / **%96** |
+| İzmit (31) | −0,46 / 0,65 / %77 | −0,44 / **0,60** / %77 |
+| Ridgecrest (683/684) | −0,28 / 0,83 / %89 | −0,27 / 0,83 / %89 |
+
+B satırı (bizim geometri, ShakeMap Vs30) Kahramanmaraş'ta +0,10 → +0,07: A
+satırına (ShakeMap'in kendi mesafeleri, +0,07) eşitlendi, yani mesafeler artık
+ShakeMap'in sonlu fayıyla tutarlı. NGA-West2 İzmit (28 kayıt, iz ile): C
+ΔI −0,03, std 0,44, %100. Sonuç: dağılım küçüldü, ortalama değişmedi; iz
+gerçeğe daha yakın. (Yukarıdaki Faz 10 tablosu CY14 tek model dönemindendir.)

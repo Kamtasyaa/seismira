@@ -20,7 +20,7 @@ use seismira_core::gmpe::{Imt, ngaw2};
 use seismira_core::intensity::jma_from_pgv_vector;
 use seismira_core::quake::{FaultType, Quake};
 use seismira_core::site::Vs30Map;
-use seismira_core::source::Fault;
+use seismira_core::rupture::Rupture;
 use std::path::Path;
 
 struct Record {
@@ -146,7 +146,7 @@ pub fn run(flatfile: &Path, event: &str, scenario: Option<&str>) -> Result<()> {
             q
         }
     };
-    let ours = Fault::from_quake(&q);
+    let ours = Rupture::from_quake(&q);
     let region = crate::crust_region_at((ev.hypo.0, ev.hypo.1))?;
     let clamp = |v: f64| v.clamp(ngaw2::VS30_MIN, ngaw2::VS30_MAX);
     // Dört NGA-West2 modelinin ortalaması (uygulamayla aynı). Odak derinliği

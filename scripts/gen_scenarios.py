@@ -29,6 +29,14 @@ geçer (gerçek iz merkez üssünden km'lerce uzakta olabilir, ör.
 Kahramanmaraş'ta merkez üssü Narlı fayında), eğrilik ve parça atlamaları
 yoktur.
 
+Çok parçalı iz (2026-11-25, uygulamada `Quake::trace`, crates/seismira-core/
+src/rupture.rs): kuadların üst kenarları doğrultu ekseni boyunca uç uca
+bağlanır (`chain_trace`): başka bir kuadın eksen aralığıyla örtüşen kısa
+kuadlar kol/dallanma sayılıp atlanır (ör. Kahramanmaraş Narlı kolu; çok izli
+GC2 uygulanmadı), ≤ 10 km basamaklar köprülenir, iz kırılma uzunluğunun
+≥ %90'ını kapsamalı ve en az 2 parça olmalı. Uygulama iz varsa onu kullanır
+(tek düzlem alanları yedek kalır). Sonuç notu `source.trace`.
+
 Çalıştırma (depo kökünden): python3 scripts/gen_scenarios.py
 """
 
@@ -168,6 +176,7 @@ def build(sid, eid, setting):
             if abs((cand - strike + 180) % 360 - 180) > 90:
                 strike = (strike + 180) % 360
                 along = 1.0 - along
+    trace, trace_note = chain_trace(keep, (lon, lat), strike, length)
     width = (zbot - ztop) / math.sin(math.radians(dip))
     down = min(max((depth - ztop) / (zbot - ztop), 0.0), 1.0)
     return {
@@ -191,8 +200,74 @@ def build(sid, eid, setting):
             "rupture": f"USGS ShakeMap ({sm['source']} v{sm['properties'].get('version')}) rupture.json: {ref.strip()}",
             "dip_from": dip_from,
             "skipped_quads": skipped,
+            "trace": trace_note,
         },
+        **({"trace": trace} if trace else {}),
     }
+
+
+def chain_trace(keep, origin, strike, length):
+    """Kuadların üst kenarlarını doğrultu ekseni boyunca uç uca bağlayıp tek
+    iz yapar. Koşullar: kuadlar eksen boyunca örtüşmez (≤ 1 km pay), ardışık
+    kuadlar arası boşluk ≤ GAP_KM (basamaklar düz bir parçayla köprülenir),
+    iz kırılma uzunluğunun ≥ %90'ını kapsar. Değilse (ör. paralel kollar,
+    dallanma) None: uygulama tek düzlemi kullanır. 1 km'den yakın ardışık
+    noktalar birleştirilir (uygulamada parça ≥ 1 km)."""
+    GAP_KM = 10.0
+    s = (math.sin(math.radians(strike)), math.cos(math.radians(strike)))
+    proj = lambda xy: xy[0] * s[0] + xy[1] * s[1]
+    items = []
+    for q in keep:
+        pts = list(q[0])
+        if len(pts) < 2:
+            continue
+        xy = [local_xy(origin, p) for p in pts]
+        if proj(xy[-1]) < proj(xy[0]):
+            pts.reverse()
+            xy.reverse()
+        items.append((proj(xy[0]), proj(xy[-1]), pts, xy))
+    if not items:
+        return None, "yok (kuad yok)"
+    # Kollar: uzundan kısaya; eksen aralığı kabul edilmiş bir kuadınkiyle
+    # min(1 km, kendi boyunun yarısı)'ndan fazla örtüşen kuad dallanma/paralel
+    # koldur, atlanır.
+    items.sort(key=lambda it: it[1] - it[0], reverse=True)
+    accepted, branches = [], 0
+    for it in items:
+        own = it[1] - it[0]
+        if any(min(it[1], a[1]) - max(it[0], a[0]) > min(1.0, 0.5 * own) for a in accepted):
+            branches += 1
+        else:
+            accepted.append(it)
+    items = sorted(accepted, key=lambda it: it[0])
+    pts, xys = list(items[0][2]), list(items[0][3])
+    for a, b in zip(items, items[1:]):
+        if b[0] < a[1] - 1.0:
+            return None, "tek düzlem (kuadlar eksen boyunca örtüşüyor: paralel kol/dallanma)"
+        gap = math.dist(a[3][-1], b[3][0])
+        if gap > GAP_KM:
+            return None, f"tek düzlem (kuadlar arası boşluk {gap:.1f} km > {GAP_KM:.0f})"
+        pts += b[2]
+        xys += b[3]
+    # 1 km'den yakın ardışık noktaları birleştir.
+    out, oxy = [pts[0]], [xys[0]]
+    for p, xy in zip(pts[1:], xys[1:]):
+        if math.dist(oxy[-1], xy) >= 1.0:
+            out.append(p)
+            oxy.append(xy)
+    if math.dist(oxy[-1], xys[-1]) > 0 and len(out) > 1:
+        out[-1], oxy[-1] = pts[-1], xys[-1]
+    extent = proj(oxy[-1]) - proj(oxy[0])
+    if extent < 0.9 * length:
+        return None, f"tek düzlem (iz kapsamı {extent:.0f} km < %90 × {length:.0f})"
+    if len(out) < 3:
+        return None, "tek düzlem (tek parça)"
+    if len(out) > 32:
+        return None, f"tek düzlem ({len(out)} nokta > 32)"
+    trace_len = sum(math.dist(a, b) for a, b in zip(oxy, oxy[1:]))
+    note = (f"{len(out) - 1} parça, {trace_len:.0f} km ({len(items)} kuad uç uca, "
+            f"{branches} kol/dallanma kuadı atlandı)")
+    return [[round(a, 4), round(b, 4)] for a, b in out], note
 
 
 def principal_axis(xy):
