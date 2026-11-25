@@ -238,6 +238,49 @@ pub struct Fault {
     hypo_plane: [f64; 2],
 }
 
+/// [`Fault::closest`] sonucu.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Closest {
+    pub rrup: f64,
+    pub cu: f64,
+    pub cv: f64,
+    pub depth_km: f64,
+    pub horiz_km: f64,
+}
+
+/// Sismojenik taban (km): kabukta 20, arayüzde 50 (hiposantr daha derinse
+/// hiposantr + 1), levha içinde sınır yok.
+pub(crate) fn bottom_km(q: &Quake) -> f64 {
+    match q.setting {
+        Setting::ShallowCrust => SEISMOGENIC_BOTTOM_KM.max(q.depth_km + 1.0),
+        Setting::Interface => INTERFACE_BOTTOM_KM.max(q.depth_km + 1.0),
+        // Levha içi: genişlik sınırı yok (VARSAYIM; levha kalınlığına
+        // bağlı bir sınır için kaynak bulunmadı).
+        Setting::Intraslab => f64::INFINITY,
+    }
+}
+
+/// Eğimi `dip` olan düzlemin tabana sığan en büyük genişliği (km); arayüzde
+/// ayrıca Allen & Hayes (2017) üst sınırı.
+pub(crate) fn width_limit(q: &Quake, dip: f64) -> f64 {
+    let sin_d = dip.clamp(1.0, 90.0).to_radians().sin();
+    let w = bottom_km(q) / sin_d;
+    match q.setting {
+        Setting::Interface => w.min(INTERFACE_MAX_WIDTH_KM),
+        _ => w,
+    }
+}
+
+/// Otomatik boyutta genişlik üst sınırı: `w_max`, normal faylı levha içinde
+/// ayrıca TMG17 genişliği (elle genişlik kırpılmaz).
+pub(crate) fn auto_width_cap(q: &Quake, w_max: f64) -> f64 {
+    if uses_tmg17_ns(q) {
+        w_max.min(width_tmg17_ns(q.mw))
+    } else {
+        w_max
+    }
+}
+
 struct PlaneCoords {
     u: f64,
     w: f64,
@@ -268,31 +311,15 @@ impl Fault {
     pub fn from_quake(q: &Quake) -> Self {
         let dip = q.dip.clamp(1.0, 90.0);
         let sin_d = dip.to_radians().sin();
-        let bottom = match q.setting {
-            Setting::ShallowCrust => SEISMOGENIC_BOTTOM_KM.max(q.depth_km + 1.0),
-            Setting::Interface => INTERFACE_BOTTOM_KM.max(q.depth_km + 1.0),
-            // Levha içi: genişlik sınırı yok (VARSAYIM; levha kalınlığına
-            // bağlı bir sınır için kaynak bulunmadı).
-            Setting::Intraslab => f64::INFINITY,
-        };
-        let w_max = match q.setting {
-            Setting::Interface => (bottom / sin_d).min(INTERFACE_MAX_WIDTH_KM),
-            _ => bottom / sin_d,
-        };
+        let bottom = bottom_km(q);
+        let w_max = width_limit(q, dip);
         let (length, width) = match q.rupture_km {
             // Elle boyut: genişlik tabana sığacak kadar kırpılır, uzunluk
             // olduğu gibi (alan korunmaz; kullanıcı ne verdiyse).
             Some([l, w]) => (l, w.min(w_max)),
             None => {
                 let area = area_wc94(q.mw);
-                // Normal faylı levha içi: genişlik TMG17 ile de sınırlı
-                // (yalnızca otomatik boyutta; elle genişlik kırpılmaz).
-                let w_cap = if uses_tmg17_ns(q) {
-                    w_max.min(width_tmg17_ns(q.mw))
-                } else {
-                    w_max
-                };
-                let width = area.sqrt().min(w_cap);
+                let width = area.sqrt().min(auto_width_cap(q, w_max));
                 let length = area / width;
                 // Doğrultu atımlı kabuk ve arayüz: WC94 uzunluğu TMG17'yi
                 // aşarsa TMG17 (alan korunmaz). Gerekçe: [`length_tmg17_ss`],
@@ -336,6 +363,60 @@ impl Fault {
         }
     }
 
+    /// Düzlemi doğrudan kurar (çok parçalı kırılmanın parçaları için,
+    /// [`crate::rupture`]). `top_start`: üst kenarın başı (yerel km, orijin
+    /// merkez üssü); `hypo_plane`: hiposantrın bu düzlemdeki koordinatları
+    /// (parçalarda kullanılmaz, kırılma zamanı kırılma düzeyinde).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn plane(
+        q: &Quake,
+        strike: f64,
+        dip: f64,
+        length: f64,
+        width: f64,
+        ztor: f64,
+        top_start: [f64; 2],
+        hypo_plane: [f64; 2],
+    ) -> Self {
+        Self {
+            epicenter: q.epicenter,
+            hypo_depth: q.depth_km,
+            strike,
+            dip,
+            fault: q.fault,
+            length,
+            width,
+            ztor,
+            top_start,
+            hypo_plane,
+        }
+    }
+
+    pub(crate) fn hypo_plane(&self) -> [f64; 2] {
+        self.hypo_plane
+    }
+
+    /// Yerel yatay konumdaki sahaya düzlemin en yakın noktası: Rrup, düzlem
+    /// koordinatları (doğrultu, eğim boyunca), derinlik ve o noktanın yüzey
+    /// izdüşümünden sahaya yatay uzaklık.
+    pub(crate) fn closest(&self, p: [f64; 2]) -> Closest {
+        let c = self.plane_coords(p);
+        let (s, d) = Self::axes(self.strike);
+        let (sin_d, cos_d) = (self.dip.to_radians().sin(), self.dip.to_radians().cos());
+        let along_dip = c.cv * cos_d;
+        let q = [
+            self.top_start[0] + s[0] * c.cu + d[0] * along_dip,
+            self.top_start[1] + s[1] * c.cu + d[1] * along_dip,
+        ];
+        Closest {
+            rrup: ((c.u - c.cu).powi(2) + (c.v - c.cv).powi(2) + c.n * c.n).sqrt(),
+            cu: c.cu,
+            cv: c.cv,
+            depth_km: self.ztor + c.cv * sin_d,
+            horiz_km: (p[0] - q[0]).hypot(p[1] - q[1]),
+        }
+    }
+
     /// Yatay birim vektörler: doğrultu yönü ve eğim (yatay) yönü (x doğu, y kuzey).
     pub(crate) fn axes(strike: f64) -> ([f64; 2], [f64; 2]) {
         let a = strike.to_radians();
@@ -359,13 +440,19 @@ impl Fault {
 
     /// Yüzey izdüşümünün dört köşesi (boylam, enlem).
     pub fn surface_outline_lonlat(&self) -> [(f64, f64); 4] {
+        self.surface_outline_local()
+            .map(|p| self.local_to_lonlat(p))
+    }
+
+    /// Yüzey izdüşümünün dört köşesi (yerel km).
+    pub(crate) fn surface_outline_local(&self) -> [[f64; 2]; 4] {
         let (s, d) = Self::axes(self.strike);
         let h = self.width * self.dip.to_radians().cos();
         let a = self.top_start;
         let b = [a[0] + s[0] * self.length, a[1] + s[1] * self.length];
         let c = [b[0] + d[0] * h, b[1] + d[1] * h];
         let e = [a[0] + d[0] * h, a[1] + d[1] * h];
-        [a, b, c, e].map(|p| self.local_to_lonlat(p))
+        [a, b, c, e]
     }
 
     pub(crate) fn local_to_lonlat(&self, p: [f64; 2]) -> (f64, f64) {

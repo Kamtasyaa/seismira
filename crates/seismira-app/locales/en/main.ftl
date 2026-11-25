@@ -85,6 +85,7 @@ issue-rupture-invalid = Rupture length must be 1–{ $l } km and width 1–{ $w 
 issue-rupture-clamped = Rupture width does not fit above the seismogenic base; clipped to { $w } km.
 issue-rupture-area = Rupture area is { $r } times the typical value for this magnitude (Wells and Coppersmith 1994, outside ±2.5σ); results may differ from expectations.
 issue-stable = The epicentre is in a stable continental region (USGS STREC). The ground-motion models were built for active crust; shaking may reach farther here and results are not representative.
+issue-trace = Invalid fault trace: each segment must be at least 1 km, the total at most { $l } km; segment dip 1–90°.
 
 # Timeline
 play = Play (Space)

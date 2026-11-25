@@ -60,6 +60,58 @@ impl FaultType {
     }
 }
 
+/// Fay izindeki en çok nokta (en çok 12 parça; NGA-West2 veritabanında
+/// en çok parçalı kırılma 12 parça, PEER 2013/03 Ek D "Number of fault
+/// segments ... The maximum is 12").
+pub const MAX_TRACE_POINTS: usize = 13;
+
+/// Çok parçalı kırılmanın üst kenar izi (yüzeydeki izdüşümü): ardışık
+/// noktalar arasındaki her doğru bir parça ([`crate::rupture`]). Nokta sırası
+/// doğrultuyu belirler (Aki & Richards: fay, doğrultu yönüne bakınca sağa
+/// eğimli). `Quake` kopyalanabilir kalsın diye sabit boyutlu.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Trace {
+    n: usize,
+    points: [(f64, f64); MAX_TRACE_POINTS],
+    /// Parçaya özel eğim (derece); `None`: depremin ortak eğimi.
+    dips: [Option<f64>; MAX_TRACE_POINTS - 1],
+}
+
+impl Trace {
+    /// Noktalardan iz (en az 2, en çok [`MAX_TRACE_POINTS`]); değilse `None`.
+    pub fn new(points: &[(f64, f64)]) -> Option<Self> {
+        if !(2..=MAX_TRACE_POINTS).contains(&points.len()) {
+            return None;
+        }
+        let mut t = Self {
+            n: points.len(),
+            points: [(0.0, 0.0); MAX_TRACE_POINTS],
+            dips: [None; MAX_TRACE_POINTS - 1],
+        };
+        t.points[..points.len()].copy_from_slice(points);
+        Some(t)
+    }
+
+    pub fn points(&self) -> &[(f64, f64)] {
+        &self.points[..self.n]
+    }
+
+    pub fn segments(&self) -> usize {
+        self.n - 1
+    }
+
+    /// `i`. parçanın kendi eğimi (yoksa ortak eğim kullanılır).
+    pub fn segment_dip(&self, i: usize) -> Option<f64> {
+        self.dips.get(i).copied().flatten()
+    }
+
+    pub fn set_segment_dip(&mut self, i: usize, dip: Option<f64>) {
+        if i < self.segments() {
+            self.dips[i] = dip;
+        }
+    }
+}
+
 /// Kullanıcının tanımladığı deprem.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Quake {
@@ -90,6 +142,11 @@ pub struct Quake {
     /// Genişlik sismojenik taban / arayüz sınırına sığmazsa kırpılır
     /// ([`Issue::RuptureWidthClamped`]).
     pub rupture_km: Option<[f64; 2]>,
+    /// Çok parçalı kırılma izi; `None`: tek düzlem (doğrultu + boyut).
+    /// Verilmişse uzunluk izden gelir, doğrultu her parçanın yönüdür;
+    /// `strike`, `hypo_along` ve `rupture_km` uzunluğu kullanılmaz
+    /// (genişlik: `rupture_km`'deki ya da otomatik).
+    pub trace: Option<Trace>,
 }
 
 impl Quake {
@@ -108,6 +165,7 @@ impl Quake {
             hypo_along: 0.5,
             hypo_down: 0.5,
             rupture_km: None,
+            trace: None,
         }
     }
 }
@@ -186,6 +244,10 @@ pub enum Issue {
     /// hareketi modelleri aktif kabuk için; sonuçlar bu bölgede temsil
     /// edici değil. Engellemez, açıkça uyarır (docs/bilim.md 7.4).
     StableContinental,
+    /// Fay izi geçersiz: 1 km'den kısa parça, toplam uzunluk
+    /// [`limits::RUPTURE_MAX_KM`].0 üstü, sayı olmayan nokta ya da parça
+    /// eğimi 1–90° dışında. Engeller.
+    TraceInvalid { max_l: f64 },
 }
 
 impl Issue {
@@ -260,13 +322,25 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
             max_l: RUPTURE_MAX_KM.0,
             max_w: RUPTURE_MAX_KM.1,
         });
+    } else if q.trace.is_some_and(|t| !trace_valid(&t)) {
+        out.push(Issue::TraceInvalid {
+            max_l: RUPTURE_MAX_KM.0,
+        });
     } else {
-        if let Some([l, w]) = q.rupture_km {
-            let f = crate::source::Fault::from_quake(q);
-            if f.width < w - 1e-6 {
-                out.push(Issue::RuptureWidthClamped { width: f.width });
+        if q.rupture_km.is_some() || q.trace.is_some() {
+            // Elle boyut ya da çizilmiş iz: genişlik kırpıldı mı, alan
+            // büyüklüğe göre olağan mı (iz uzunluğu kullanıcınındır).
+            let r = crate::rupture::Rupture::from_quake(q);
+            if let Some([_, w]) = q.rupture_km
+                && r.width < w - 1e-6
+            {
+                out.push(Issue::RuptureWidthClamped { width: r.width });
             }
-            let ratio = l * f.width / crate::source::area_wc94(q.mw);
+            let l = match (q.trace, q.rupture_km) {
+                (None, Some([l, _])) => l,
+                _ => r.length,
+            };
+            let ratio = l * r.width / crate::source::area_wc94(q.mw);
             if !(1.0 / RUPTURE_AREA_FACTOR..=RUPTURE_AREA_FACTOR).contains(&ratio) {
                 out.push(Issue::RuptureAreaUnusual { ratio });
             }
@@ -274,7 +348,7 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
         // Otomatik boyut bağıntısının veri aralığı (tüm ortamlar; bilim.md
         // 7.1: sessiz ekstrapolasyon yok).
         let max = crate::source::auto_size_mw_max(q);
-        if q.rupture_km.is_none() && q.mw > max {
+        if q.rupture_km.is_none() && q.trace.is_none() && q.mw > max {
             out.push(Issue::RuptureSizeExtrapolated { max });
         }
         if q.setting == Setting::ShallowCrust {
@@ -284,10 +358,30 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
     out
 }
 
+/// Fay izi: parçalar ≥ 1 km, toplam ≤ sınır, noktalar sayı, eğimler 1–90°.
+fn trace_valid(t: &Trace) -> bool {
+    let pts = t.points();
+    let finite = pts
+        .iter()
+        .all(|p| p.0.is_finite() && p.1.is_finite() && (-90.0..=90.0).contains(&p.1));
+    if !finite {
+        return false;
+    }
+    let lens: Vec<f64> = pts
+        .windows(2)
+        .map(|w| crate::geo::distance_azimuth(w[0], w[1]).0)
+        .collect();
+    let dips_ok =
+        (0..t.segments()).all(|i| t.segment_dip(i).is_none_or(|d| (1.0..=90.0).contains(&d)));
+    lens.iter().all(|&l| l >= 1.0)
+        && lens.iter().sum::<f64>() <= limits::RUPTURE_MAX_KM.0
+        && dips_ok
+}
+
 /// Sığ kabuk: Ztor sınırı.
 fn crust_checks(q: &Quake, out: &mut Vec<Issue>) {
     // Kaynak geometrisi kurulabiliyorsa: üst kenar modelin sınırında mı?
-    let ztor = crate::source::Fault::from_quake(q).ztor;
+    let ztor = crate::rupture::Rupture::from_quake(q).ztor;
     let max = crate::gmpe::cy14::ZTOR_MAX_KM;
     if ztor > max {
         out.push(Issue::ZtorOutOfRange { ztor, max });
@@ -416,6 +510,41 @@ mod tests {
         assert!(validate(&q).is_empty());
         q.mw = 8.6;
         assert!(matches!(validate(&q)[..], [Issue::MwOutOfRange { max, .. }, _] if max == 8.5));
+    }
+
+    #[test]
+    fn fay_izi_denetimi() {
+        let mut q = quake();
+        q.mw = 7.8;
+        let e = q.epicenter;
+        let p1 = crate::geo::destination(e, 40.0, 150.0);
+        let p2 = crate::geo::destination(p1, 60.0, 150.0);
+        q.trace = Trace::new(&[e, p1, p2]);
+        // Mw 7.8, 300 km iz: WC94 alanı ~6 400 km² / 300 → ~21 km, tabana
+        // (20 km) kırpılır; oran ~0.94, olağan. Ekstrapolasyon uyarısı yok.
+        assert!(validate(&q).is_empty(), "{:?}", validate(&q));
+        // Çok kısa parça: engeller.
+        let p_close = crate::geo::destination(p1, 60.0, 0.5);
+        q.trace = Trace::new(&[e, p1, p_close]);
+        let issues = validate(&q);
+        assert!(
+            issues
+                .iter()
+                .any(|i| matches!(i, Issue::TraceInvalid { .. }) && i.blocks())
+        );
+        // Büyüklüğe göre çok kısa iz: olağan dışı alan uyarısı.
+        let short = crate::geo::destination(e, 40.0, 15.0);
+        q.trace = Trace::new(&[e, short]);
+        assert!(
+            validate(&q)
+                .iter()
+                .any(|i| matches!(i, Issue::RuptureAreaUnusual { .. }))
+        );
+        // Geçersiz parça eğimi.
+        let mut t = Trace::new(&[e, p1, p2]).unwrap();
+        t.set_segment_dip(0, Some(95.0));
+        q.trace = Some(t);
+        assert!(validate(&q).iter().any(|i| i.blocks()));
     }
 
     /// Otomatik boyutun WC94 ekstrapolasyon uyarısı arayüz ve levha içinde

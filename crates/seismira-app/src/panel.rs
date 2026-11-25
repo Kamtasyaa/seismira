@@ -104,6 +104,7 @@ pub fn issue_text(lang: Lang, issue: Issue) -> String {
             &[("r", lang.num(ratio, if ratio < 1.0 { 2 } else { 1 }))],
         ),
         Issue::StableContinental => lang.t("issue-stable"),
+        Issue::TraceInvalid { max_l } => lang.t_args("issue-trace", &[("l", lang.num(max_l, 0))]),
     }
 }
 
@@ -425,7 +426,7 @@ pub fn ui(
                         ui.end_row();
                     });
             }
-            let f = Fault::from_quake(q);
+            let f = seismira_core::rupture::Rupture::from_quake(q);
             ui.label(
                 RichText::new(lang.t_args(
                     "rupture-size",

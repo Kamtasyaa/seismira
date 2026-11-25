@@ -679,6 +679,21 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   40°, odak 50 km 182 × 182 km kare, düzlem 0–117 km (yüzeye çıkıyordu);
   şimdi 251 × 82 km. Mw 8.2: ~180 × 66 km (2017 Chiapas Mw 8.2 ~180 ×
   60 km, hafızadan, doğrula). Elle genişlik kırpılmaz.
+- Çok parçalı kırılma (2026-11-25, çekirdek; `rupture.rs`): kullanıcı
+  izi (en çok 12 parça) üst kenar izidir; parçalar üst kenarlarından
+  birleşik dikdörtgenler (ortak genişlik ve Ztor, parçaya özel eğim
+  isteğe bağlı). Tanımlar PEER 2013/03 (Ancheta vd.) Bölüm 2.3 ve 4.2:
+  uzunluk ve alan toplam, genişlik en büyük, doğrultu uzunlukla ve eğim
+  genişlikle ağırlıklı, Ztor en sığ; Rrup ve Rjb en yakın parçaya, Rx
+  GC2 T'ye göre (Spudich & Chiou 2015, USGS OFR 2015-1028, Eş. 1–10, tek
+  kesintisiz iz). Genişlik: elle verilmişse o, değilse WC94 alanı / iz
+  uzunluğu (tabana kırpılır); iz uzunluğu kullanıcınındır, bu yüzden
+  ekstrapolasyon uyarısı yerine alan oranı denetlenir. Kırılma zamanı:
+  hiposantrın iz boyunca konumu merkez üssünün GC2 U koordinatı; bir
+  noktaya kırılma yolu = √(ΔU² + Δ(eğim boyunca)²). Tsunami: her parça aynı
+  ortalama kaymayla ayrı Okada kaynağı, toplam. BASİTLEŞTİRME: dirseklerde
+  derinde boşluk/örtüşme kalır (NGA-West2 yamukla birleştirdi, s. 68).
+  Test: düz izi parçalara bölmek tek düzlemle aynı sonucu verir (0,05 km).
 - Levha içi, ters ve doğrultu atımlı: WC94 alanı, genişlik sınırı yok
   (kaynak yok; TMG17 normal satırının verisi değil). Strasser vd. (2010)
   levha içi bağıntısı erişilemedi.

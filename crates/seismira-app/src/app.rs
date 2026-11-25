@@ -4,7 +4,6 @@ use eframe::egui::{self, Align2, Color32, FontId, RichText, Stroke};
 use seismira_core::intensity::Shindo;
 use seismira_core::sim::{Event, EventKind, Simulation};
 use seismira_core::slab::Slab2;
-use seismira_core::source::Fault;
 use seismira_core::traveltime::{Front, Phase, TravelTimes};
 use seismira_core::{geo, mercator, quake};
 use std::path::PathBuf;
@@ -1002,7 +1001,7 @@ impl SeismiraApp {
     ///   Bölüm 2.8): hesapta kullanılan sonlu fay, belirgin. İlerleyiş
     ///   animasyonu YOK (Bölüm 2).
     fn draw_fault(&self, ui: &egui::Ui, rect: egui::Rect, quake: &quake::Quake, trace: bool) {
-        let fault = Fault::from_quake(quake);
+        let rupture = seismira_core::rupture::Rupture::from_quake(quake);
         let (outline, edge) = if trace {
             (
                 Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 255, 255, 150)),
@@ -1026,16 +1025,23 @@ impl SeismiraApp {
                 })
                 .collect()
         };
-        if fault.dip < 89.0 {
-            let c = fault.surface_outline_lonlat();
-            let mut ring = Vec::new();
-            for k in 0..4 {
-                ring.extend(densify(c[k], c[(k + 1) % 4]));
+        // Her parçanın yüzey izdüşümü (eğimliyse) ve üst kenar izi.
+        for f in &rupture.segments {
+            if f.dip < 89.0 {
+                let c = f.surface_outline_lonlat();
+                let mut ring = Vec::new();
+                for k in 0..4 {
+                    ring.extend(densify(c[k], c[(k + 1) % 4]));
+                }
+                self.map.draw_lonlat_line(ui, rect, &ring, outline);
             }
-            self.map.draw_lonlat_line(ui, rect, &ring, outline);
         }
-        let [a, b] = fault.top_edge_lonlat();
-        self.map.draw_lonlat_line(ui, rect, &densify(a, b), edge);
+        let tr = rupture.trace_lonlat();
+        let mut line = Vec::new();
+        for w in tr.windows(2) {
+            line.extend(densify(w[0], w[1]));
+        }
+        self.map.draw_lonlat_line(ui, rect, &line, edge);
     }
 
     /// Şehrin nihai şiddeti seçili ölçekte (sonuç yoksa `None`).

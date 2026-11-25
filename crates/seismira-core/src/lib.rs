@@ -19,6 +19,7 @@ pub mod mmi;
 pub mod quake;
 pub mod raster;
 pub mod region;
+pub mod rupture;
 pub mod shaking;
 pub mod sim;
 pub mod site;

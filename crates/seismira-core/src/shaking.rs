@@ -9,9 +9,10 @@ use crate::gmpe::psbah20::{self, EventType};
 use crate::gmpe::{CrustRegion, Imt, LnMotion, ngaw2};
 use crate::intensity::{self, Shindo};
 use crate::quake::{Quake, Setting};
+use crate::rupture::Rupture;
 use crate::site::{REFERENCE_VS30, Site};
 use crate::slab::{self, Slab2};
-use crate::source::{self, Distances, Fault, PeakPath};
+use crate::source::{self, Distances, PeakPath};
 use crate::traveltime::{Phase, TravelTimes};
 
 /// Bir saha için sonuç.
@@ -164,7 +165,7 @@ pub fn has_gmpe(q: &Quake) -> bool {
 /// Bir depremin hesap bağlamı.
 pub struct Scenario<'a> {
     pub quake: Quake,
-    pub fault: Fault,
+    pub fault: Rupture,
     /// Yer hareketi modeli; yoksa yalnızca varış zamanları hesaplanır.
     pub gmm: Option<Gmm>,
     /// Dalma-batmada merkez üssünün altındaki Slab2 zonu (bulunduysa).
@@ -199,7 +200,7 @@ impl<'a> Scenario<'a> {
             _ => psbah20::Region::Global,
         };
         Self {
-            fault: Fault::from_quake(&quake),
+            fault: Rupture::from_quake(&quake),
             gmm,
             slab_zone,
             region,
@@ -370,7 +371,14 @@ impl<'a> Scenario<'a> {
             }
             r += 2.0;
         }
-        last_felt.map(|r| geo::km_to_deg(r + self.fault.length / 2.0))
+        // Tek düzlemde fayın yarı uzunluğu (önceki davranış); çok parçalıda
+        // merkez üssünden kırılmanın en uzak köşesi.
+        let pad = if self.fault.segments.len() == 1 {
+            self.fault.length / 2.0
+        } else {
+            self.fault.max_extent_km()
+        };
+        last_felt.map(|r| geo::km_to_deg(r + pad))
     }
 }
 

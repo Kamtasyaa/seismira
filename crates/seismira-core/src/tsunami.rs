@@ -763,6 +763,7 @@ pub mod runup {
 pub mod source {
     use super::okada85;
     use crate::quake::Quake;
+    use crate::rupture::Rupture;
     use crate::source::Fault;
 
     /// Tepe noktası seçimi: düzgün kaymada hendek boyunca yükselme hemen
@@ -810,20 +811,50 @@ pub mod source {
     /// 90° saat yönü tersi (yukarı eğim yönü), orijin ALT kenarın başı,
     /// d = üst kenar derinliği + W sin δ. U1 = D cos(rake), U2 = D sin(rake)
     /// (Okada: U2 > 0 tavan bloğu yukarı = ters faylanma).
-    pub fn uplift(q: &Quake, fault: &Fault, cell: f64, margin_km: f64) -> Uplift {
-        let (s, dvec) = Fault::axes(fault.strike);
-        let (sd, cd) = fault.dip.to_radians().sin_cos();
-        let top = fault.top_start();
-        let horiz = fault.width * cd;
-        let origin = [top[0] + dvec[0] * horiz, top[1] + dvec[1] * horiz];
-        let depth_bottom = fault.ztor + fault.width * sd;
-        let slip = mean_slip(q.mw, fault.length * fault.width);
+    pub fn uplift(q: &Quake, rupture: &Rupture, cell: f64, margin_km: f64) -> Uplift {
+        // Çok parçalı kırılma: her parça aynı ortalama kaymayla (toplam alan
+        // üzerinden) ayrı Okada kaynağı; yer değiştirmeler toplanır
+        // (doğrusal elastisite).
+        let area: f64 = rupture.segments.iter().map(|f| f.length * f.width).sum();
+        let slip = mean_slip(q.mw, area);
         let rake = q.rake.to_radians();
         let u = [slip * rake.cos(), slip * rake.sin(), 0.0];
-        // Kapsama kutusu: izdüşüm köşeleri ± pay.
-        let corners = fault.surface_outline_lonlat();
+        struct Seg {
+            s: [f64; 2],
+            dvec: [f64; 2],
+            origin: [f64; 2],
+            depth_bottom: f64,
+            dip: f64,
+            length: f64,
+            width: f64,
+        }
+        let segs: Vec<Seg> = rupture
+            .segments
+            .iter()
+            .map(|f| {
+                let (s, dvec) = Fault::axes(f.strike);
+                let (sd, cd) = f.dip.to_radians().sin_cos();
+                let top = f.top_start();
+                let horiz = f.width * cd;
+                Seg {
+                    s,
+                    dvec,
+                    origin: [top[0] + dvec[0] * horiz, top[1] + dvec[1] * horiz],
+                    depth_bottom: f.ztor + f.width * sd,
+                    dip: f.dip,
+                    length: f.length,
+                    width: f.width,
+                }
+            })
+            .collect();
+        // Kapsama kutusu: tüm parçaların izdüşüm köşeleri ± pay.
+        let corners: Vec<(f64, f64)> = rupture
+            .segments
+            .iter()
+            .flat_map(|f| f.surface_outline_lonlat())
+            .collect();
         let km_deg = 111.195;
-        let lat_mid = corners.iter().map(|c| c.1).sum::<f64>() / 4.0;
+        let lat_mid = corners.iter().map(|c| c.1).sum::<f64>() / corners.len() as f64;
         let pad_lat = margin_km / km_deg;
         let pad_lon = margin_km / (km_deg * lat_mid.to_radians().cos().max(0.05));
         // Boylamlar merkez üssüne göre sürekli tutulur (180° yakınında).
@@ -858,21 +889,25 @@ pub mod source {
             let lat = north - (r as f64 + 0.5) * cell;
             for c in 0..width {
                 let lon = west + (c as f64 + 0.5) * cell;
-                let (p, _) = fault.lonlat_to_local((lon, lat));
-                let rel = [p[0] - origin[0], p[1] - origin[1]];
-                let x = rel[0] * s[0] + rel[1] * s[1];
-                let y = -(rel[0] * dvec[0] + rel[1] * dvec[1]);
-                let d = okada85::displacement(
-                    x,
-                    y,
-                    depth_bottom,
-                    fault.dip,
-                    fault.length,
-                    fault.width,
-                    u,
-                    okada85::POISSON_SOLID,
-                );
-                let v = d[2];
+                let (p, _) = rupture.lonlat_to_local((lon, lat));
+                let v: f64 = segs
+                    .iter()
+                    .map(|g| {
+                        let rel = [p[0] - g.origin[0], p[1] - g.origin[1]];
+                        let x = rel[0] * g.s[0] + rel[1] * g.s[1];
+                        let y = -(rel[0] * g.dvec[0] + rel[1] * g.dvec[1]);
+                        okada85::displacement(
+                            x,
+                            y,
+                            g.depth_bottom,
+                            g.dip,
+                            g.length,
+                            g.width,
+                            u,
+                            okada85::POISSON_SOLID,
+                        )[2]
+                    })
+                    .sum();
                 uz[r * width + c] = v as f32;
                 h_max = h_max.max(v.abs());
             }
@@ -925,11 +960,11 @@ pub mod source {
         #[test]
         fn ters_fay_tavan_blogu_yukselir() {
             let q = thrust();
-            let f = Fault::from_quake(&q);
+            let f = Rupture::from_quake(&q);
             let up = uplift(&q, &f, 0.05, 100.0);
             // Doğrultu kuzey, eğim doğuya: fay doğuya derinleşir, tavan bloğu
             // (yükselen kısım) üst kenarın doğusunda, fayın üstünde.
-            let top = f.top_edge_lonlat();
+            let top = f.segments[0].top_edge_lonlat();
             let top_lon = (top[0].0 + top[1].0) / 2.0;
             let max_pos = up.uz.iter().cloned().fold(f32::MIN, f32::max);
             let max_neg = up.uz.iter().cloned().fold(f32::MAX, f32::min);
@@ -962,7 +997,7 @@ pub mod forecast {
     use super::{coast::CoastPoint, runup, source, travel, trigger};
     use crate::geo;
     use crate::quake::Quake;
-    use crate::source::Fault;
+    use crate::rupture::Rupture;
     use std::sync::atomic::AtomicBool;
 
     /// Kaynak hücresi eşiği: en büyük yer değiştirmeyle AYNI işaretli ve
@@ -1170,7 +1205,7 @@ pub mod forecast {
         t_max_s: f64,
         cancel: &AtomicBool,
     ) -> Option<Forecast> {
-        let fault = Fault::from_quake(q);
+        let fault = Rupture::from_quake(q);
         let up = source::uplift(q, &fault, depth.cell.max(1.0 / 60.0), 50.0);
         // Kaynak hücreleri: |uz| ≥ %10 H ve denizde.
         let mut seeds = Vec::new();
