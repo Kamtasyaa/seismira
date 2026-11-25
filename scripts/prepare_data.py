@@ -42,6 +42,13 @@ data/exposure/esrm20.sexp`.
    (scripts/gen_fan_wtd.py; docs/veri.md). Varsa liq_static genel modelle
    (yalnızca yerel kullanım), yoksa Zhu 2017 kıyı modeliyle (dağıtılabilir)
    üretilir.
+   Heyelan: ESA CCI 2009 arazi örtüsü (aynı indirme) → data/ground/
+   landcover.sras (`seismira-data land-cover`); litoloji yoksa GLiM 0,5°
+   (CC BY 3.0, .venv Python'u ile scripts/gen_glim05.py; numpy + scipy) →
+   data/ground/lith.sras (`seismira-data lith`); sonra data/ground/
+   ls_static.sras (`seismira-data ls-static`, ~2 dk). Vektör GLiM'li
+   (daha ayrıntılı, yalnızca yerel) litoloji için önce scripts/gen_glim.py
+   (elle indirilen arşiv, docs/veri.md); lith.sras varsa dokunulmaz.
 
 9. (`--gem`) GEM paketi (Faz 9; CC BY-NC-SA 4.0, ticari kullanım yok, AYRI
    paket): scripts/fetch_gem.py (~96 MB) + `seismira-data gem` →
@@ -155,6 +162,35 @@ def main() -> int:
                 "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
                 "liq-static", str(ground.relative_to(ROOT)), str(vs30.relative_to(ROOT)),
                 str(liq.relative_to(ROOT)), *extra,
+            )
+        cover = ground / "landcover.sras"
+        if not cover.exists():
+            run(
+                "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+                "land-cover", "data/raw/esacci/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7.tif",
+                str(vs30.relative_to(ROOT)), str(cover.relative_to(ROOT)),
+            )
+        lith = ground / "lith.sras"
+        if not lith.exists():
+            glim05 = ROOT / "data" / "raw" / "glim05" / "glim05_vs30grid.u8"
+            if not glim05.exists():
+                venv = ROOT / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+                if not venv.exists():
+                    print("GLiM 0,5° için .venv gerekli (numpy, scipy): python3 -m venv .venv "
+                          "&& .venv/bin/pip install numpy scipy", file=sys.stderr)
+                    return 1
+                run(str(venv), "-I", "scripts/gen_glim05.py")
+            run(
+                "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+                "lith", str(glim05.relative_to(ROOT)), str(vs30.relative_to(ROOT)),
+                str(lith.relative_to(ROOT)),
+            )
+        ls = ground / "ls_static.sras"
+        if not ls.exists():
+            run(
+                "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+                "ls-static", str(ground.relative_to(ROOT)), str(vs30.relative_to(ROOT)),
+                str(ls.relative_to(ROOT)),
             )
     if "--gem" in sys.argv[1:]:
         gem = ROOT / "data" / "gem" / "gem.svul"

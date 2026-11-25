@@ -439,8 +439,10 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   - wtd: data/ground/wtd.sras varsa ve hücrede değer varsa genel model,
     yoksa kıyı modeli (hücre bazında). İzmit Mw 7,6 denemesi: 25 276 hücre,
     25 141 genel / 135 kıyı; hesap 85 ms.
-  - Medyan sarsıntıyla hesaplanır (belirsizlik aralığı henüz yok; USGS
-    default_stddev ve PGV σ ile analitik σ adım 5'ten sonra).
+  - Kaplama medyan sarsıntıyla ve ayrıca PGV, PGA × exp(±τ) ile
+    hesaplanır (e0004fc; heyelan da aynı yolla). Bölge kartındaki km²
+    "olası aralığı" bu −1τ / +1τ kaplamalarının toplamıdır; Zhu 2017 / Jessee
+    2018 modellerinin kendi belirsizliği (USGS default_stddev) EKLENMEZ.
 
 - FAZ 7: PAKET BOYUTU, STATİK KATMAN (2026-11-22). Zhu 2017 logiti
   X = statik(Vs30, yağış, dc, dr, wtd) + b·ln(PGV·SF) biçiminde ayrılır

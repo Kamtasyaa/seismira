@@ -8,6 +8,9 @@ Kullanım (depo kökünden):
   USGS EROS, kamu malı (Danielson & Gesch 2011, USGS OFR 2011-1073).
 - CHELSA V2.1 bio12 (yıllık yağış 1981–2010, 30″ GeoTIFF): CC0 1.0
   (EnviDat "chelsa-climatologies", 2026-11-22 kontrol edildi).
+- ESA CCI Land Cover 2009 v2.0.7 (300 m GeoTIFF, 312 MB; heyelan arazi
+  örtüsü): CEDA arşivi, koşullar arşivdeki terms_and_conditions.txt
+  (her amaçla kullanım, atıf şartı; docs/veri.md, 2026-11-22 okundu).
 
 Ardından:
     cargo run --release -p seismira-data -- ground-inputs \\
@@ -27,6 +30,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "data" / "raw"
 GMTED = "https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/topo/downloads/GMTED/Grid_ZipFiles"
 CHELSA = "https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio"
+ESACCI = "https://dap.ceda.ac.uk/neodc/esacci/land_cover/data/land_cover_maps/v2.0.7"
 
 # (klasör, dosya, adres, sha256, açılacak klasör)
 FILES = [
@@ -36,6 +40,9 @@ FILES = [
      "edb880fddb7d4b17c084cd46248ee3cc8ade49f3675045aa0bc3646c0abb4875", "md75"),
     ("chelsa", "CHELSA_bio12_1981-2010_V.2.1.tif", f"{CHELSA}/CHELSA_bio12_1981-2010_V.2.1.tif",
      "070c2309ead1ae703652e87f1ca51ba390c9ddfd9a236944528ae8b1c53a4e9a", None),
+    ("esacci", "ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7.tif",
+     f"{ESACCI}/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7.tif",
+     "ca06f473204e39e93d33e06c6c6e7cc01ebf7d0ad068c898f15c1cb01b65ba4a", None),
 ]
 
 
