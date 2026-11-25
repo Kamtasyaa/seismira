@@ -546,6 +546,17 @@ mod tests {
                 .iter()
                 .any(|i| matches!(i, Issue::TraceInvalid { .. }) && i.blocks())
         );
+        // Büyüklüğe göre çok uzun iz (kullanıcı testi 2026-11-25: Mw 7,
+        // 326 km): genişlik 20 km, alan 6 520 / 977 ≈ 6,7 kat → uyarı.
+        q.mw = 7.0;
+        let far = crate::geo::destination(e, 40.0, 326.0);
+        q.trace = Trace::new(&[e, far]);
+        assert!(
+            validate(&q)
+                .iter()
+                .any(|i| matches!(i, Issue::RuptureAreaUnusual { .. }))
+        );
+        q.mw = 7.8;
         // Büyüklüğe göre çok kısa iz: olağan dışı alan uyarısı.
         let short = crate::geo::destination(e, 40.0, 15.0);
         q.trace = Trace::new(&[e, short]);

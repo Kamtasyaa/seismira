@@ -102,18 +102,20 @@ impl Rupture {
             .map(|i| t.segment_dip(i).unwrap_or(q.dip).clamp(1.0, 90.0))
             .collect();
         let length: f64 = lens.iter().sum();
-        // Genişlik: elle verilmişse o, değilse WC94 alanı / iz uzunluğu
-        // (alan korunur; uzunluk kullanıcının çizdiği). Tüm parçalar tabana
-        // sığacak şekilde kırpılır.
+        // Genişlik: elle verilmişse o, değilse tek düzlemdeki gibi √A_WC94
+        // (tabana ve TMG17 normal sınırına kırpılmış). Uzunluk kullanıcının
+        // çizdiği; alan korunmaz, büyüklükle uyumsuzsa denetim "olağan dışı
+        // alan" der (2026-11-25: önce A / L idi; Mw 7, 326 km iz → 3 km
+        // genişlik, uyarısız).
         let w_max = dips
             .iter()
             .map(|&d| source::width_limit(q, d))
             .fold(f64::INFINITY, f64::min);
         let width = match q.rupture_km {
             Some([_, w]) => w.min(w_max),
-            None => {
-                (source::area_wc94(q.mw) / length.max(1e-6)).min(source::auto_width_cap(q, w_max))
-            }
+            None => source::area_wc94(q.mw)
+                .sqrt()
+                .min(source::auto_width_cap(q, w_max)),
         };
         // Ztor: tek düzlemdeki gibi hiposantrın eğim boyunca konumundan
         // (ortak eğimle); en dik parça tabana sığacak şekilde kırpılır.
@@ -478,8 +480,10 @@ mod tests {
         assert!((r.length - 100.0).abs() < 0.1, "{}", r.length);
         assert!((r.dip - 70.0).abs() < 1e-9);
         assert_eq!(r.segments[1].dip, 80.0);
-        // WC94 alanı korunur (genişlik tabana sığıyorsa).
-        assert!((r.length * r.width - source::area_wc94(q.mw)).abs() < 1e-6 || r.width < 23.0);
+        // Genişlik √A, tabana kırpılmış: Mw 7.6 → √(10^((7.6−4.07)/0.98))
+        // ≈ 63 km; eğim 80° parça 20 / sin 80° ≈ 20.3 km'ye sınırlar.
+        let w_max = 20.0 / 80f64.to_radians().sin();
+        assert!((r.width - w_max).abs() < 1e-9, "{}", r.width);
         // Uç noktalar izde.
         let tr = r.trace_lonlat();
         assert!(geo::distance_azimuth(tr[2], p2).0 < 0.01);

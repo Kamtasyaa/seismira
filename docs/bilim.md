@@ -686,9 +686,11 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   uzunluk ve alan toplam, genişlik en büyük, doğrultu uzunlukla ve eğim
   genişlikle ağırlıklı, Ztor en sığ; Rrup ve Rjb en yakın parçaya, Rx
   GC2 T'ye göre (Spudich & Chiou 2015, USGS OFR 2015-1028, Eş. 1–10, tek
-  kesintisiz iz). Genişlik: elle verilmişse o, değilse WC94 alanı / iz
-  uzunluğu (tabana kırpılır); iz uzunluğu kullanıcınındır, bu yüzden
-  ekstrapolasyon uyarısı yerine alan oranı denetlenir. Kırılma zamanı:
+  kesintisiz iz). Genişlik: elle verilmişse o, değilse tek düzlemdeki gibi
+  √A_WC94, tabana kırpılmış (2026-11-25 düzeltme: önce A / L idi, Mw 7 ve
+  326 km izde 3 km genişlik ve uyarısız sonuç verdi). İz uzunluğu
+  kullanıcınındır: ekstrapolasyon uyarısı yerine alan oranı (L·W / A_WC94,
+  ×4,1 dışı) denetlenir; büyüklüğe göre çok uzun ya da kısa iz uyarılır. Kırılma zamanı:
   hiposantrın iz boyunca konumu merkez üssünün GC2 U koordinatı; bir
   noktaya kırılma yolu = √(ΔU² + Δ(eğim boyunca)²). Tsunami: her parça aynı
   ortalama kaymayla ayrı Okada kaynağı, toplam. BASİTLEŞTİRME: dirseklerde
