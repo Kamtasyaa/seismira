@@ -52,8 +52,10 @@ formülüyle hesaplandı, egui 0.37 koyu tema değerleri kaynağından).
 
 - Değişmeyenler (uygun bulundu): eğitim uyarısı 9,3; engel / uyarı
   metinleri 6,4 / 9,3; bağlantı 5,8; tsunami renkleri kara üstünde ≥ 3,5;
-  yanıp sönme her yerde 1 Hz kosinüs (bölge, zemin kareleri, tsunami) ve
-  "Hareketi azalt" üçünü de sabitler.
+  yanıp sönme 1 Hz: bölge ve zemin kareleri kosinüs (yumuşak), tsunami
+  kıyıları açık/kapalı (2026-11-25 kullanıcı kararı: periyodun %60'ı tam
+  görünür, %40'ı kapalı; 1 Hz, ışığa duyarlılık sınırı olan saniyede 3
+  yanıp sönmenin altında). "Hareketi azalt" üçünü de sabitler.
 - Renk tek taşıyıcı: tsunami şeridinin kalınlığı kategoriye göre (dikkat
   3, uyarı 4,5, büyük uyarı 6 point; açıklamada da). Shindo / MMI
   kutularında etiket; zemin karelerinde S / H harfi.

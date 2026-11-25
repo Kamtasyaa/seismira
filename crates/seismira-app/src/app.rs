@@ -1445,8 +1445,9 @@ impl SeismiraApp {
     }
 
     /// Tsunami kıyı şeridi, ipucu ve açıklama (Bölüm 2.7): uyarı anından
-    /// (depremden ~3 dk sonra) itibaren, JMA renkleriyle, 1 Hz yumuşak
-    /// yanıp söner ("Hareketi azalt"ta sabit). Komşu kıyı noktaları kalın
+    /// (depremden ~3 dk sonra) itibaren, JMA renkleriyle, 1 Hz TAM yanıp
+    /// söner (açık/kapalı, [`crate::ground_style::blink`]; "Hareketi
+    /// azalt"ta sabit). Komşu kıyı noktaları kalın
     /// bir bantla birleştirilir (kullanıcı isteği, 2026-11-23); iki farklı
     /// kategorili nokta arasında renk parçanın ortasında değişir.
     fn draw_tsunami(&self, ui: &egui::Ui, rect: egui::Rect) {
@@ -1458,7 +1459,8 @@ impl SeismiraApp {
             return;
         }
         let lang = self.lang;
-        let alpha = crate::ground_style::pulse(ui.input(|i| i.time), self.reduce_motion);
+        let (alpha, next_toggle) =
+            crate::ground_style::blink(ui.input(|i| i.time), self.reduce_motion);
         let painter = ui.painter_at(rect);
         let hover = ui
             .input(|i| i.pointer.hover_pos())
@@ -1599,8 +1601,10 @@ impl SeismiraApp {
             painter.rect_filled(r, 4.0, theme::MAP_BG.gamma_multiply(0.95));
             painter.galley(r.min + egui::vec2(5.0, 5.0), g, Color32::WHITE);
         }
-        if !self.reduce_motion {
-            ui.ctx().request_repaint();
+        // Yalnızca açılma/kapanma anında yeniden çiz (Bölüm 11).
+        if next_toggle.is_finite() {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_secs_f64(next_toggle));
         }
     }
 

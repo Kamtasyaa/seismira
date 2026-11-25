@@ -26,6 +26,23 @@ pub fn pulse(wall: f64, reduce_motion: bool) -> f32 {
     }
 }
 
+/// Tam yanıp sönme (tsunami kıyıları; 2026-11-25 kullanıcı kararı:
+/// yumuşak geçiş yerine açık/kapalı): 1 Hz, periyodun ilk %60'ında tam
+/// görünür, kalanında kapalı (renk okunabilsin diye görünür kısım uzun).
+/// "Hareketi azalt"ta sabit. Dönen: (opaklık, bir sonraki geçişe kalan s).
+pub fn blink(wall: f64, reduce_motion: bool) -> (f32, f64) {
+    const ON: f64 = 0.6;
+    if reduce_motion {
+        return (1.0, f64::INFINITY);
+    }
+    let ph = wall.rem_euclid(1.0);
+    if ph < ON {
+        (1.0, ON - ph)
+    } else {
+        (0.0, 1.0 - ph)
+    }
+}
+
 /// Tek kare: `r` ekran dikdörtgeni, `alpha` opaklık, `letter` tür harfi,
 /// `right`: harf sağ üst köşede (aynı kutuda iki tür olunca çakışmasın).
 pub fn draw_box(painter: &Painter, r: Rect, alpha: f32, letter: &str, right: bool) {
@@ -122,6 +139,14 @@ pub fn draw_legend(ui: &egui::Ui, rect: Rect, lang: Lang, kinds: &[(String, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tam_yanip_sonme() {
+        assert_eq!(blink(10.1, false).0, 1.0);
+        assert_eq!(blink(10.7, false).0, 0.0);
+        assert!((blink(10.1, false).1 - 0.5).abs() < 1e-9);
+        assert_eq!(blink(10.7, true), (1.0, f64::INFINITY));
+    }
 
     #[test]
     fn yanip_sonme_sinirlari() {

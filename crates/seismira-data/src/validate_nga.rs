@@ -19,8 +19,8 @@ use anyhow::{Context, Result, bail};
 use seismira_core::gmpe::{Imt, ngaw2};
 use seismira_core::intensity::jma_from_pgv_vector;
 use seismira_core::quake::{FaultType, Quake};
-use seismira_core::site::Vs30Map;
 use seismira_core::rupture::Rupture;
+use seismira_core::site::Vs30Map;
 use std::path::Path;
 
 struct Record {

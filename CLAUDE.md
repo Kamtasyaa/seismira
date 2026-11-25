@@ -76,7 +76,8 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
 - Tema: koyu, haritayı öne çıkaran, modern ve sade.
 - Tüm metin UTF-8, her yazı sistemi doğru görünmeli; Noto yazı tipleri
   gömülü. Koda gömülü arayüz metni YOK (çeviri altyapısı Faz 1'den).
-- Yanıp sönme ≤ ~1 Hz, yumuşak; "Hareketi azalt" ayarı; renk tek bilgi
+- Yanıp sönme ≤ ~1 Hz, yumuşak (istisna: tsunami kıyıları tam açık/kapalı,
+  2026-11-25 kullanıcı kararı); "Hareketi azalt" ayarı; renk tek bilgi
   taşıyıcı olmaz.
 
 ## 4. Teknoloji kararları
