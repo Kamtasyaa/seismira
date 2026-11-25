@@ -572,8 +572,11 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   (`app/user_ui.rs`, `userdata.rs`, `export.rs`).
 - Dosya seçme: yol kutusu (her platform) + pencereye sürükle-bırak. winit
   0.30.13'te dosya bırakma yalnızca X11, Windows, macOS'ta var; Wayland'de
-  YOK (kaynakta denetlendi), bu yüzden yol kutusu asıl yol. Yerel dosya
-  seçme penceresi (`rfd` crate'i) kullanıcıya soruldu (yeni bağımlılık).
+  YOK (kaynakta denetlendi). 2026-11-26 kullanıcı onayı: "Dosya seç…"
+  düğmesi sistemin dosya penceresini açar (`rfd` 0.18.0, MIT; Linux'ta
+  xdg-desktop-portal, GTK bağımlılığı yok; pencere ana iş parçacığında
+  açılır, sonuç `pollster` ile yardımcı iş parçacığında beklenir). Linux
+  paketinde portal arka ucu (ya da Zenity) gerekir; GNOME/KDE'de hazır.
 - Türler (uzantıdan): .geojson/.json fay izi (en uzun çizgi; > 32 nokta
   Visvalingam ile 32'ye), .tif/.tiff Vs30 (tek bant, coğrafi koordinat;
   100–3000 m/s dışı veri yok; en çok 10⁸ hücre; en yakın hücre), .csv/.txt

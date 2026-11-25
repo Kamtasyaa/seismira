@@ -1,9 +1,12 @@
 //! "Kendi verini yükle" ve "Sonuçları dışa aktar" pencereleri
 //! ([`crate::userdata`], [`crate::export`]).
 //!
-//! Dosya seçme: yol kutusu (her platformda) ve pencereye sürükle-bırak.
-//! Bırakma winit 0.30'da Wayland'de yok (yalnızca X11 / Windows / macOS;
-//! 2026-11-26 kaynakta denetlendi), bu yüzden yol kutusu asıl yoldur.
+//! Dosya seçme: sistemin dosya penceresi (`rfd` 0.18; Linux'ta xdg-desktop-
+//! portal, GTK yok; 2026-11-26 kullanıcı onayı), yol kutusu ve pencereye
+//! sürükle-bırak. Bırakma winit 0.30'da Wayland'de yok (yalnızca X11 /
+//! Windows / macOS; kaynakta denetlendi). Dosya penceresi rfd'nin önerdiği
+//! gibi ana iş parçacığında açılır, sonucu yardımcı iş parçacığında
+//! beklenir (arayüz donmaz; macOS'ta da doğru).
 //! Okuma ve yazma arka plan iş parçacığında (Bölüm 11).
 
 use super::SeismiraApp;
@@ -28,6 +31,8 @@ pub(super) struct UserState {
     pub inventory: Option<Arc<Inventory>>,
     pub inventory_results: Option<compute::InventoryResults>,
     loading: Option<Receiver<(PathBuf, Result<Loaded, LoadError>)>>,
+    /// Açık dosya seçme penceresinin sonucu.
+    picking: Option<Receiver<Option<PathBuf>>>,
     /// Son yükleme sonucu: (başarılı mı, metin).
     msg: Option<(bool, String)>,
     exporting: Option<Receiver<Result<PathBuf, String>>>,
@@ -61,6 +66,21 @@ impl SeismiraApp {
                     ctx.request_repaint_after(std::time::Duration::from_millis(100));
                 }
                 Err(TryRecvError::Disconnected) => self.user.loading = None,
+            }
+        }
+        if let Some(rx) = &self.user.picking {
+            match rx.try_recv() {
+                Ok(p) => {
+                    self.user.picking = None;
+                    if let Some(p) = p {
+                        self.user.path = p.display().to_string();
+                        self.user_start_load(ctx, p);
+                    }
+                }
+                Err(TryRecvError::Empty) => {
+                    ctx.request_repaint_after(std::time::Duration::from_millis(100));
+                }
+                Err(TryRecvError::Disconnected) => self.user.picking = None,
             }
         }
         if let Some(rx) = &self.user.exporting {
@@ -183,6 +203,7 @@ impl SeismiraApp {
         let t = |k: &str| lang.t(k);
         let mut open = self.user.show_load;
         let mut load_path = None;
+        let mut pick = false;
         let mut remove_vs30 = false;
         let mut remove_inv = false;
         egui::Window::new(t("user-title"))
@@ -192,6 +213,17 @@ impl SeismiraApp {
             .show(ctx, |ui| {
                 ui.label(RichText::new(t("user-intro")).small());
                 ui.add_space(6.0);
+                let busy = self.user.loading.is_some() || self.user.picking.is_some();
+                if ui
+                    .add_enabled(
+                        !busy,
+                        egui::Button::new(RichText::new(t("user-pick")).strong()),
+                    )
+                    .clicked()
+                {
+                    pick = true;
+                }
+                ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     let l = ui.label(t("user-path")).id;
                     let r = ui
@@ -302,6 +334,25 @@ impl SeismiraApp {
                 }
             });
         self.user.show_load = open;
+        if pick {
+            let task = rfd::AsyncFileDialog::new()
+                .set_title(t("user-pick-title"))
+                .add_filter(
+                    t("user-pick-filter"),
+                    &["geojson", "json", "tif", "tiff", "csv", "txt"],
+                )
+                .pick_file();
+            let (tx, rx) = std::sync::mpsc::channel();
+            let c = ctx.clone();
+            let _ = std::thread::Builder::new()
+                .name("dosya-seçimi".into())
+                .spawn(move || {
+                    let r = pollster::block_on(task).map(|f| f.path().to_path_buf());
+                    let _ = tx.send(r);
+                    c.request_repaint();
+                });
+            self.user.picking = Some(rx);
+        }
         if let Some(p) = load_path {
             self.user_start_load(ctx, p);
         }
