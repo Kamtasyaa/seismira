@@ -25,9 +25,13 @@ offline.
 
 ## Özellikler / Features
 
-- **Sonlu fay modeli** (tek dikdörtgen düzlem); sığ kabuk, dalma-batma
-  arayüzü ve levha içi depremler. Slab2 ile levha geometrisi önerisi.
-  / Finite-fault source; crustal, interface and intraslab earthquakes.
+- **Sonlu fay modeli:** tek düzlem ya da haritada çizilen çok parçalı
+  fay izi (en çok 31 parça; NGA-West2 GC2 mesafeleri); sığ kabuk,
+  dalma-batma arayüzü ve levha içi depremler. Slab2 ile levha geometrisi
+  önerisi. Kahramanmaraş, İzmit ve Ridgecrest senaryoları USGS'in çok
+  parçalı kırılma izini kullanır. / Finite-fault source: a single plane or
+  a multi-segment fault trace drawn on the map (GC2 distances); crustal,
+  interface and intraslab earthquakes.
 - **Yer hareketi:** sığ kabukta dört NGA-West2 modelinin (ASK14, BSSA14,
   CB14, CY14) eşit ağırlıklı ortalaması, dalma-batmada Parker vd. (2020;
   bölgesel katsayılarla), ak135 seyahat süreleri, USGS Vs30 zemin haritası.
@@ -64,9 +68,6 @@ Planned features by priority; order and timing are not fixed.
 
 ### Kritik öncelik / Critical
 
-- **Çoklu fay segmenti:** 2023 Kahramanmaraş depremleri gibi birden fazla
-  parçanın peş peşe kırıldığı çok segmentli fay tanımı. / Multi-segment
-  ruptures that break one after another.
 - **Kendi verini yükle:** Vs30 (GeoTIFF), fay geometrisi (GeoJSON) ya da
   yerel bina envanteri dosyasını sürükleyip bırakarak simülasyonda
   kullanma. / Drag and drop your own Vs30, fault geometry or building

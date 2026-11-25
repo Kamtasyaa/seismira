@@ -198,6 +198,9 @@ pub mod limits {
     /// uzun kırılma 2004 Sumatra–Andaman (~1300–1500 km); arayüz genişliği
     /// ~200 km'de doyar ([`crate::source::INTERFACE_MAX_WIDTH_KM`]).
     pub const RUPTURE_MAX_KM: (f64, f64) = (1500.0, 250.0);
+    /// Merkez üssü fay izinden bu kadar uzaksa (Rjb, km) bilgi notu çıkar
+    /// (arayüz şeffaflığı; model sınırı değil, kaynağa dayanmaz).
+    pub const EPICENTER_TRACE_NOTE_KM: f64 = 10.0;
     /// Elle alanın WC94 alanından sapma uyarısı: Tablo 2A M–RA standart
     /// sapması s = 0,24 (M birimi), b = 0,98 → log10 A'da 0,245; 2,5σ =
     /// 0,61 → ×4,1.
@@ -248,6 +251,10 @@ pub enum Issue {
     /// [`limits::RUPTURE_MAX_KM`].0 üstü, sayı olmayan nokta ya da parça
     /// eğimi 1–90° dışında. Engeller.
     TraceInvalid { max_l: f64 },
+    /// Merkez üssü fay izinden [`limits::EPICENTER_TRACE_NOTE_KM`]'den uzak
+    /// (Rjb, km): kırılmanın izin en yakın noktasından başladığı kabul
+    /// edilir (GC2 U izdüşümü, [`crate::rupture`]). Bilgi; engellemez.
+    EpicenterOffTrace { km: f64 },
 }
 
 impl Issue {
@@ -259,6 +266,7 @@ impl Issue {
                 | Issue::RuptureWidthClamped { .. }
                 | Issue::RuptureAreaUnusual { .. }
                 | Issue::StableContinental
+                | Issue::EpicenterOffTrace { .. }
         )
     }
 }
@@ -340,6 +348,12 @@ pub fn validate(q: &Quake) -> Vec<Issue> {
                 (None, Some([l, _])) => l,
                 _ => r.length,
             };
+            if q.trace.is_some() {
+                let km = r.distances(q.epicenter).rjb;
+                if km > EPICENTER_TRACE_NOTE_KM {
+                    out.push(Issue::EpicenterOffTrace { km });
+                }
+            }
             let ratio = l * r.width / crate::source::area_wc94(q.mw);
             if !(1.0 / RUPTURE_AREA_FACTOR..=RUPTURE_AREA_FACTOR).contains(&ratio) {
                 out.push(Issue::RuptureAreaUnusual { ratio });

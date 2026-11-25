@@ -137,6 +137,17 @@ rupture-length = Kırılma uzunluğu
 rupture-width = Kırılma genişliği
 trace-info = Çok parçalı fay izi: { $n } parça, toplam { $l } km. Doğrultu, uzunluk ve odağın doğrultu boyunca konumu izden gelir.
 trace-remove = Fay izini kaldır (tek düzleme dön)
+trace-draw = Fay izi çiz (haritada)
+trace-redraw = Fay izini yeniden çiz
+trace-drawing = Fay izi çiziliyor: { $n } nokta. Haritaya tıklayarak nokta ekle; çift tık ya da Enter bitirir, Esc iptal eder, Backspace son noktayı siler. Fay, çizim yönüne bakınca sağa eğimlidir.
+trace-finish = Bitir
+trace-undo = Son noktayı sil
+trace-cancel = İptal
+trace-segments = Parçalar ({ $n })
+trace-seg-header = Parça: uzunluk · doğrultu
+trace-seg-dip = Ayrı eğim (°)
+trace-seg-own-dip = Bu parçaya ortak eğimden farklı bir eğim ver
+issue-epicenter-off-trace = Merkez üssü fay izine { $km } km uzakta; kırılmanın izin en yakın noktasından başladığı kabul edilir.
 model-limit = Tahmin sınırı: faya { $km } km
 
 # Erken uyarı (Faz 4)

@@ -788,7 +788,36 @@ impl SeismiraApp {
         let mw = self.sim.as_ref().map_or(0.0, |s| s.quake.mw);
         self.map.set_intensity_scale(self.scale, mw);
         let out = self.map.ui(ui, frame, crate::MSAA);
-        if let Some(c) = out.clicked {
+        if let Some(pts) = &mut self.draft.drawing {
+            // Fay izi çizimi: tık nokta ekler, çift tık / Enter bitirir,
+            // Esc iptal, Backspace son noktayı siler (metin kutusu odakta
+            // değilken).
+            let typing = ui.ctx().memory(|m| m.focused().is_some());
+            let (enter, esc, back) = ui.input(|i| {
+                (
+                    i.key_pressed(egui::Key::Enter),
+                    i.key_pressed(egui::Key::Escape),
+                    i.key_pressed(egui::Key::Backspace),
+                )
+            });
+            if out.double_clicked || (enter && !typing) {
+                // Çift tıkın ikinci tıkı nokta eklemez: ilk tık son noktadır.
+                if self.draft.finish_drawing() {
+                    self.cancel_sim();
+                }
+            } else if esc && !typing {
+                self.draft.drawing = None;
+            } else {
+                if back && !typing {
+                    pts.pop();
+                }
+                if let Some(c) = out.clicked
+                    && pts.len() < seismira_core::quake::MAX_TRACE_POINTS
+                {
+                    pts.push(c);
+                }
+            }
+        } else if let Some(c) = out.clicked {
             if self.sim.is_some() {
                 // Simülasyon sürerken tıklama onu bozmaz: bölge kartını açar
                 // ya da kapatır (Bölüm 9). Yeni merkez üssü için önce
@@ -823,6 +852,8 @@ impl SeismiraApp {
                         .draw_lonlat_line(ui, rect, &pts, Stroke::new(2.0, color));
                 }
             }
+        } else if let Some(pts) = &self.draft.drawing {
+            self.draw_trace_preview(ui, rect, pts, out.hover);
         } else if self.draft.has_epicenter {
             self.draw_fault(ui, rect, &self.draft.quake, false);
         }
@@ -1042,6 +1073,39 @@ impl SeismiraApp {
             line.extend(densify(w[0], w[1]));
         }
         self.map.draw_lonlat_line(ui, rect, &line, edge);
+    }
+
+    /// Çizilmekte olan fay izi: noktalar, aralarındaki çizgi ve son noktadan
+    /// imlece kesikli lastik çizgi.
+    fn draw_trace_preview(
+        &self,
+        ui: &egui::Ui,
+        rect: egui::Rect,
+        pts: &[(f64, f64)],
+        hover: Option<(f64, f64)>,
+    ) {
+        let edge = Stroke::new(2.5, Color32::WHITE);
+        if pts.len() >= 2 {
+            self.map.draw_lonlat_line(ui, rect, pts, edge);
+        }
+        if let (Some(&last), Some(h)) = (pts.last(), hover) {
+            self.map.draw_lonlat_dashed(
+                ui,
+                rect,
+                &[last, h],
+                Stroke::new(1.5, Color32::from_white_alpha(170)),
+            );
+        }
+        let painter = ui.painter_at(rect);
+        for &p in pts {
+            let c = self.map.to_screen(rect, p);
+            painter.circle_filled(c, 5.0, Color32::from_black_alpha(160));
+            painter.circle_filled(c, 3.5, Color32::WHITE);
+        }
+        // İmleç hareket ettikçe lastik çizgi güncellensin.
+        if hover.is_some() {
+            ui.ctx().request_repaint();
+        }
     }
 
     /// Şehrin nihai şiddeti seçili ölçekte (sonuç yoksa `None`).

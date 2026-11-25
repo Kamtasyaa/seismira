@@ -137,6 +137,17 @@ rupture-length = Rupture length
 rupture-width = Rupture width
 trace-info = Multi-segment fault trace: { $n } segments, { $l } km in total. Strike, length and the hypocentre position along strike come from the trace.
 trace-remove = Remove fault trace (back to a single plane)
+trace-draw = Draw fault trace (on the map)
+trace-redraw = Redraw fault trace
+trace-drawing = Drawing fault trace: { $n } points. Click the map to add a point; double-click or Enter finishes, Esc cancels, Backspace removes the last point. The fault dips to the right of the drawing direction.
+trace-finish = Finish
+trace-undo = Remove last point
+trace-cancel = Cancel
+trace-segments = Segments ({ $n })
+trace-seg-header = Segment: length · strike
+trace-seg-dip = Own dip (°)
+trace-seg-own-dip = Give this segment a dip different from the common dip
+issue-epicenter-off-trace = The epicentre is { $km } km from the fault trace; the rupture is assumed to start at the nearest point of the trace.
 model-limit = Estimate limit: { $km } km from fault
 
 # Erken uyarı (Faz 4)

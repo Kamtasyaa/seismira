@@ -50,6 +50,8 @@ pub struct MapOutput {
     pub hover: Option<(f64, f64)>,
     /// Bu karede tıklanarak seçilen nokta (boylam, enlem).
     pub clicked: Option<(f64, f64)>,
+    /// Bu karede çift tıklandı (fay izi çizimini bitirir).
+    pub double_clicked: bool,
 }
 
 pub struct MapWidget {
@@ -305,6 +307,7 @@ impl MapWidget {
             } else {
                 None
             },
+            double_clicked: response.double_clicked(),
         }
     }
 

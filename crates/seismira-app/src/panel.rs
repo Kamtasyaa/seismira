@@ -17,6 +17,47 @@ pub struct Draft {
     pub has_epicenter: bool,
     /// Seçili hazır senaryo (kimlik); girdi elle değişince düşer.
     pub preset: Option<String>,
+    /// Haritada çizilmekte olan fay izi (boylam, enlem); `None`: çizim yok.
+    pub drawing: Option<Vec<(f64, f64)>>,
+}
+
+impl Draft {
+    /// Çizimi bitirir: en az 2 nokta varsa iz olur (en çok
+    /// [`seismira_core::quake::MAX_TRACE_POINTS`]); merkez üssü yoksa izin
+    /// ortasına konur. İz değiştiyse `true`.
+    pub fn finish_drawing(&mut self) -> bool {
+        let Some(mut pts) = self.drawing.take() else {
+            return false;
+        };
+        pts.truncate(seismira_core::quake::MAX_TRACE_POINTS);
+        let Some(trace) = seismira_core::quake::Trace::new(&pts) else {
+            return false;
+        };
+        self.quake.trace = Some(trace);
+        if !self.has_epicenter {
+            self.quake.epicenter = trace_midpoint(&pts);
+            self.has_epicenter = true;
+        }
+        self.preset = None;
+        true
+    }
+}
+
+/// Kırık çizginin uzunluk boyunca orta noktası (jeodezik).
+fn trace_midpoint(pts: &[(f64, f64)]) -> (f64, f64) {
+    use seismira_core::geo;
+    let lens: Vec<(f64, f64)> = pts
+        .windows(2)
+        .map(|w| geo::distance_azimuth(w[0], w[1]))
+        .collect();
+    let mut half = lens.iter().map(|l| l.0).sum::<f64>() / 2.0;
+    for (w, (km, az)) in pts.windows(2).zip(lens) {
+        if half <= km {
+            return geo::destination(w[0], az, half);
+        }
+        half -= km;
+    }
+    pts[pts.len() - 1]
 }
 
 impl Default for Draft {
@@ -25,6 +66,7 @@ impl Default for Draft {
             quake: Quake::new((0.0, 0.0)),
             has_epicenter: false,
             preset: None,
+            drawing: None,
         }
     }
 }
@@ -105,6 +147,9 @@ pub fn issue_text(lang: Lang, issue: Issue) -> String {
         ),
         Issue::StableContinental => lang.t("issue-stable"),
         Issue::TraceInvalid { max_l } => lang.t_args("issue-trace", &[("l", lang.num(max_l, 0))]),
+        Issue::EpicenterOffTrace { km } => {
+            lang.t_args("issue-epicenter-off-trace", &[("km", lang.num(km, 0))])
+        }
     }
 }
 
@@ -243,6 +288,7 @@ pub fn ui(
     }
 
     let before = draft.quake;
+    let (mut finish_drawing, mut cancel_drawing) = (false, false);
     let q = &mut draft.quake;
 
     egui::Grid::new("quake-main")
@@ -382,8 +428,99 @@ pub fn ui(
                     ))
                     .small(),
                 );
+                // Parça tablosu: uzunluk, doğrultu; isteğe bağlı ayrı eğim.
+                egui::CollapsingHeader::new(lang.t_args(
+                    "trace-segments",
+                    &[("n", lang.num(tr.segments() as f64, 0))],
+                ))
+                .id_salt("trace-segments")
+                .default_open(false)
+                .show(ui, |ui| {
+                    let mut edited = tr;
+                    // İki sütun: "n. uzunluk · doğrultu" ve ayrı eğim (dar
+                    // panelde sığsın, `panel_icerigi_tasmaz`).
+                    egui::Grid::new("trace-seg-grid")
+                        .num_columns(2)
+                        .spacing([8.0, 4.0])
+                        .show(ui, |ui| {
+                            ui.label(RichText::new(t("trace-seg-header")).small().weak());
+                            ui.label(RichText::new(t("trace-seg-dip")).small().weak());
+                            ui.end_row();
+                            for (i, f) in r.segments.iter().enumerate() {
+                                ui.label(format!(
+                                    "{}. {} km · {}°",
+                                    i + 1,
+                                    lang.num(f.length, 0),
+                                    lang.num(f.strike, 0)
+                                ));
+                                ui.horizontal(|ui| {
+                                    let mut own = tr.segment_dip(i).is_some();
+                                    if ui
+                                        .checkbox(&mut own, "")
+                                        .on_hover_text(t("trace-seg-own-dip"))
+                                        .changed()
+                                    {
+                                        edited.set_segment_dip(i, own.then_some(q.dip));
+                                    }
+                                    let mut d = tr.segment_dip(i).unwrap_or(q.dip);
+                                    if ui
+                                        .add_enabled(own, number(lang, &mut d, 1.0..=90.0, 0, 0.5))
+                                        .changed()
+                                    {
+                                        edited.set_segment_dip(i, Some(d));
+                                    }
+                                });
+                                ui.end_row();
+                            }
+                        });
+                    if edited != tr {
+                        q.trace = Some(edited);
+                    }
+                });
                 if ui.button(t("trace-remove")).clicked() {
                     q.trace = None;
+                }
+            }
+            // Haritada fay izi çizme (Bölüm 6: konum haritadan).
+            match &mut draft.drawing {
+                Some(pts) => {
+                    ui.label(
+                        RichText::new(
+                            lang.t_args("trace-drawing", &[("n", lang.num(pts.len() as f64, 0))]),
+                        )
+                        .small(),
+                    );
+                    ui.horizontal_wrapped(|ui| {
+                        if ui
+                            .add_enabled(pts.len() >= 2, egui::Button::new(t("trace-finish")))
+                            .clicked()
+                        {
+                            finish_drawing = true;
+                        }
+                        if ui
+                            .add_enabled(!pts.is_empty(), egui::Button::new(t("trace-undo")))
+                            .clicked()
+                        {
+                            pts.pop();
+                        }
+                        if ui.button(t("trace-cancel")).clicked() {
+                            cancel_drawing = true;
+                        }
+                    });
+                }
+                None => {
+                    let key = if q.trace.is_some() {
+                        "trace-redraw"
+                    } else {
+                        "trace-draw"
+                    };
+                    if ui
+                        .add_enabled(!running, egui::Button::new(t(key)))
+                        .clicked()
+                    {
+                        draft.drawing = Some(Vec::new());
+                        action = Action::Stop;
+                    }
                 }
             }
         });
@@ -469,6 +606,12 @@ pub fn ui(
             );
         });
 
+    if cancel_drawing {
+        draft.drawing = None;
+    }
+    if finish_drawing {
+        draft.finish_drawing();
+    }
     if draft.quake != before {
         action = Action::Changed;
         draft.preset = None;
@@ -528,6 +671,7 @@ mod preset_tests {
                 quake: p.quake,
                 has_epicenter: true,
                 preset: Some(p.id.clone()),
+                drawing: None,
             };
             let mut h = egui_kittest::Harness::builder()
                 .with_context_setup(|ctx| {
@@ -551,6 +695,33 @@ mod preset_tests {
         }
     }
 
+    /// Çizimi bitirme: en az 2 nokta iz olur; merkez üssü yoksa izin
+    /// uzunluk boyunca ortasına konur; tek noktayla bir şey olmaz.
+    #[test]
+    fn cizim_bitirme() {
+        let mut d = Draft {
+            drawing: Some(vec![(30.0, 40.0)]),
+            ..Draft::default()
+        };
+        assert!(!d.finish_drawing());
+        assert!(d.quake.trace.is_none() && d.drawing.is_none());
+        let (a, b) = ((30.0, 40.0), (31.0, 40.0));
+        let c = seismira_core::geo::destination(b, 0.0, 300.0);
+        d.drawing = Some(vec![a, b, c]);
+        assert!(d.finish_drawing());
+        assert_eq!(d.quake.trace.unwrap().segments(), 2);
+        assert!(d.has_epicenter && d.preset.is_none());
+        // Toplam ~385 km; orta nokta ikinci parçada, b'den ~107 km kuzeyde.
+        let (km_b, _) = seismira_core::geo::distance_azimuth(b, d.quake.epicenter);
+        let (l1, _) = seismira_core::geo::distance_azimuth(a, b);
+        assert!((km_b - (l1 + 300.0) / 2.0 + l1).abs() < 1.0, "{km_b}");
+        // Merkez üssü varsa yerinde kalır.
+        let e = d.quake.epicenter;
+        d.drawing = Some(vec![a, b]);
+        assert!(d.finish_drawing());
+        assert_eq!(d.quake.epicenter, e);
+    }
+
     /// Panel içeriği panelin genişliğini aşmamalı (2026-11-24 hatası: uzun
     /// senaryo adı açılır kutuyu genişletiyor, sağa yaslı panel sola büyüyüp
     /// soldan kırpılıyordu: "Deprem ayarları" → "arları"). Her senaryo, iki
@@ -569,6 +740,9 @@ mod preset_tests {
                         quake: p.quake,
                         has_epicenter: true,
                         preset: Some(p.id.clone()),
+                        // Bir senaryoda çizim modu da (uzun yönerge metni).
+                        drawing: (p.id == "kumamoto2016")
+                            .then(|| vec![(130.7, 32.7), (130.9, 32.8)]),
                     };
                     let mut h = egui_kittest::Harness::builder()
                         .with_accessibility_check(false)
@@ -591,6 +765,13 @@ mod preset_tests {
                     // "İleri seviye" açıkken de (kaydırıcılar, elle boyut).
                     h.get_by_label(&lang.t("advanced")).click();
                     h.run();
+                    // Fay izli senaryoda parça tablosu açıkken de.
+                    if let Some(tr) = p.quake.trace {
+                        let n = lang.num(tr.segments() as f64, 0);
+                        h.get_by_label(&lang.t_args("trace-segments", &[("n", n)]))
+                            .click();
+                        h.run();
+                    }
                     let over = h.state().1;
                     assert!(
                         over <= 0.5,
