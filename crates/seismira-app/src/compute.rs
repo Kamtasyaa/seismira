@@ -408,7 +408,8 @@ fn ground_by_region(
             }
             let bx = (col * step + step / 2).min(domain.w - 1) as usize;
             let by_ = (row * step + step / 2).min(domain.h - 1) as usize;
-            let id = ids[by_ * domain.w as usize + bx];
+            // Pencere ham kimlik döndürür: yerleşim biti (BUILT_BIT) atılır.
+            let id = ids[by_ * domain.w as usize + bx] & seismira_core::region::ID_MASK;
             if id == 0 {
                 continue;
             }
@@ -467,7 +468,7 @@ fn ground_boxes(
             let region = ids.map_or(0, |ids| {
                 let bx = (col * step + step / 2).min(domain.w - 1) as usize;
                 let by = (row * step + step / 2).min(domain.h - 1) as usize;
-                ids[by * domain.w as usize + bx]
+                ids[by * domain.w as usize + bx] & seismira_core::region::ID_MASK
             });
             let e = boxes.entry(key).or_insert(Acc {
                 km2: 0.0,
@@ -998,4 +999,72 @@ fn region_results(
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use seismira_core::grid::{Base, Domain, GridSpec, ShakeGrid};
+    use seismira_core::region::BUILT_BIT;
+
+    /// 2×2 ızgara, adım 1; tüm hücreler bölge 7'de, ikisi yerleşim bitli.
+    fn fixture() -> (ShakeGrid, Domain, Vec<seismira_core::region::RegionId>) {
+        let n = 4;
+        let nan = vec![f32::NAN; n];
+        let g = ShakeGrid {
+            spec: GridSpec {
+                west: 30.0,
+                north: 40.0,
+                cell: 0.1,
+                width: 2,
+                height: 2,
+            },
+            class: vec![0; n],
+            jma: nan.clone(),
+            t_p: nan.clone(),
+            t_s: nan.clone(),
+            t_end: vec![10.0; n],
+            rise: nan.clone(),
+            pgv: nan.clone(),
+            pga: nan.clone(),
+            pgv_tau: nan.clone(),
+            pga_tau: nan,
+        };
+        let d = Domain {
+            base: Base::GLOBAL_30S,
+            col0: 0,
+            row0: 0,
+            w: 2,
+            h: 2,
+        };
+        let ids = vec![7 | BUILT_BIT, 7, 7 | BUILT_BIT, 7];
+        (g, d, ids)
+    }
+
+    #[test]
+    fn bolge_toplami_yerlesim_hucrelerini_sayar() {
+        let (g, d, ids) = fixture();
+        let cov = vec![0.5_f32; 4];
+        let r = ground_by_region([&cov, &cov, &cov], 0.01, &g, &d, 1, &ids);
+        assert_eq!(r.len(), 1, "tek bölge (7) beklenir: {r:?}");
+        assert_eq!(r[0].id, 7);
+        // Dört hücrenin hepsi sayılır (yalnızca yerleşim dışı ikisi değil).
+        let cell_km2: f64 = (0..2)
+            .map(|row| {
+                let (_, lat) = g.spec.center(0, row);
+                2.0 * (6371.0088 * 0.1_f64.to_radians()).powi(2) * lat.to_radians().cos()
+            })
+            .sum();
+        assert!((r[0].km2[0] - 0.5 * cell_km2).abs() < 1e-6 * cell_km2);
+    }
+
+    #[test]
+    fn kutu_bolgesi_yerlesim_bitini_tasimaz() {
+        let (g, d, ids) = fixture();
+        let mut cov = vec![0.1_f32; 4];
+        cov[0] = 0.9; // en yüksek kaplama yerleşim bitli hücrede
+        let b = ground_boxes(GroundKind::Landslide, &cov, &g, &d, 1, Some(&ids));
+        assert!(!b.is_empty());
+        assert!(b.iter().all(|b| b.region == 7), "{b:?}");
+    }
 }
