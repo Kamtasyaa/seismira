@@ -123,6 +123,37 @@ pub fn length_tmg17_si(mw: f64) -> f64 {
 /// [`length_tmg17_si`] veri aralığı (Mw), Tablo 1.
 pub const TMG17_SI_MW: (f64, f64) = (6.68, 9.19);
 
+/// Normal faylı levha içi kırılma uzunluğu ve genişliği (km): Thingbaijam,
+/// Mai & Goda (2017), Tablo 1 "Normal-faulting": log10 L = −1.722 +
+/// 0.485·Mw (σ 0.128), log10 W = −0.829 + 0.323·Mw (σ 0.128); veri Mw
+/// 5.86–8.39, L 9.0–262.5 km, W 6.0–112.5 km ([`TMG17_NS_MW`]). Birincil
+/// kaynaktan DOĞRULANDI (2026-11-25, yazar kopyası s. 68). Veri kabuk,
+/// levha içi ve dış yükselim normal olaylarını birlikte içerir (makale
+/// s. 23: levha içi ve dış yükselim çıkarılınca da istatistiksel olarak
+/// tutarlı).
+///
+/// Kullanım (2026-11-25, kullanıcı kararı): yalnızca levha içi + normal
+/// fay, otomatik boyutta: W = min(√A_WC94, W_TMG17), L = min(A/W, L_TMG17).
+/// Levha içinde başka genişlik sınırı yok; WC94 karesi Mw 8.5'te 182 ×
+/// 182 km ve eğim 40°'de 0–117 km derinliği kaplıyordu (→ 251 × 82 km).
+/// Ters/doğrultu atımlı levha içi WC94'te kalır (bu satırın verisi değil).
+pub fn length_tmg17_ns(mw: f64) -> f64 {
+    10f64.powf(-1.722 + 0.485 * mw)
+}
+
+/// Bkz. [`length_tmg17_ns`].
+pub fn width_tmg17_ns(mw: f64) -> f64 {
+    10f64.powf(-0.829 + 0.323 * mw)
+}
+
+/// [`length_tmg17_ns`] / [`width_tmg17_ns`] veri aralığı (Mw), Tablo 1.
+pub const TMG17_NS_MW: (f64, f64) = (5.86, 8.39);
+
+/// Normal faylı levha içi mi ([`length_tmg17_ns`] kullanılır).
+fn uses_tmg17_ns(q: &Quake) -> bool {
+    q.setting == Setting::Intraslab && q.fault == FaultType::Normal
+}
+
 /// Otomatik kırılma uzunluğu TMG17 ile sınırlanıyor mu (yalnızca sığ
 /// kabuk doğrultu atımlı); değilse yalnızca WC94 alanı.
 pub fn uses_tmg17_ss(q: &Quake) -> bool {
@@ -130,14 +161,15 @@ pub fn uses_tmg17_ss(q: &Quake) -> bool {
 }
 
 /// Otomatik kırılma uzunluğunun TMG17 üst sınırı (km): sığ kabuk doğrultu
-/// atımlıda [`length_tmg17_ss`], arayüzde [`length_tmg17_si`]; diğerlerinde
-/// yok (levha içi için TMG17'de ayrı ilişki yok; normal fay satırı kabuk ve
-/// levha içi olayları karıştırır).
+/// atımlıda [`length_tmg17_ss`], arayüzde [`length_tmg17_si`], normal faylı
+/// levha içinde [`length_tmg17_ns`]; diğerlerinde yok.
 pub fn tmg17_length_cap(q: &Quake) -> Option<f64> {
     if uses_tmg17_ss(q) {
         Some(length_tmg17_ss(q.mw))
     } else if q.setting == Setting::Interface {
         Some(length_tmg17_si(q.mw))
+    } else if uses_tmg17_ns(q) {
+        Some(length_tmg17_ns(q.mw))
     } else {
         None
     }
@@ -253,7 +285,14 @@ impl Fault {
             Some([l, w]) => (l, w.min(w_max)),
             None => {
                 let area = area_wc94(q.mw);
-                let width = area.sqrt().min(w_max);
+                // Normal faylı levha içi: genişlik TMG17 ile de sınırlı
+                // (yalnızca otomatik boyutta; elle genişlik kırpılmaz).
+                let w_cap = if uses_tmg17_ns(q) {
+                    w_max.min(width_tmg17_ns(q.mw))
+                } else {
+                    w_max
+                };
+                let width = area.sqrt().min(w_cap);
                 let length = area / width;
                 // Doğrultu atımlı kabuk ve arayüz: WC94 uzunluğu TMG17'yi
                 // aşarsa TMG17 (alan korunmaz). Gerekçe: [`length_tmg17_ss`],
@@ -567,10 +606,37 @@ mod tests {
         let g = interface(9.0, 14.0);
         assert!((g.length * g.width - area_wc94(9.0)).abs() < 1e-6, "{g:?}");
         assert!(g.length < length_tmg17_si(9.0));
-        // Levha içi sınırlanmaz.
-        let mut q = quake(8.0, 60.0, FaultType::Normal, 0.0);
+        // Ters faylı levha içi sınırlanmaz.
+        let mut q = quake(8.0, 60.0, FaultType::Reverse, 0.0);
         q.setting = Setting::Intraslab;
         assert!(tmg17_length_cap(&q).is_none());
+    }
+
+    /// TMG17 Tablo 1 normal fay satırı elle: Mw 8.5 → log10 L = −1.722 +
+    /// 4.1225 = 2.4005 → 251.5 km; log10 W = −0.829 + 2.7455 = 1.9165 →
+    /// 82.5 km.
+    #[test]
+    fn tmg17_levha_ici_normal() {
+        assert!((length_tmg17_ns(8.5) - 251.5).abs() < 0.1);
+        assert!((width_tmg17_ns(8.5) - 82.5).abs() < 0.1);
+        let slab = |mw: f64, fault: FaultType| {
+            let mut q = quake(mw, 50.0, fault, 0.0);
+            q.setting = Setting::Intraslab;
+            q.dip = 40.0;
+            q
+        };
+        // Mw 8.5, eğim 40°: 182 × 182 km kare (0–117 km) idi.
+        let f = Fault::from_quake(&slab(8.5, FaultType::Normal));
+        assert!((f.width - width_tmg17_ns(8.5)).abs() < 1e-9, "{f:?}");
+        assert!((f.length - length_tmg17_ns(8.5)).abs() < 1e-9, "{f:?}");
+        assert!(f.ztor > 0.0, "{f:?}");
+        // Ters faylı levha içi WC94 karesinde kalır.
+        let g = Fault::from_quake(&slab(8.5, FaultType::Reverse));
+        assert!((g.width - g.length).abs() < 1e-9, "{g:?}");
+        // Elle genişlik TMG17'ye kırpılmaz.
+        let mut q = slab(8.5, FaultType::Normal);
+        q.rupture_km = Some([200.0, 120.0]);
+        assert!((Fault::from_quake(&q).width - 120.0).abs() < 1e-9);
     }
 
     #[test]

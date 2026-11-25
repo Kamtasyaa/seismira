@@ -662,13 +662,18 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   153373648, SHA256 a7baaf67…) böyle bir not YOK ("made available in
   accordance with publisher policies"); yalnızca Tablo 1'deki katsayılar
   (bilimsel olgu) künyeyle kullanıldı, metin kopyalanmadı.
-- Levha içi: WC94 alanı, genişlik sınırı yok (kaynak yok). Mw 8.5, eğim
-  40°, odak 50 km: 182 × 182 km kare, düzlem 0–117 km derinlik (yüzeye
-  çıkıyor; 2017 Chiapas Mw 8.2 ~180 × 60 km, hafızadan, doğrula). Aday: TMG17 normal
-  fay satırı (veride levha içi ve dış yükselim olayları da var; log10 W =
-  −0.829 + 0.323·Mw, Mw 8.5 → 82 km), UYGULANMADI (kullanıcıya sorulacak:
-  ters mekanizmalı levha içi olaylara da uygulanır mı belirsiz).
-  Strasser vd. (2010) levha içi bağıntısı erişilemedi.
+- Levha içi, normal fay (2026-11-25, kullanıcı kararı "b"): otomatik
+  boyutta W = min(√A_WC94, W_TMG17), L = min(A / W, L_TMG17); TMG17
+  Tablo 1 "Normal-faulting": log10 L = −1.722 + 0.485·Mw, log10 W =
+  −0.829 + 0.323·Mw (σ 0.128 ikisi de), veri Mw 5.86–8.39 (yazar kopyası
+  s. 68, DOĞRULANDI). Verinin içinde levha içi ve dış yükselim normal
+  olayları da var (makale s. 23). Önce genişlik sınırı yoktu: Mw 8.5, eğim
+  40°, odak 50 km 182 × 182 km kare, düzlem 0–117 km (yüzeye çıkıyordu);
+  şimdi 251 × 82 km. Mw 8.2: ~180 × 66 km (2017 Chiapas Mw 8.2 ~180 ×
+  60 km, hafızadan, doğrula). Elle genişlik kırpılmaz.
+- Levha içi, ters ve doğrultu atımlı: WC94 alanı, genişlik sınırı yok
+  (kaynak yok; TMG17 normal satırının verisi değil). Strasser vd. (2010)
+  levha içi bağıntısı erişilemedi.
 - Mesafe ölçüleri NGA-West2 tanımlarıyla; saha, merkez üssü çevresinde
   azimutal eşit uzaklık düzlemine taşınır (300 km içinde hatası ihmal
   edilebilir). Testler: dikey/eğimli fay, tavan/taban bloğu, analitik
