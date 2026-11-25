@@ -53,9 +53,9 @@ sonuçlar gerçek depremlerle karşılaştırılır (`docs/dogrulama.md`).
 Every formula comes from its published source with unit tests; results
 are validated against real earthquakes (`docs/dogrulama.md`).
 
-Durum: ilk sürüm **v0.1.0** yayımlandı (2026-11-23). Geliştirme sürüyor.
-Status: first release **v0.1.0** is out (2026-11-23). Development
-continues.
+Durum: son sürüm **v0.1.2** (2026-11-25; ilk sürüm v0.1.0, 2026-11-23). Geliştirme sürüyor.
+Status: latest release **v0.1.2** (2026-11-25; first release v0.1.0,
+2026-11-23). Development continues.
 
 ## Eklenecekler / Roadmap
 
