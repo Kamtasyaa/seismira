@@ -79,12 +79,16 @@ jobs:
           mkdir -p dist/common
           tar --zstd -xf "dist/$DATA_FILE" -C dist/common
           (cd dist/common && sha256sum --check --quiet data/MANIFEST.sha256)
-          # Atıf listesi kodla birlikte değişir (ör. yeni GMPE katsayıları):
-          # depodaki güncel SOURCES.toml paketteki eskinin yerine geçer.
-          cp data/SOURCES.toml dist/common/data/SOURCES.toml
-          (cd dist/common && grep -v '  data/SOURCES.toml$' data/MANIFEST.sha256 > m \
-            && sha256sum data/SOURCES.toml >> m && mv m data/MANIFEST.sha256 \
-            && sha256sum --check --quiet data/MANIFEST.sha256)
+          # Depodaki küçük dosyalar kodla birlikte değişir (atıf listesi,
+          # veri paketinden sonra eklenen kararlı kıta içi bölgeler): paketteki
+          # eskisinin yerine geçer ya da eklenir, MANIFEST satırı yenilenir.
+          for f in data/SOURCES.toml data/regions/stable.sout; do
+            mkdir -p "dist/common/$(dirname "$f")"
+            cp "$f" "dist/common/$f"
+            (cd dist/common && { grep -v "  $f\$" data/MANIFEST.sha256 || true; } > m \
+              && sha256sum "$f" >> m && mv m data/MANIFEST.sha256)
+          done
+          (cd dist/common && sha256sum --check --quiet data/MANIFEST.sha256)
           cp -r assets dist/common/
           cp LICENSE packaging/KURULUM.txt dist/common/
       - uses: actions/download-artifact@v8

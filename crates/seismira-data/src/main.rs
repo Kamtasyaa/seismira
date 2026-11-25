@@ -36,6 +36,7 @@ mod lith;
 mod ls_static;
 mod regions;
 mod slope75;
+mod stable;
 mod tsunami_eta;
 mod tsunami_scenario;
 mod validate_damage;
@@ -173,6 +174,9 @@ fn main() -> Result<()> {
         [cmd, ground, vs30, output] if cmd == "ls-static" => {
             ls_static::run(Path::new(ground), Path::new(vs30), Path::new(output))
         }
+        [cmd, geojson, output] if cmd == "stable-regions" => {
+            stable::run(Path::new(geojson), Path::new(output))
+        }
         [cmd, raw, vs30, output] if cmd == "lith" => {
             lith::run(Path::new(raw), Path::new(vs30), Path::new(output))
         }
@@ -235,6 +239,7 @@ fn main() -> Result<()> {
              seismira-data validate-gem <slab2.sslb>\n  \
              seismira-data validate-tsunami <ncei_runups.json> <boylam,enlem> <Mw> <derinlik> <doğrultu> <eğim> <kayma açısı> <ortam>\n  \
              seismira-data ls-static <data/ground> <vs30.sras> <çıktı.sras>\n  \
+             seismira-data stable-regions <strec/stable.geojson> <data/regions/stable.sout>\n  \
              seismira-data land-cover <ESACCI-LC-...-2009-v2.0.7.tif> <vs30.sras> <çıktı.sras>\n  \
              seismira-data liq-static <data/ground> <vs30.sras> <çıktı.sras> [--coastal]\n  \
              seismira-data aig-check <aig klasörü> <geotiff>...\n  \

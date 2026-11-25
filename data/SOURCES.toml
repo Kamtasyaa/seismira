@@ -317,6 +317,17 @@ snapshot = "ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7.tif sha256 ca06f473204e39
 files = "data/ground/landcover.sras (depoda değil; seismira-data land-cover)"
 
 [[dataset]]
+id = "usgs-strec-stable"
+name = "USGS STREC kararlı kıta içi bölgeler (stable.geojson)"
+url = "https://github.com/usgs/strec"
+license = "Public Domain (USGS; depodaki license.txt)"
+attribution = "U.S. Geological Survey, STREC (Seismo-Tectonic Regime Earthquake Calculator)."
+modified = true            # GeoJSON → ikili halka dosyası (biçim değişikliği)
+license_checked = "2026-11-25"
+snapshot = "commit 6e13af7f76d52adfeefbd74dbe647705e92db7d0, strec/data/stable.geojson sha256 a1b11b7192554a9ca13ebb4d999d252a6ef8ab1fc8dd1d500a06906cbe9db3e4"
+files = "data/regions/stable.sout (depoda; scripts/fetch_strec.py + seismira-data stable-regions)"
+
+[[dataset]]
 id = "etopo-2022-60s"
 name = "ETOPO 2022 Global Relief Model, 60″ yüzey yüksekliği (EGM2008)"
 url = "https://www.ncei.noaa.gov/products/etopo-global-relief-model"

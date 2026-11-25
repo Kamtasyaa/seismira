@@ -103,6 +103,7 @@ pub fn issue_text(lang: Lang, issue: Issue) -> String {
             "issue-rupture-area",
             &[("r", lang.num(ratio, if ratio < 1.0 { 2 } else { 1 }))],
         ),
+        Issue::StableContinental => lang.t("issue-stable"),
     }
 }
 

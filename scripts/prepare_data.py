@@ -14,6 +14,9 @@ Adımlar:
    data/vs30/vs30.sras üretilir (~1,5 dk, ~150 MB).
 5. Bölge kimliği rasterı (Natural Earth Admin-1, Vs30 ızgarasında) yoksa
    üretilir: data/regions/admin1.sras + .sreg + .sout (~1 dk; depoda da var).
+   Kararlı kıta içi bölgeler (USGS STREC, kamu malı): yoksa
+   scripts/fetch_strec.py + `seismira-data stable-regions` →
+   data/regions/stable.sout (17 KB; depoda da var).
 6. Şehir listesi (GeoNames) ve şehir zemini yoksa üretilir:
    data/cities/cities15000.scty + .ssit (depoda da var; GeoNames dökümü her
    gün değiştiği için sabitlenmiş anlık görüntü, bkz. fetch_geonames.py).
@@ -98,6 +101,15 @@ def main() -> int:
             "regions", "data/raw/natural-earth/v5.1.2/ne_10m_admin_1_states_provinces.shp",
             str(vs30.relative_to(ROOT)), ghsl,
             "data/regions/admin1.sras", "data/regions/admin1.sreg",
+        )
+    stable = ROOT / "data" / "regions" / "stable.sout"
+    if not stable.exists():
+        run(py, "scripts/fetch_strec.py")
+        run(
+            "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+            "stable-regions",
+            "data/raw/strec/6e13af7f76d52adfeefbd74dbe647705e92db7d0/stable.geojson",
+            str(stable.relative_to(ROOT)),
         )
     cities = ROOT / "data" / "cities" / "cities15000.scty"
     if not cities.exists():

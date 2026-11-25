@@ -379,3 +379,17 @@ Lisans kuralları:
   tar.gz, diğerleri zip; TASLAK sürüm oluşturur.
 - BEKLEYEN (kullanıcı): veri paketinin `data-v0.1.0` sürümüne yüklenmesi
   (336 MB, herkese açık depo) ve ilk sürüm etiketi.
+
+## USGS STREC kararlı kıta içi bölgeler (2026-11-25)
+
+- Kaynak: github.com/usgs/strec (arşivlenmiş, 2026-09-15), commit
+  6e13af7f76d52adfeefbd74dbe647705e92db7d0, `strec/data/stable.geojson`
+  (140 549 B, SHA256 a1b11b71…; tek MultiPolygon, 12 çokgen, 26 halka,
+  3 465 nokta). Lisans: depodaki license.txt "public domain because it
+  contains materials that originally came from the United States
+  Geological Survey" (2026-11-25 okundu). README bölgelendirmenin Garcia
+  vd. çalışmasına dayandığını söylüyor, künye vermiyor (doğrula).
+- İndirme: `python3 scripts/fetch_strec.py` (SHA256); dönüşüm
+  `seismira-data stable-regions` → data/regions/stable.sout (17 KB,
+  depoda). Sürüm iş akışı bu dosyayı v0.1.0 veri paketinin üstüne ekler.
+

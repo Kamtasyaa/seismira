@@ -127,7 +127,15 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   doğrudan da veriyor olabilir (doğrula).
 - Kararlı kıta içi bölgeler: ilk sürümde özel model yok; kabuk
   modeli kullanılır ve "bu bölge için model uygun değil" uyarısı
-  çıkar. İleride NGA-East.
+  çıkar. İleride NGA-East. UYGULANDI (2026-11-25): bölge çokgenleri
+  USGS STREC `stable.geojson` (kamu malı; commit 6e13af7f; ShakeMap'in
+  tektonik rejim aracı), data/regions/stable.sout. Merkez üssü içerideyse
+  ve ortam sığ kabuksa `Issue::StableContinental` (engellemez). Dalma-batma
+  ve levha içinde uyarı yok (o modeller kendi ortamları için). Sağduyu
+  denetimi (test `tectonic::strec_dosyasi`): Meckering 1968, New Madrid,
+  Virginia 2011, Bhuj 2001, Kanada kalkanı içeride; İzmit, Kahramanmaraş,
+  Ridgecrest, Kumamoto, Noto dışarıda. Not: STREC Kuzey Denizi'ni de
+  kararlı sayıyor, Sahra'yı saymıyor (veri olduğu gibi kullanıldı).
 - Modelin mesafe sınırının ötesi "model dışı" işaretlenir,
   gösterilmez.
 - Bileşen tanımı: modeller RotD50 verir; şiddet dönüşümünün

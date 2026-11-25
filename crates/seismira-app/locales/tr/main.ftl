@@ -84,6 +84,7 @@ issue-rupture-size = Kırılma boyutu bağıntısı Mw { $max } değerine kadar 
 issue-rupture-invalid = Kırılma uzunluğu 1–{ $l } km, genişliği 1–{ $w } km olmalı.
 issue-rupture-clamped = Kırılma genişliği sismojenik tabana sığmıyor; { $w } km'ye kırpıldı.
 issue-rupture-area = Kırılma alanı bu büyüklük için olağan değerin { $r } katı (Wells ve Coppersmith 1994, ±2,5σ dışında); sonuçlar beklenenden farklı olabilir.
+issue-stable = Merkez üssü kararlı kıta içinde (USGS STREC). Yer hareketi modelleri aktif kabuk için kuruldu; burada sarsıntı daha uzağa taşınabilir, sonuçlar temsil edici değil.
 
 # Zaman çizgisi
 play = Oynat (Boşluk)

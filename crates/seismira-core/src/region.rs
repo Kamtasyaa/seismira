@@ -496,7 +496,7 @@ pub fn fill_mesh(rings: &[Ring]) -> (Vec<[f32; 2]>, Vec<u32>) {
 }
 
 /// Çift-tek kuralıyla nokta halka içinde mi?
-fn point_in_ring(ring: &[[f32; 2]], p: [f32; 2]) -> bool {
+pub(crate) fn point_in_ring(ring: &[[f32; 2]], p: [f32; 2]) -> bool {
     let mut inside = false;
     let mut j = ring.len() - 1;
     for i in 0..ring.len() {

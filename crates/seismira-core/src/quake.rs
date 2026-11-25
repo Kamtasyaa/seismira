@@ -182,6 +182,10 @@ pub enum Issue {
     /// Elle verilen alan, büyüklüğün WC94 alanından [`limits::RUPTURE_AREA_FACTOR`]
     /// katından fazla farklı (~2,5σ). Engellemez, açıkça uyarır.
     RuptureAreaUnusual { ratio: f64 },
+    /// Sığ kabuk depremi kararlı kıta içinde ([`crate::tectonic`]): yer
+    /// hareketi modelleri aktif kabuk için; sonuçlar bu bölgede temsil
+    /// edici değil. Engellemez, açıkça uyarır (docs/bilim.md 7.4).
+    StableContinental,
 }
 
 impl Issue {
@@ -192,6 +196,7 @@ impl Issue {
                 | Issue::RuptureSizeExtrapolated { .. }
                 | Issue::RuptureWidthClamped { .. }
                 | Issue::RuptureAreaUnusual { .. }
+                | Issue::StableContinental
         )
     }
 }

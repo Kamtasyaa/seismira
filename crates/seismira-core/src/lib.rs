@@ -24,6 +24,7 @@ pub mod sim;
 pub mod site;
 pub mod slab;
 pub mod source;
+pub mod tectonic;
 pub mod traveltime;
 pub mod tsunami;
 pub mod vulnerability;

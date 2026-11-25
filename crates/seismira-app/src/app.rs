@@ -413,6 +413,8 @@ pub struct SeismiraApp {
     /// Slab2 levha geometrisi (~2 MB, açılışta okunur; zonlar ilk
     /// kullanımda açılır). Yoksa dalma-batmada küresel model.
     slab: Option<Arc<Slab2>>,
+    /// Kararlı kıta içi bölgeler (STREC; yoksa uyarı çıkmaz, günlükte not).
+    stable: Option<seismira_core::tectonic::StableRegions>,
     /// ESRM20 bina stoku ve kırılganlık (~0,3 MB, açılışta okunur).
     exposure: Option<Arc<seismira_core::exposure::Exposure>>,
     /// GEM paketi (isteğe bağlı, CC BY-NC-SA; data/gem/gem.svul).
@@ -533,6 +535,14 @@ impl SeismiraApp {
             .map(Arc::new)
             .inspect_err(|e| log::warn!("Slab2 yok, dalma-batmada küresel model: {e}"))
             .ok();
+        // 17 KB: arayüz iş parçacığında okunması sorun değil.
+        let stable_path = paths::data_dir().join("regions").join("stable.sout");
+        let stable = std::fs::File::open(&stable_path)
+            .and_then(|f| {
+                seismira_core::tectonic::StableRegions::read(&mut std::io::BufReader::new(f))
+            })
+            .inspect_err(|e| log::warn!("{}: {e}", stable_path.display()))
+            .ok();
         Self {
             lang,
             assets,
@@ -581,6 +591,7 @@ impl SeismiraApp {
             cities,
             vs30,
             slab,
+            stable,
             exposure,
             vuln,
             damage: None,
@@ -2199,7 +2210,12 @@ impl eframe::App for SeismiraApp {
                 ui.heading(t("panel-settings"));
                 ui.separator();
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    let issues = quake::validate(&self.draft.quake);
+                    let mut issues = quake::validate(&self.draft.quake);
+                    if self.draft.has_epicenter
+                        && let Some(stable) = &self.stable
+                    {
+                        seismira_core::tectonic::check(&self.draft.quake, stable, &mut issues);
+                    }
                     let can_run = self.draft.has_epicenter
                         && self.travel_times.is_ok()
                         && !issues.iter().any(|i| i.blocks());

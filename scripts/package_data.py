@@ -45,6 +45,7 @@ FILES = [
     ("regions/admin1.sras", "natural-earth"),
     ("regions/admin1.sreg", "natural-earth + geonames-cities15000"),
     ("regions/admin1.sout", "natural-earth"),
+    ("regions/stable.sout", "usgs-strec-stable"),
     ("traveltime/ak135.ttt", "ak135-traveltimes"),
     ("cities/cities15000.scty", "geonames-cities15000"),
     ("cities/cities15000.ssit", "geonames-cities15000 + usgs-global-vs30-2026 + ghsl-built-s-2020"),
