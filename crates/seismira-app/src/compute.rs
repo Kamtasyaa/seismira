@@ -314,6 +314,8 @@ pub enum JobMsg {
     },
     /// Tsunami tahmini (ayrı iş parçacığından).
     Tsunami(crate::tsunami::TsunamiResult),
+    /// Kullanıcının bina envanteri (hasardan sonra).
+    Inventory(InventoryResults),
 }
 
 /// Zemin yenilmesi türü.
@@ -526,6 +528,47 @@ pub struct Datasets {
     pub ground: Option<Arc<Ground>>,
     pub tsunami: Option<Arc<crate::tsunami::TsunamiData>>,
     pub quality: Quality,
+    /// Kullanıcının Vs30 haritası: kapsadığı kara hücrelerinde ve şehirlerde
+    /// uygulamanın Vs30'u yerine.
+    pub user_vs30: Option<Arc<crate::userdata::UserVs30>>,
+    /// Kullanıcının bina envanteri (noktalar).
+    pub inventory: Option<Arc<crate::userdata::Inventory>>,
+}
+
+/// Envanter noktasının sonucu.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct InventoryRow {
+    /// Yer hareketi (model içindeyse).
+    pub motion: Option<seismira_core::shaking::Motion>,
+    /// Kullanılan Vs30 (m/s) ve kaynağı.
+    pub vs30: f64,
+    pub vs30_user: bool,
+    /// Beklenen ağır hasarlı + göçen bina sayısı [medyan, −1τ, +1τ];
+    /// bölgede ESRM20 bina karışımı yoksa `None`.
+    pub heavy: Option<[f64; 3]>,
+}
+
+/// Envanter sonucu (noktalarla aynı sıra).
+pub struct InventoryResults {
+    pub rows: Vec<InventoryRow>,
+}
+
+impl InventoryResults {
+    /// Toplam beklenen ağır hasarlı bina [medyan, −1τ, +1τ] ve hasarı
+    /// hesaplanabilen bina sayısı.
+    pub fn totals(&self, inv: &crate::userdata::Inventory) -> ([f64; 3], f64) {
+        let mut t = [0.0; 3];
+        let mut covered = 0.0;
+        for (r, p) in self.rows.iter().zip(&inv.points) {
+            if let Some(h) = r.heavy {
+                covered += p.buildings;
+                for (a, b) in t.iter_mut().zip(h) {
+                    *a += b;
+                }
+            }
+        }
+        (t, covered)
+    }
 }
 
 /// Kalite ayarı (docs/arayuz.md): ince ızgaranın en büyük kenarı ve hasar
@@ -600,6 +643,8 @@ impl Job {
             ground,
             tsunami,
             quality,
+            user_vs30,
+            inventory,
         } = data;
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = channel();
@@ -650,6 +695,13 @@ impl Job {
                         return; // iptal edildi
                     }
                     sites.push(scenario.site((c.lon, c.lat), || {
+                        if let Some(v) = user_vs30.as_ref().and_then(|u| u.sample(c.lon, c.lat)) {
+                            return Site {
+                                vs30: v,
+                                vs30_ln_sd: None,
+                                source: seismira_core::site::Vs30Source::User,
+                            };
+                        }
                         if let Some(cs) = &city_sites {
                             return cs[i];
                         }
@@ -694,6 +746,7 @@ impl Job {
                             ground.as_deref(),
                         ),
                         (&cities, &sites_for_regions),
+                        (user_vs30.as_deref(), inventory.as_deref()),
                         quality,
                         &flag,
                         &tx,
@@ -737,6 +790,10 @@ fn shake_grid(
         Option<&Ground>,
     ),
     (cities, sites): (&[City], &[SiteResult]),
+    (user_vs30, inventory): (
+        Option<&crate::userdata::UserVs30>,
+        Option<&crate::userdata::Inventory>,
+    ),
     quality: Quality,
     cancel: &AtomicBool,
     tx: &std::sync::mpsc::Sender<JobMsg>,
@@ -753,7 +810,7 @@ fn shake_grid(
         }
     });
     let domain = Domain::for_scenario(scenario, base);
-    let window = match vs30.map(|m| m.window(domain.col0, domain.row0, domain.w, domain.h)) {
+    let mut window = match vs30.map(|m| m.window(domain.col0, domain.row0, domain.w, domain.h)) {
         Some(Ok(w)) => Some(w),
         Some(Err(e)) => {
             log::error!("Vs30 penceresi okunamadı: {e}");
@@ -761,6 +818,29 @@ fn shake_grid(
         }
         None => None,
     };
+    // Kullanıcının Vs30 haritası: kapsadığı kara hücrelerinde (deniz NaN
+    // kalır; harita yoksa her yer referans zeminden başlar).
+    if let Some(u) = user_vs30 {
+        let win = window.get_or_insert_with(|| {
+            vec![seismira_core::site::REFERENCE_VS30 as f32; domain.w as usize * domain.h as usize]
+        });
+        let mut n = 0usize;
+        for r in 0..domain.h as usize {
+            let lat = base.north - (domain.row0 as f64 + r as f64 + 0.5) * base.cell;
+            for c in 0..domain.w as usize {
+                let k = r * domain.w as usize + c;
+                if win[k].is_nan() {
+                    continue;
+                }
+                let lon = base.west + (domain.col0 as f64 + c as f64 + 0.5) * base.cell;
+                if let Some(v) = u.sample(lon, lat) {
+                    win[k] = v as f32;
+                    n += 1;
+                }
+            }
+        }
+        log::info!("kullanıcı Vs30: {n} hücre ({})", u.name);
+    }
     let step = domain.fine_step_for(quality.max_dim());
     for (s, fine) in [(step * COARSE_FACTOR, false), (step, true)] {
         let Some(g) = grid::compute(scenario, &domain, s, window.as_deref(), cancel) else {
@@ -945,6 +1025,66 @@ fn shake_grid(
             ctx.request_repaint();
         }
     }
+    if let Some(inv) = inventory {
+        let rows = inventory_rows(scenario, inv, vs30, user_vs30, regions, exposure);
+        if tx
+            .send(JobMsg::Inventory(InventoryResults { rows }))
+            .is_ok()
+        {
+            ctx.request_repaint();
+        }
+    }
+}
+
+/// Envanter noktaları: şiddet ve (ESRM20 bina karışımı olan bölgede)
+/// beklenen ağır hasarlı bina sayısı = bina sayısı × bölge karışımının ağır
+/// hasar + göçme oranı ([`seismira_core::damage::city_fractions`], şehirlerle
+/// aynı yöntem). Zemin: kullanıcı Vs30 → USGS haritası → referans.
+fn inventory_rows(
+    scenario: &Scenario,
+    inv: &crate::userdata::Inventory,
+    vs30: Option<&Vs30>,
+    user_vs30: Option<&crate::userdata::UserVs30>,
+    regions: Option<&Regions>,
+    exposure: Option<&Exposure>,
+) -> Vec<InventoryRow> {
+    use rayon::prelude::*;
+    inv.points
+        .par_iter()
+        .map(|p| {
+            let user = user_vs30.and_then(|u| u.sample(p.lon, p.lat));
+            let site = match user {
+                Some(v) => Site {
+                    vs30: v,
+                    vs30_ln_sd: None,
+                    source: seismira_core::site::Vs30Source::User,
+                },
+                None => vs30
+                    .and_then(|m| m.site(p.lon, p.lat).ok())
+                    .unwrap_or_else(Site::reference),
+            };
+            let r = scenario.site((p.lon, p.lat), || site);
+            let heavy = (|| {
+                r.motion?;
+                let (reg, exp) = (regions?, exposure?);
+                let id = reg.map.id_at(p.lon, p.lat).ok().filter(|&id| id != 0)?;
+                let f = seismira_core::damage::city_fractions(
+                    scenario,
+                    exp,
+                    id,
+                    (p.lon, p.lat),
+                    r.vs30_used,
+                )?;
+                Some(f.map(|d| p.buildings * seismira_core::damage::RegionDamage::heavy(&d)))
+            })();
+            InventoryRow {
+                motion: r.motion,
+                vs30: r.site.vs30,
+                vs30_user: user.is_some(),
+                heavy,
+            }
+        })
+        .collect()
 }
 
 /// İnce ızgarayı bölgelere göre toplar; her bölgenin en güçlü sarsılan
@@ -1006,6 +1146,107 @@ mod tests {
     use super::*;
     use seismira_core::grid::{Base, Domain, GridSpec, ShakeGrid};
     use seismira_core::region::BUILT_BIT;
+
+    /// Kullanıcı verisi hesaba girer (uçtan uca, pencere açmadan): gerçek
+    /// Kahramanmaraş senaryosu, Antakya'yı kapsayan 180 m/s'lik kullanıcı
+    /// Vs30 haritası ve üç envanter noktası. Depodaki veriyle (bölgeler,
+    /// ESRM20, ak135); USGS Vs30 haritası kullanılmaz (depoda yok).
+    #[test]
+    fn kullanici_verisi_hesaba_girer() {
+        use crate::userdata::{Inventory, InventoryPoint, UserVs30};
+        let data = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data"));
+        let tt = Arc::new(TravelTimes::load(&data.join("traveltime/ak135.ttt")).unwrap());
+        let regions = Regions::load(&data.join("regions")).unwrap();
+        let exposure = Arc::new(
+            Exposure::read(&mut std::io::BufReader::new(
+                std::fs::File::open(data.join("exposure/esrm20.sexp")).unwrap(),
+            ))
+            .unwrap(),
+        );
+        let presets = crate::scenarios::load(&data.join("scenarios/scenarios.json")).unwrap();
+        let q = presets
+            .iter()
+            .find(|p| p.id == "kahramanmaras2023")
+            .unwrap()
+            .quake;
+        let user = Arc::new(UserVs30 {
+            name: "test".into(),
+            west: 35.7,
+            north: 36.6,
+            cell: (0.01, 0.01),
+            width: 100,
+            height: 100,
+            data: vec![180.0; 10_000],
+            valid: 10_000,
+        });
+        let pt = |lon, lat, n| InventoryPoint {
+            lon,
+            lat,
+            buildings: n,
+            label: String::new(),
+        };
+        let inv = Arc::new(Inventory {
+            name: "test".into(),
+            points: vec![
+                pt(36.16, 36.20, 100.0), // Antakya (kullanıcı Vs30 içinde)
+                pt(37.30, 37.49, 100.0), // Pazarcık (dışında)
+                pt(32.85, 39.93, 50.0),  // Ankara (model sınırı dışında)
+            ],
+            skipped: 0,
+        });
+        let run = |user_vs30: Option<Arc<UserVs30>>| {
+            let ds = Datasets {
+                cities: Arc::new(Vec::new()),
+                city_sites: None,
+                tt: tt.clone(),
+                vs30: None,
+                regions: Some(regions.clone()),
+                slab: None,
+                exposure: Some(exposure.clone()),
+                vuln: None,
+                ground: None,
+                tsunami: None,
+                quality: Quality::Low,
+                user_vs30,
+                inventory: Some(inv.clone()),
+            };
+            let job = Job::spawn(q, ds, eframe::egui::Context::default());
+            let started = std::time::Instant::now();
+            let mut res = None;
+            loop {
+                let (msgs, done) = job.poll();
+                for m in msgs {
+                    if let JobMsg::Inventory(r) = m {
+                        res = Some(r);
+                    }
+                }
+                if done || started.elapsed().as_secs() > 180 {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            res.expect("envanter sonucu gelmedi")
+        };
+        let with = run(Some(user));
+        let without = run(None);
+        let [a, b, c] = &with.rows[..] else {
+            panic!("3 satır bekleniyordu");
+        };
+        assert!(a.vs30_user && (a.vs30 - 180.0).abs() < 1e-6, "{a:?}");
+        assert!(!b.vs30_user, "{b:?}");
+        assert!(c.motion.is_none() && c.heavy.is_none(), "Ankara: {c:?}");
+        let h_user = a.heavy.expect("Antakya hasarı")[0];
+        let h_ref = without.rows[0].heavy.expect("Antakya hasarı (referans)")[0];
+        assert!(
+            h_user > h_ref && h_user > 0.0,
+            "180 m/s {h_user} ≤ 400 m/s {h_ref}"
+        );
+        // Pazarcık iki hesapta aynı (kullanıcı haritası dışında).
+        assert_eq!(b.heavy, without.rows[1].heavy);
+        let (tot, covered) = with.totals(&inv);
+        assert_eq!(covered, 200.0);
+        assert!(tot[1] <= tot[0] && tot[0] <= tot[2], "{tot:?}");
+    }
 
     /// 2×2 ızgara, adım 1; tüm hücreler bölge 7'de, ikisi yerleşim bitli.
     fn fixture() -> (ShakeGrid, Domain, Vec<seismira_core::region::RegionId>) {

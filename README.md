@@ -38,6 +38,14 @@ offline.
 - **Şiddet:** JMA Shindo (0–7) ya da MMI (Worden vd. 2012), şehir
   kutuları, il / eyalet vurgusu, ±1σ belirsizlik aralığı.
 - **Varsayımsal erken uyarı** (JMA ölçütü) ve bildirim akışı.
+- **Kendi verin:** fay izi (GeoJSON), Vs30 zemin haritası (GeoTIFF) ve
+  bina envanteri (CSV) yüklenebilir (Veri menüsü; dosya yolu ya da
+  sürükle-bırak). / Load your own fault trace, Vs30 map and building
+  inventory (Data menu).
+- **Dışa aktarma:** sarsıntı haritaları GeoTIFF (JMA şiddeti, PGV, PGA),
+  şehir / bölge tabloları CSV, fay izi ve zemin yenilmesi GeoJSON
+  (EPSG:4326; QGIS / ArcGIS). / Export shaking GeoTIFFs, city and region
+  CSVs and GeoJSON layers.
 - **Bina hasarı:** Türkiye ve Avrupa için ESRM20 (hasar durumları);
   Japonya, ABD, Meksika ve dünya için isteğe bağlı GEM paketi (ortalama
   hasar oranı).
@@ -65,16 +73,6 @@ Status: latest release **v0.1.2** (2026-11-25; first release v0.1.0,
 
 Planlanan özellikler, önceliğe göre. Sıra ve zamanlama kesin değildir.
 Planned features by priority; order and timing are not fixed.
-
-### Kritik öncelik / Critical
-
-- **Kendi verini yükle:** Vs30 (GeoTIFF), fay geometrisi (GeoJSON) ya da
-  yerel bina envanteri dosyasını sürükleyip bırakarak simülasyonda
-  kullanma. / Drag and drop your own Vs30, fault geometry or building
-  inventory.
-- **Çıktı dışa aktarma:** ivme, hasar ve sıvılaşma haritaları CSV,
-  GeoJSON ya da GeoTIFF olarak (QGIS / ArcGIS için). / Export shaking,
-  damage and liquefaction maps as CSV, GeoJSON or GeoTIFF.
 
 ### Önemli öncelik / High
 

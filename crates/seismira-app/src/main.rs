@@ -9,6 +9,7 @@ mod city_layer;
 mod compute;
 #[cfg(feature = "screenshot")]
 mod devshot;
+mod export;
 mod fonts;
 mod ground_style;
 mod i18n;
@@ -23,6 +24,7 @@ mod text_test;
 mod theme;
 mod timeline;
 mod tsunami;
+mod userdata;
 
 /// Çoklu örnekleme (MSAA): harita çizgileri ve kıyılar için kenar yumuşatma.
 /// Harita çizim hattı da aynı örnek sayısını kullanmak zorundadır.

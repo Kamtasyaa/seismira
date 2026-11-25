@@ -566,3 +566,31 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   kaydedilir): kapalıyken kıyı noktaları, açıklama, bildirimler ve bölge
   kartı satırı gizlenir (hesap yine yapılır, zaman çizgisi yine uzar).
 
+## Kendi verin ve dışa aktarma (2026-11-26, README kritik listesi)
+
+- Menü "Veri": "Kendi verini yükle…" ve "Sonuçları dışa aktar…" pencereleri
+  (`app/user_ui.rs`, `userdata.rs`, `export.rs`).
+- Dosya seçme: yol kutusu (her platform) + pencereye sürükle-bırak. winit
+  0.30.13'te dosya bırakma yalnızca X11, Windows, macOS'ta var; Wayland'de
+  YOK (kaynakta denetlendi), bu yüzden yol kutusu asıl yol. Yerel dosya
+  seçme penceresi (`rfd` crate'i) kullanıcıya soruldu (yeni bağımlılık).
+- Türler (uzantıdan): .geojson/.json fay izi (en uzun çizgi; > 32 nokta
+  Visvalingam ile 32'ye), .tif/.tiff Vs30 (tek bant, coğrafi koordinat;
+  100–3000 m/s dışı veri yok; en çok 10⁸ hücre; en yakın hücre), .csv/.txt
+  envanter (başlıklı; boylam/enlem/bina sütun adları TR/EN; ; ayraçta
+  ondalık virgül). Okuma arka planda; hata çeviri anahtarıyla gösterilir.
+- Vs30 kapsadığı KARA hücrelerinde (deniz NaN kalır) ve şehirlerde
+  uygulamanın Vs30'u yerine geçer (şehir kartında "senin yüklediğin
+  harita"); bina hasarı da bunu kullanır. Sıvılaşma / heyelan statik
+  katmanları önceden hesaplı olduğundan DEĞİŞMEZ (bilinen sınır).
+- Envanter: her nokta için şiddet ve beklenen ağır hasar + göçme =
+  bina sayısı × noktanın ilindeki ESRM20 karışımının oranı (şehirlerle
+  aynı yöntem; yalnızca Türkiye ve Avrupa). Haritada mavi kareler (≤ 5 000
+  nokta çizilir), Vs30 kapsamı mavi kesikli çerçeve.
+- Dışa aktarma: `~/Seismira/seismira-<UTC tarih-saat>/`: üç GeoTIFF (JMA
+  aletsel şiddet, PGV cm/s, PGA g; f32, nodata −9999, EPSG:4326; elle
+  yazılır, rasterio/GDAL 3 ile doğrulandı), şehir ve bölge CSV'si, fay ve
+  zemin yenilmesi GeoJSON'u, envanter CSV'si, BENIOKU_README.txt (eğitim
+  uyarısı, birimler). Yazma arka planda; "Klasörü aç" (xdg-open / explorer
+  / open).
+

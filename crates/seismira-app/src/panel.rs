@@ -9,7 +9,7 @@ use seismira_core::source::Fault;
 use crate::i18n::Lang;
 
 const BLOCK_COLOR: Color32 = Color32::from_rgb(0xFF, 0x6B, 0x6B);
-const WARN_COLOR: Color32 = Color32::from_rgb(0xE8, 0xB4, 0x4C);
+pub(crate) const WARN_COLOR: Color32 = Color32::from_rgb(0xE8, 0xB4, 0x4C);
 
 /// Paneldeki taslak deprem. Merkez üssü seçilene kadar Başlat kapalı.
 pub struct Draft {

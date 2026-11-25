@@ -26,7 +26,9 @@ fluent-templates = "0.15"
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 log = "0.4"
 memmap2 = "0.9.12"
+rayon = "1"
 serde_json = "1"
+tiff = { version = "0.11.3", features = ["zstd"] }
 toml = "1"
 seismira-core.workspace = true
 skrifa = "0.44"

@@ -39,6 +39,8 @@ pub enum Vs30Source {
     Reference = 2,
     /// Yapılaşma ağırlıklı (şehirler).
     Built = 3,
+    /// Kullanıcının yüklediği Vs30 haritası (dosyaya yazılmaz).
+    User = 4,
 }
 
 impl Vs30Source {

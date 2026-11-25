@@ -15,6 +15,8 @@ use crate::map::{MapWidget, view::MapView};
 use crate::timeline::{self, Clock};
 use crate::{fonts, i18n::Lang, panel, paths, shindo_style, text_test, theme};
 
+mod user_ui;
+
 /// Dalga halkası renkleri. P (önce gelen, zayıf sarsıntı) soğuk, S (güçlü
 /// sarsıntı) sıcak renk. Renk tek bilgi taşıyıcı değildir: haritada
 /// açıklama kutusu var (Bölüm 3.2).
@@ -454,6 +456,8 @@ pub struct SeismiraApp {
     region_card: Option<(seismira_core::region::RegionId, (f64, f64))>,
     /// Bölgelerin ekranda gösterilen aşaması (en az ~1 s görünme kuralı).
     region_shown: std::collections::HashMap<seismira_core::region::RegionId, Shown>,
+    /// Kullanıcının kendi verisi ve dışa aktarma ([`user_ui`]).
+    user: user_ui::UserState,
 }
 
 /// Başlangıç görünümü. Geliştirme için `SEISMIRA_VIEW=boylam,enlem,ölçek`.
@@ -602,6 +606,7 @@ impl SeismiraApp {
             regions,
             region_events: Vec::new(),
             region_results: Vec::new(),
+            user: Default::default(),
             alert: None,
             job: None,
             results: None,
@@ -710,6 +715,14 @@ impl SeismiraApp {
         egui::MenuBar::new().ui(ui, |ui| {
             ui.label(RichText::new(t("app-title")).strong());
             ui.separator();
+            ui.menu_button(t("menu-data"), |ui| {
+                if ui.button(t("menu-user-load")).clicked() {
+                    self.user.show_load = true;
+                }
+                if ui.button(t("menu-export")).clicked() {
+                    self.user.show_export = true;
+                }
+            });
             ui.menu_button(t("menu-view"), |ui| {
                 ui.checkbox(&mut self.show_disclaimer, t("menu-disclaimer"));
                 ui.checkbox(&mut self.show_grid, t("menu-shake-grid"));
@@ -924,6 +937,7 @@ impl SeismiraApp {
         {
             self.toggle_region_card((lon, lat));
         }
+        self.draw_user_overlays(ui, rect);
         if let Some((id, at)) = self.region_card {
             self.draw_region_card(ui, rect, id, self.map.to_screen(rect, at));
         }
@@ -1221,6 +1235,7 @@ impl SeismiraApp {
                     Vs30Source::Nearby => "tip-vs30-nearby",
                     Vs30Source::Reference => "tip-vs30-reference",
                     Vs30Source::Built => "tip-vs30-built",
+                    Vs30Source::User => "tip-vs30-user",
                 };
                 lines.push((lang.t_args(key, &[("v", v)]), weak));
                 if r.backarc {
@@ -1757,6 +1772,8 @@ impl SeismiraApp {
         self.damage = None;
         self.alert = None;
         self.sim = None;
+        self.user.grid = None;
+        self.user.inventory_results = None;
         self.clock = Clock {
             speed: self.clock.speed,
             ..Clock::default()
@@ -1808,6 +1825,8 @@ impl SeismiraApp {
                 ground: self.ground.clone(),
                 tsunami: self.tsunami_data.clone(),
                 quality: self.quality,
+                user_vs30: self.user.vs30.clone(),
+                inventory: self.user.inventory.clone(),
             };
             self.job = Some(compute::Job::spawn(sim.quake, data, ctx.clone()));
         }
@@ -2238,6 +2257,9 @@ impl eframe::App for SeismiraApp {
         let lang = self.lang;
         let t = |k| lang.t(k);
 
+        let ctx = ui.ctx().clone();
+        self.user_poll(&ctx);
+
         egui::Panel::top("menu").show(ui, |ui| {
             ui.add_space(3.0);
             self.menu_bar(ui);
@@ -2345,7 +2367,11 @@ impl eframe::App for SeismiraApp {
                         }
                         self.results = Some(results);
                     }
-                    compute::JobMsg::Grid(grid) => self.map.set_grid(Some(grid)),
+                    compute::JobMsg::Grid(grid) => {
+                        self.user.grid = Some(grid.clone());
+                        self.map.set_grid(Some(grid));
+                    }
+                    compute::JobMsg::Inventory(r) => self.user.inventory_results = Some(r),
                     compute::JobMsg::Regions(r, lines) => {
                         self.map.set_region_lines(lines);
                         self.region_events = region_events(&r);
@@ -2408,6 +2434,8 @@ impl eframe::App for SeismiraApp {
                     });
             });
         self.show_text_test = open;
+
+        self.user_windows(ui.ctx());
 
         let mut open = self.show_sources;
         egui::Window::new(t("sources-title"))
