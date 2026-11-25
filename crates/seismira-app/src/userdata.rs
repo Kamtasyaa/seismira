@@ -488,6 +488,24 @@ mod tests {
         );
     }
 
+    /// Dış GeoTIFF denetimi (GDAL/QGIS çıktısı; LZW, DEFLATE, döşemeli):
+    /// `SEISMIRA_TEST_VS30=<yol>` verilirse okunur ve özeti yazılır.
+    #[test]
+    fn dis_geotiff_ortam_degiskeniyle() {
+        let Some(p) = std::env::var_os("SEISMIRA_TEST_VS30") else {
+            return;
+        };
+        let v = load_vs30(Path::new(&p)).unwrap();
+        println!(
+            "OKUNDU {} × {}, geçerli {}, sınırlar {:?}, Antakya {:?}",
+            v.width,
+            v.height,
+            v.valid,
+            v.bounds(),
+            v.sample(36.16, 36.20)
+        );
+    }
+
     /// Elle yazılmış küçük GeoTIFF'in okunması ([`crate::export`] yazıcısıyla).
     #[test]
     fn geotiff_vs30_okunur() {
