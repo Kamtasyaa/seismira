@@ -277,6 +277,20 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   - Sonuç: 2016 Kumamoto dizisi (Mw 6,2 + 7,0) Kumamoto ili %2,7 (olası
     1,6–4,4), gözlenen %2,0–10,0; doğrulama: docs/dogrulama.md Faz 9.
 
+- Hasarsızlık sınırı (`noDamageLimit`, 2026-11-27): NRML tanımıyla
+  şiddet L'nin altındaysa hasar olasılığı sıfır; OpenQuake bunu her yer
+  hareketi değerine uygular. Analitik karşılığı şiddet dağılımı üzerinden
+  P(DS ≥ k) = ∫_{ln L}^{∞} Φ((x − ln m_k)/β) N(x; μ, φ²) dx; iki değişkenli
+  normal dağılımla kapalı biçim (θ integralli standart özdeşlik, Drezner &
+  Wesolowsky 1990 / Genz 2004 biçimi; makaleler görülmedi, özdeşlik ince
+  Simpson integraline karşı test edildi, fark < 2·10⁻⁵;
+  `exposure::truncated_exceedance`).
+  Önceden sınır medyana uygulanıyordu: L'si medyana yakın tiplerde
+  (ESRM20'de medyan(hafif)/L en küçük 2,1) sınırda P(hafif+) 0 ↔ 0,15
+  sıçraması. Etki (Kahramanmaraş `validate-damage`): ağır+göçme il
+  oranları ±0,1 puan, il başına ln(model/gözlenen) −0,52 → −0,50; hasar
+  hesabı 350 → 395 ms (arka planda).
+
 ### 7.9 Sıvılaşma ve heyelan
 
 - Sıvılaşma: Zhu vd. (2017). Girdiler: PGV, Vs30, yağış, kıyıya

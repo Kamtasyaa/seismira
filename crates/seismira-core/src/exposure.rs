@@ -98,15 +98,48 @@ impl Fragility {
     }
 
     /// P(DS ≥ k), k = hafif..göçme; şiddet ölçüsü log-normal (medyanın ln'i
-    /// `ln_im`, olay içi sapma `phi`). Medyan hasarsızlık sınırının altındaysa
-    /// sıfır (OpenQuake bu sınırı tek değere uygular; burada medyana).
+    /// `ln_im`, olay içi sapma `phi`).
+    ///
+    /// Hasarsızlık sınırı L (`noDamageLimit`): NRML tanımıyla şiddet L'nin
+    /// altındaysa hasar olasılığı sıfır; OpenQuake bunu her yer hareketi
+    /// değerine uygular. Analitik karşılığı (şiddetin dağılımı üzerinden):
+    ///
+    /// ```text
+    /// P(DS ≥ k) = ∫_{ln L}^{∞} Φ((x − ln m_k) / β) · N(x; μ, φ²) dx
+    /// ```
+    /// L dağılımın çok altındaysa (z = (ln L − μ)/φ < −4,5) bu, kapalı biçim
+    /// Φ((μ − ln m_k) / √(β² + φ²))'ye eşittir; çok üstündeyse (z > 4,5)
+    /// sıfırdır (ikisinde de hata ≤ 1 − Φ(4,5) = 3,4·10⁻⁶); arada iki
+    /// değişkenli normal dağılımla ([`truncated_exceedance`]).
+    /// 2026-11-27'ye kadar sınır medyana uygulanıyordu (μ < ln L ise sıfır):
+    /// L'si medyana yakın tiplerde sınırda P(hafif+) 0 ↔ 0,15 sıçraması
+    /// (docs/bilim.md 7.8).
     pub fn exceedance(&self, ln_im: f64, phi: f64) -> [f64; N_DS] {
-        if ln_im < f64::from(self.no_damage).ln() {
+        let a = f64::from(self.no_damage).ln();
+        let beta = f64::from(self.beta);
+        if phi <= 0.0 {
+            if ln_im < a {
+                return [0.0; N_DS];
+            }
+            return self
+                .median
+                .map(|m| normal_cdf((ln_im - f64::from(m).ln()) / beta));
+        }
+        let za = (a - ln_im) / phi;
+        if za > ZA_CUT {
             return [0.0; N_DS];
         }
-        let s = (f64::from(self.beta).powi(2) + phi * phi).sqrt();
-        self.median
-            .map(|m| normal_cdf((ln_im - f64::from(m).ln()) / s))
+        if za < -ZA_CUT {
+            let s = (beta * beta + phi * phi).sqrt();
+            return self
+                .median
+                .map(|m| normal_cdf((ln_im - f64::from(m).ln()) / s));
+        }
+        truncated_exceedance(
+            za,
+            self.median.map(|m| (ln_im - f64::from(m).ln()) / beta),
+            phi / beta,
+        )
     }
 }
 
@@ -282,6 +315,83 @@ fn bad(msg: &str) -> io::Error {
 /// t = 1/(1 + z/2); kitaba göre her z için bağıl hata < 1,2·10⁻⁷.
 /// Katsayılar test `normal_dagilim` ile Abramowitz & Stegun (1964) Tablo
 /// 26.1 değerlerine karşı denetlenir. Hasar olasılığı için fazlasıyla yeterli.
+/// Kesik integralin atlandığı eşik (standart sapma); hata ≤ 1 − Φ(4,5).
+const ZA_CUT: f64 = 4.5;
+
+/// ∫_{za}^{∞} n(z) · Φ(c + r·z) dz (n: standart normal yoğunluk):
+/// [`Fragility::exceedance`]'ın kesik integrali (z = (x − μ)/φ,
+/// c = (μ − ln m)/β, r = φ/β).
+///
+/// Z₁, Z₂ bağımsız standart normal ise Φ(c + r·z) = P(Z₂ ≤ c + r·z), yani
+/// integral P(Z₁ ≥ za, Z₂ − r·Z₁ ≤ c) = Φ₂(h, k; ρ) ile h = −za,
+/// k = c/√(1 + r²), ρ = r/√(1 + r²). İki değişkenli normal dağılım,
+/// ρ üzerinden türevle elde edilen standart özdeşlikle (Drezner &
+/// Wesolowsky 1990 ve Genz 2004'ün kullandığı biçim; makaleler bu oturumda
+/// GÖRÜLMEDİ, özdeşlik test `hasarsizlik_siniri_integrali`de doğrudan
+/// sayısal integrale karşı doğrulanır):
+///
+/// ```text
+/// Φ₂(h, k; ρ) = Φ(h)·Φ(k) + (1/2π) ∫₀^{asin ρ} exp(−(h² + k² − 2hk·sin θ) / (2cos² θ)) dθ
+/// ```
+/// θ integrali 8 noktalı Gauss–Legendre ile. ESRM20'de β 0,32–0,74, φ ≈ 0,6
+/// → ρ ≤ 0,9; test `hasarsizlik_siniri_integrali` β 0,25–0,9 için ince
+/// Simpson integraliyle karşılaştırır (fark < 2·10⁻⁵).
+fn truncated_exceedance(za: f64, c: [f64; N_DS], r: f64) -> [f64; N_DS] {
+    static GL: std::sync::LazyLock<Vec<(f64, f64)>> =
+        std::sync::LazyLock::new(|| gauss_legendre(8));
+    let q = (1.0 + r * r).sqrt();
+    let (h, rho) = (-za, r / q);
+    let top = rho.asin();
+    // θ düğümleri tüm hasar durumlarında ortak: sin θ ve 1/(2cos²θ) bir kez.
+    let mut nodes = [(0.0, 0.0, 0.0); 8];
+    for (n, &(x, w)) in nodes.iter_mut().zip(GL.iter()) {
+        let (sn, cs) = (0.5 * top * (x + 1.0)).sin_cos();
+        *n = (w, sn, 0.5 / (cs * cs));
+    }
+    let ph = normal_cdf(h);
+    let scale = 0.5 * top / (2.0 * std::f64::consts::PI);
+    c.map(|c| {
+        let k = c / q;
+        let hk = h * h + k * k;
+        let sum: f64 = nodes
+            .iter()
+            .map(|&(w, sn, inv)| w * (-(hk - 2.0 * h * k * sn) * inv).exp())
+            .sum();
+        (ph * normal_cdf(k) + scale * sum).clamp(0.0, 1.0)
+    })
+}
+
+/// n noktalı Gauss–Legendre düğümleri ve ağırlıkları, [−1, 1]: Legendre
+/// polinomunun kökleri Newton yöntemiyle (başlangıç cos(π(i − ¼)/(n + ½))),
+/// ağırlık 2 / ((1 − x²) P'ₙ(x)²) (Press vd. 1992, Bölüm 4.5, `gauleg`).
+fn gauss_legendre(n: usize) -> Vec<(f64, f64)> {
+    let mut out = Vec::with_capacity(n);
+    for i in 1..=n {
+        let mut x = (std::f64::consts::PI * (i as f64 - 0.25) / (n as f64 + 0.5)).cos();
+        let mut dp = 0.0;
+        for _ in 0..100 {
+            // Üç terimli yineleme: P_k.
+            let (mut p0, mut p1) = (1.0, x);
+            for k in 2..=n {
+                let k = k as f64;
+                let p2 = ((2.0 * k - 1.0) * x * p1 - (k - 1.0) * p0) / k;
+                p0 = p1;
+                p1 = p2;
+            }
+            let pn = if n == 1 { x } else { p1 };
+            let pm = if n == 1 { 1.0 } else { p0 };
+            dp = n as f64 * (x * pn - pm) / (x * x - 1.0);
+            let dx = pn / dp;
+            x -= dx;
+            if dx.abs() < 1e-15 {
+                break;
+            }
+        }
+        out.push((x, 2.0 / ((1.0 - x * x) * dp * dp)));
+    }
+    out
+}
+
 pub fn normal_cdf(x: f64) -> f64 {
     0.5 * erfc(-x / std::f64::consts::SQRT_2)
 }
@@ -304,6 +414,91 @@ fn erfc(x: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Gauss–Legendre: ağırlıklar toplamı 2, x⁴'ün integrali 2/5 (8 nokta
+    /// 15. dereceye kadar tam).
+    #[test]
+    fn gauss_legendre_dugumleri() {
+        let gl = gauss_legendre(8);
+        assert_eq!(gl.len(), 8);
+        let sum: f64 = gl.iter().map(|p| p.1).sum();
+        assert!((sum - 2.0).abs() < 1e-13);
+        let x4: f64 = gl.iter().map(|&(x, w)| w * x.powi(4)).sum();
+        assert!((x4 - 0.4).abs() < 1e-13);
+        let x15: f64 = gl.iter().map(|&(x, w)| w * x.powi(14)).sum();
+        assert!((x15 - 2.0 / 15.0).abs() < 1e-12);
+    }
+
+    /// Kesik integral: ince Simpson'la aynı; sınır dağılımın çok altındayken
+    /// kapalı biçime, çok üstündeyken sıfıra sürekli bağlanır; sınırda
+    /// sıçrama yok.
+    #[test]
+    fn hasarsizlik_siniri_integrali() {
+        let phi = 0.6;
+        let simpson = |mu: f64, m: f64, beta: f64| {
+            let (a, b, n) = ((0.05f64).ln(), mu + 10.0 * phi, 20_000);
+            if b <= a {
+                return 0.0;
+            }
+            let h = (b - a) / n as f64;
+            let g = |x: f64| {
+                normal_cdf((x - m.ln()) / beta) * (-0.5 * ((x - mu) / phi).powi(2)).exp()
+                    / (phi * (2.0 * std::f64::consts::PI).sqrt())
+            };
+            (0..=n)
+                .map(|i| {
+                    let w = if i == 0 || i == n {
+                        1.0
+                    } else if i % 2 == 1 {
+                        4.0
+                    } else {
+                        2.0
+                    };
+                    w * g(a + i as f64 * h)
+                })
+                .sum::<f64>()
+                * h
+                / 3.0
+        };
+        // β: ESRM20'de en küçük ~0,3 (ρ = r/√(1+r²) ≈ 0,89) ile 0,9 arası.
+        for beta in [0.25, 0.3, 0.586, 0.9] {
+            let f = Fragility {
+                name: "T".into(),
+                imt: FragImt::Pga,
+                median: [0.105, 0.2, 0.35, 0.6],
+                beta,
+                no_damage: 0.05,
+            };
+            for k in -30..=40 {
+                let mu = (0.05f64).ln() + 0.1 * k as f64;
+                let p = f.exceedance(mu, phi);
+                for (d, &m) in f.median.iter().enumerate() {
+                    let want = simpson(mu, f64::from(m), f64::from(beta));
+                    assert!(
+                        (p[d] - want).abs() < 2e-5,
+                        "β {beta} μ {mu} DS{d}: {} {want}",
+                        p[d]
+                    );
+                }
+            }
+        }
+        let f = Fragility {
+            name: "T".into(),
+            imt: FragImt::Pga,
+            median: [0.105, 0.2, 0.35, 0.6],
+            beta: 0.586,
+            no_damage: 0.05,
+        };
+        // Kollar arası süreklilik (z = ±4,5 eşikleri; sıçrama ≤ 3,4·10⁻⁶).
+        let at = |z: f64| f.exceedance((0.05f64).ln() - z * phi, phi)[0];
+        assert!((at(-ZA_CUT + 1e-9) - at(-ZA_CUT - 1e-9)).abs() < 3.5e-6);
+        assert!(at(ZA_CUT - 1e-9) < 3.5e-6 && at(ZA_CUT + 1e-9) == 0.0);
+        // Eski sıçrama: medyan sınırın hemen altında artık sıfır değil.
+        assert!(f.exceedance((0.0499f64).ln(), phi)[0] > 0.1);
+        // φ = 0: sınır doğrudan uygulanır.
+        assert_eq!(f.exceedance((0.049f64).ln(), 0.0), [0.0; N_DS]);
+        assert!(f.exceedance((0.2f64).ln(), 0.0)[1] > 0.49);
+    }
 
     #[test]
     fn normal_dagilim() {
@@ -364,9 +559,13 @@ mod tests {
         // Toplam, DS ≥ hafif olasılığı × bina sayısı.
         let p1 = normal_cdf((0.8f64 / 0.2).ln() / 0.5);
         assert!((d.iter().sum::<f64>() - 1000.0 * p1).abs() < 1e-6);
-        // Hasarsızlık sınırının altında sıfır; şiddet ölçüsü yoksa sıfır.
-        let none = e.damage(s, |_| Some((0.01f64.ln(), 0.6)));
+        // Hasarsızlık sınırının altında belirsizlik yoksa sıfır; belirsizlikle
+        // yalnızca şiddetin sınırı aşan kuyruğu kadar (1000 binada < 0,1);
+        // şiddet ölçüsü yoksa sıfır.
+        let none = e.damage(s, |_| Some((0.01f64.ln(), 0.0)));
         assert_eq!(none, [0.0; N_DS]);
+        let tail = e.damage(s, |_| Some((0.01f64.ln(), 0.6)));
+        assert!(tail.iter().sum::<f64>() < 0.1, "{tail:?}");
         assert_eq!(e.damage(s, |_| None), [0.0; N_DS]);
         // Şiddet arttıkça ağır hasar artar.
         let lo = e.damage(s, |_| Some((0.3f64.ln(), 0.6)));
