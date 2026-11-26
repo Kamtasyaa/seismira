@@ -320,7 +320,8 @@ fn plot(
     let w = ui.available_width().max(300.0);
     let (resp, painter) = ui.allocate_painter(vec2(w, 280.0), egui::Sense::hover());
     let outer = resp.rect;
-    let area = egui::Rect::from_min_max(outer.min + vec2(46.0, 8.0), outer.max - vec2(10.0, 30.0));
+    // Üst pay: eksen başlığı ("Spektral ivme (g)") kırpılmasın.
+    let area = egui::Rect::from_min_max(outer.min + vec2(46.0, 22.0), outer.max - vec2(10.0, 30.0));
     // Veri: (T, medyan, alt, üst); PGA T = 0'da.
     let mut pts: Vec<(f64, f64, f64, f64)> = Vec::new();
     if let Some(m) = sp.pga {
@@ -331,18 +332,34 @@ fn plot(
             (m.mean + m.sigma).exp(),
         ));
     }
-    for &(t, m) in &sp.sa {
+    for (k, &(t, m)) in sp.sa.iter().enumerate() {
+        let Some(m) = m else {
+            continue;
+        };
         if t > t_max * 1.0001 {
+            // Eğri sınır periyoduna kadar uzasın: önceki noktayla log-log
+            // ara değer (periyotlar logaritmik aralıklı, sınıra denk
+            // gelmeyebilir).
+            if let Some((t0, Some(m0))) = k.checked_sub(1).map(|j| sp.sa[j])
+                && t0 < t_max
+            {
+                let f = (t_max / t0).ln() / (t / t0).ln();
+                let lerp = |a: f64, b: f64| (a + f * (b - a)).exp();
+                pts.push((
+                    t_max,
+                    lerp(m0.mean, m.mean),
+                    lerp(m0.mean - m0.sigma, m.mean - m.sigma),
+                    lerp(m0.mean + m0.sigma, m.mean + m.sigma),
+                ));
+            }
             break;
         }
-        if let Some(m) = m {
-            pts.push((
-                t,
-                m.median(),
-                (m.mean - m.sigma).exp(),
-                (m.mean + m.sigma).exp(),
-            ));
-        }
+        pts.push((
+            t,
+            m.median(),
+            (m.mean - m.sigma).exp(),
+            (m.mean + m.sigma).exp(),
+        ));
     }
     let mut y_max = pts.iter().map(|p| p.3).fold(0.0, f64::max);
     if let Some(d) = design {
