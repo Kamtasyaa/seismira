@@ -994,3 +994,33 @@ satırına (ShakeMap'in kendi mesafeleri, +0,07) eşitlendi, yani mesafeler art�
 ShakeMap'in sonlu fayıyla tutarlı. NGA-West2 İzmit (28 kayıt, iz ile): C
 ΔI −0,03, std 0,44, %100. Sonuç: dağılım küçüldü, ortalama değişmedi; iz
 gerçeğe daha yakın. (Yukarıdaki Faz 10 tablosu CY14 tek model dönemindendir.)
+
+## Yönelim (CY14 ΔDPP) doğrulaması: istasyon SA kayıtları (2026-11-26)
+
+Komut: `seismira-data validate-directivity <stationlist.json> <senaryo>`
+(`validate_directivity.rs`). Gözlem: iki yatay kanalın geometrik ortalaması;
+zemin: istasyonun ShakeMap Vs30'u; Rrup ≤ 70 km (CY14 yönelim alanı); hazır
+senaryo geometrisi (çok parçalı iz dahil). Kalıntı = ln(göz/tah). "Eğim":
+yönelimsiz kalıntının ΔDPP'ye doğrusal eğimi (r korelasyon); yönelim gerçek
+bir etkiyse pozitif. "Dört modele": deney, CY14 terimi dört NGA-West2
+modeline uygulansaydı (ortalamada CY14 ağırlığı ¼, tam terim 4 × fark;
+Watson-Lamprey, PEER 2017/04'ün önerdiği yön, rapor okunmadı).
+
+| Olay (n, SA) | yönelimsiz std | CY14 (uygulanan) | dört modele | eğim (r) |
+|---|---|---|---|---|
+| Kahramanmaraş (51) SA 1 s | 0,750 | 0,743 | 0,725 | +0,23 (+0,43) |
+| Kahramanmaraş (51) SA 3 s | 0,740 | 0,725 | 0,694 | +0,18 (+0,34) |
+| İzmit (21) SA 1 s | 0,886 | 0,884 | 0,879 | +0,29 (+0,31) |
+| İzmit (21) SA 3 s | 0,614 | 0,615 | 0,628 | +0,04 (+0,06) |
+| Ridgecrest (25) SA 3 s | 0,728 | 0,730 | 0,751 | −0,02 (−0,03) |
+| Kumamoto (63) SA 3 s | 0,571 | 0,551 | 0,503 | +0,27 (+0,51) |
+| Noto (32) SA 3 s | 0,482 | 0,495 | 0,540 | −0,23 (−0,39) |
+
+Sonuç: DPP üç olayda (Kahramanmaraş, İzmit SA 1 s, Kumamoto) gerçek
+kalıntılarla pozitif ilişkili (yönelimi yakalıyor); Ridgecrest'te ilişki yok,
+Noto'da (karmaşık ters fay, tek düzlem eşdeğeri) ters. Uygulanan etki
+(yalnız CY14, ¼ ağırlık) std'yi en çok %3 düşürür. Dört modele yaymak iki
+olayda iyileştirir (Kahramanmaraş −%6, Kumamoto −%12), üçünde kötüleştirir;
+beş olay ortalamasında SA 3 s std değişimi ≈ 0. KARAR: yayımlanmış hal
+(yalnız CY14) korunur; dört modele yayma kanıt yetersiz (kullanıcıya
+bildirildi). PGV / şiddete etki ±%1.

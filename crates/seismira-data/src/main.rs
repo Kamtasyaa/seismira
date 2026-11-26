@@ -40,6 +40,7 @@ mod stable;
 mod tsunami_eta;
 mod tsunami_scenario;
 mod validate_damage;
+mod validate_directivity;
 mod validate_gem;
 mod validate_landslide;
 mod validate_liquefaction;
@@ -53,6 +54,9 @@ fn main() -> Result<()> {
     match args.as_slice() {
         [cmd, input, output] if cmd == "natural-earth" => {
             natural_earth(Path::new(input), Path::new(output))
+        }
+        [cmd, stations, id] if cmd == "validate-directivity" => {
+            validate_directivity::run(Path::new(stations), id)
         }
         [cmd, stations, rest @ ..] if cmd == "validate-shakemap" => {
             validate_shakemap(Path::new(stations), rest)
