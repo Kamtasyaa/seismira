@@ -167,6 +167,7 @@ pub fn run(flatfile: &Path, event: &str, scenario: Option<&str>) -> Result<()> {
                 fault,
                 vs30: clamp(vs30),
                 region,
+                dpp: 0.0,
             },
         )
         .map(|m| m.mean)

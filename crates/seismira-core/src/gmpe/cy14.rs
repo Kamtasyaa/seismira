@@ -13,7 +13,13 @@
 //! Kapsam ve seçimler:
 //! - Bileşen: RotD50.
 //! - Bölge: Kaliforniya/küresel temel model (bölgesel düzeltmeler yok).
-//! - Yönelim (directivity) terimi yok (merkezlenmiş DPP = 0).
+//! - Yönelim (directivity): Eş. 3.6–3.8 (PEER 2013/07 s. 24, birincil
+//!   kaynaktan 2026-11-26): f_D = c8 · f_R · f_M · exp(−c8a (M − c8b)²) ·
+//!   ΔDPP, f_R = max(0, 1 − max(Rrup − 40, 0)/30), f_M = min(1,
+//!   max(M − 5.5, 0)/0.8); ln y_ref'e eklenir (Eş. 11 içinde, zemin
+//!   teriminden önce; pygmm 0.9.1 ile aynı yer). ΔDPP (merkezlenmiş DPP,
+//!   Chiou & Spudich 2013) girdi olarak gelir ([`crate::rupture`]); 0 =
+//!   ortalama yönelim (önceki davranış).
 //! - Havza terimi yok (ΔZ1 = 0: Z1, Vs30'dan modelin kendi ilişkisiyle).
 //! - Vs30 "tahmini" kabul edilir (haritadan; sapma terimi σ3).
 //! - Geçerlilik (makale; pygmm uyarılarıyla teyit): Mw 3.5–8.5 doğrultu
@@ -41,6 +47,8 @@ pub struct Input {
     pub fault: FaultType,
     /// Üst 30 m ortalama kayma dalgası hızı (m/s).
     pub vs30: f64,
+    /// Merkezlenmiş DPP (ΔDPP); 0: ortalama yönelim.
+    pub dpp: f64,
 }
 
 /// Modelin mesafe sınırı (km, Rrup).
@@ -90,6 +98,9 @@ struct Coeffs {
     c9a: f64,
     c9b: f64,
     c11b: f64,
+    c8: f64,
+    c8a: f64,
+    c8b: f64,
     g1: f64,
     g2: f64,
     g3: f64,
@@ -139,7 +150,7 @@ fn parse(csv: &str) -> Table {
     let idx: Vec<usize> = [
         "c1", "c1a", "c1b", "c1c", "c1d", "cn", "cM", "c3", "c5", "cHM", "c6", "c7", "c7b", "c9",
         "c9a", "c9b", "c11b", "cgamma1", "cgamma2", "cgamma3", "phi1", "phi2", "phi3", "phi4",
-        "phi5", "tau1", "tau2", "sigma1", "sigma2", "sigma3",
+        "phi5", "tau1", "tau2", "sigma1", "sigma2", "sigma3", "c8", "c8a", "c8b",
     ]
     .iter()
     .map(|n| col(n))
@@ -180,6 +191,9 @@ fn parse(csv: &str) -> Table {
             sigma1: v(27),
             sigma2: v(28),
             sigma3: v(29),
+            c8: v(30),
+            c8a: v(31),
+            c8b: v(32),
         };
         match f[0] {
             "PGA" => pga = Some(c),
@@ -233,7 +247,15 @@ fn compute(c: &Coeffs, i: &Input) -> LnMotion {
     } else {
         0.0
     };
-    let ln_ref = r1 + r2 + r3 + r4 + r5;
+    // Eş. 3.6–3.8: yönelim (ΔDPP = 0 ise sıfır).
+    let r6 = if i.dpp == 0.0 {
+        0.0
+    } else {
+        let f_r = (1.0 - (i.rrup - 40.0).max(0.0) / 30.0).max(0.0);
+        let f_m = ((m - 5.5).max(0.0) / 0.8).min(1.0);
+        c.c8 * f_r * f_m * (-c.c8a * (m - c.c8b).powi(2)).exp() * i.dpp
+    };
+    let ln_ref = r1 + r2 + r3 + r4 + r5 + r6;
     let y_ref = ln_ref.exp();
 
     // Eş. 12: zemin etkisi (doğrusal + doğrusal olmayan), havza terimi 0.
@@ -283,6 +305,62 @@ pub fn predict(imt: Imt, input: &Input) -> Option<LnMotion> {
 mod tests {
     use super::*;
 
+    /// Yönelim terimi pygmm 0.9.1 ChiouYoungs2014 (dpp_centered) ile: ΔDPP
+    /// verilen ve 0 olan tahminlerin ln farkı (doğrusal olmayan zemin terimi
+    /// dahil). Referans 2026-11-26'da .venv'de hesaplandı.
+    #[test]
+    fn yonelim_pygmm() {
+        for (mw, rrup, vs30, dpp, fault, dip, want_sa3, want_pgv) in [
+            (
+                7.5,
+                20.0,
+                400.0,
+                0.8,
+                FaultType::StrikeSlip,
+                90.0,
+                0.130_775_193,
+                0.030_877_965,
+            ),
+            (
+                7.0,
+                55.0,
+                760.0,
+                -0.6,
+                FaultType::StrikeSlip,
+                90.0,
+                -0.060_339_675,
+                -0.021_970_117,
+            ),
+            (
+                6.5,
+                10.0,
+                300.0,
+                1.2,
+                FaultType::Reverse,
+                40.0,
+                0.256_455_670,
+                0.129_418_799,
+            ),
+        ] {
+            let mk = |dpp| Input {
+                mw,
+                rrup,
+                rjb: rrup,
+                rx: -rrup,
+                ztor: 0.0,
+                dip,
+                fault,
+                vs30,
+                dpp,
+            };
+            let d =
+                |imt| predict(imt, &mk(dpp)).unwrap().mean - predict(imt, &mk(0.0)).unwrap().mean;
+            let (sa3, pgv) = (d(Imt::Sa(3.0)), d(Imt::Pgv));
+            assert!((sa3 - want_sa3).abs() < 1e-6, "{mw} SA3 {sa3} ≠ {want_sa3}");
+            assert!((pgv - want_pgv).abs() < 1e-6, "{mw} PGV {pgv} ≠ {want_pgv}");
+        }
+    }
+
     fn fault(s: &str) -> FaultType {
         match s {
             "SS" => FaultType::StrikeSlip,
@@ -314,6 +392,7 @@ mod tests {
                 dip: num("dip"),
                 fault: fault(f[col("mech")]),
                 vs30: num("vs30"),
+                dpp: 0.0,
             };
             // Referansta tavan bloğu bayrakla verilir; bizde Rx ≥ 0 ile.
             if num("hw") == 0.0 && input.rx >= 0.0 && input.dip < 90.0 {
@@ -364,6 +443,7 @@ mod tests {
             dip: 90.0,
             fault: FaultType::StrikeSlip,
             vs30: 760.0,
+            dpp: 0.0,
         };
         assert!(predict(Imt::Pga, &i).is_none());
         assert!(
@@ -403,6 +483,7 @@ mod tests {
             dip: 90.0,
             fault: FaultType::StrikeSlip,
             vs30: 760.0,
+            dpp: 0.0,
         };
         let pgv = |i: Input| predict(Imt::Pgv, &i).unwrap().mean;
         // Büyüklük artınca artar, mesafe artınca azalır, yumuşak zeminde artar.

@@ -696,6 +696,22 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   ortalama kaymayla ayrı Okada kaynağı, toplam. BASİTLEŞTİRME: dirseklerde
   derinde boşluk/örtüşme kalır (NGA-West2 yamukla birleştirdi, s. 68).
   Test: düz izi parçalara bölmek tek düzlemle aynı sonucu verir (0,05 km).
+- Yönelim (directivity, 2026-11-26): CY14 Eş. 3.6–3.8 (PEER 2013/07
+  s. 24) f_D = c8 f_R f_M exp(−c8a (M − c8b)²) ΔDPP, ln y_ref'e (zemin
+  teriminden önce; pygmm ile aynı yer); katsayılar nshmp CY14.csv'den
+  (c8, c8a, c8b). DPP: PEER 2013/09 Bölüm 6 (Eş. 6.1–6.12; doğrudan nokta,
+  E-yolu, ĉ′, E-yolu ortalaması F̄S, %10 hiposantr kuralı, çok parçalı
+  toplam), `directivity.rs`. ΔDPP: aynı Rrup'taki ortalamaya göre; ortalama
+  2 km ızgara × 2 km Rrup diliminden (örnekleme biçimi raporda yok,
+  VARSAYIM). Yalnız sığ kabuk ve Mw > 5,5; dört model ortalamasında yalnız
+  CY14'te terim var (diğer üçünde yok). ÖNEMLİ: CY14 katsayılarına göre
+  büyük depremde etki uzun periyotta: Mw 7,8'de c8·exp(...) PGV 0,026,
+  SA(3 s) 0,14, SA(10 s) 0,22 (× ΔDPP ~ ±1,5); PGA ve kısa periyotta ~0.
+  Şiddet (PGV) haritasında etki ±%1 mertebesinde, tepki spektrumunda uzun
+  periyotta belirgin. Bölmeye karşı değişmez değil (Eş. 6.12 parça
+  başına ĉ′ ve F̄S tabanı): düz izi 3 parçaya bölmek fay yanındaki sahada
+  DPP'yi 0,9'a kadar değiştirdi (uzun periyotta ≤ ~%20); yayımlanmış
+  yöntem olduğu için değiştirilmedi (BİLİNEN SINIR).
 - Levha içi, ters ve doğrultu atımlı: WC94 alanı, genişlik sınırı yok
   (kaynak yok; TMG17 normal satırının verisi değil). Strasser vd. (2010)
   levha içi bağıntısı erişilemedi.

@@ -55,6 +55,9 @@ pub struct Rupture {
     /// Hiposantr: iz boyunca (km, izin başından) ve eğim boyunca (km).
     hypo_u: f64,
     hypo_v: f64,
+    /// Yönelim (CY14 ΔDPP); yalnızca hesap bağlamında eklenir
+    /// ([`Rupture::with_directivity`]), yoksa ΔDPP = 0.
+    directivity: Option<Box<crate::directivity::Directivity>>,
 }
 
 impl Rupture {
@@ -85,6 +88,7 @@ impl Rupture {
             hypo_u: hu,
             hypo_v: hv,
             segments: vec![f],
+            directivity: None,
         }
     }
 
@@ -155,11 +159,27 @@ impl Rupture {
             hypo_u: 0.0,
             hypo_v: ((q.depth_km - ztor) / sin_q).clamp(0.0, width),
             segments,
+            directivity: None,
         };
         // Hiposantr iz boyunca: merkez üssünün GC2 U koordinatı (izin
         // dışındaysa uca çekilir).
         r.hypo_u = r.gc2([0.0, 0.0]).1.clamp(0.0, length);
         r
+    }
+
+    /// Yönelim hesabını ekler (CY14 ΔDPP; merkezleme tablosu ~10–50 ms).
+    /// Yalnızca sığ kabukta ve Mw > 5,5'te anlamlı (CY14 f_M = 0 altında);
+    /// çağıran karar verir ([`crate::shaking::Scenario`]).
+    pub fn with_directivity(mut self, rake: f64) -> Self {
+        let d = crate::directivity::Directivity::new(&self, rake);
+        self.directivity = Some(Box::new(d));
+        self
+    }
+
+    /// Hiposantrın iz boyunca (km, izin başından) ve eğim boyunca (km)
+    /// konumu.
+    pub fn hypocenter_plane(&self) -> (f64, f64) {
+        (self.hypo_u, self.hypo_v)
     }
 
     /// GC2 (T, U) koordinatları, yerel yatay konum için (Spudich & Chiou
@@ -198,8 +218,21 @@ impl Rupture {
     }
 
     /// Yerel yatay konumdaki saha için mesafeler: Rrup ve Rjb en yakın
-    /// parçaya, Rx GC2 T'ye göre.
+    /// parçaya, Rx GC2 T'ye göre; yönelim eklendiyse ΔDPP.
     pub fn distances_local(&self, p: [f64; 2], repi: f64) -> Distances {
+        let mut d = self.distances_local_raw_repi(p, repi);
+        if let Some(dir) = &self.directivity {
+            d.dpp = dir.centered(p, d.rrup);
+        }
+        d
+    }
+
+    /// Yönelimsiz mesafeler (repi 0; merkezleme tablosu için).
+    pub(crate) fn distances_local_raw(&self, p: [f64; 2]) -> Distances {
+        self.distances_local_raw_repi(p, 0.0)
+    }
+
+    fn distances_local_raw_repi(&self, p: [f64; 2], repi: f64) -> Distances {
         let (mut rrup, mut rjb) = (f64::INFINITY, f64::INFINITY);
         for f in &self.segments {
             let d = f.distances_local(p, repi);
@@ -217,6 +250,7 @@ impl Rupture {
             rjb,
             rx,
             repi,
+            dpp: 0.0,
         }
     }
 

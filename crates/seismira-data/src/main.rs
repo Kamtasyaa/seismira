@@ -455,6 +455,7 @@ fn compare_shakemap(
                 fault,
                 vs30,
                 region: crust_region,
+                dpp: 0.0,
             },
         )
         .map(|m| m.mean),

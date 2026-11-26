@@ -228,7 +228,16 @@ impl<'a> Scenario<'a> {
             _ => psbah20::Region::Global,
         };
         Self {
-            fault: Rupture::from_quake(&quake),
+            fault: {
+                // Yönelim (CY14 ΔDPP): yalnızca sığ kabukta ve Mw > 5,5'te
+                // (CY14 f_M = 0 altında; dalma-batma modelinde terim yok).
+                let r = Rupture::from_quake(&quake);
+                if quake.setting == crate::quake::Setting::ShallowCrust && quake.mw > 5.5 {
+                    r.with_directivity(quake.rake)
+                } else {
+                    r
+                }
+            },
             gmm,
             slab_zone,
             region,
@@ -272,6 +281,7 @@ impl<'a> Scenario<'a> {
                     fault: self.quake.fault,
                     vs30,
                     region: self.crust_region,
+                    dpp: d.dpp,
                 },
             ),
             Gmm::Psbah20(event) => psbah20::predict(
@@ -410,6 +420,7 @@ impl<'a> Scenario<'a> {
                 rjb: r,
                 rx: -r,
                 repi: r,
+                dpp: 0.0,
             };
             // Görsel sınır: referans zemin için (sahaya bağlı değil).
             match self.motion(&d, REFERENCE_VS30) {

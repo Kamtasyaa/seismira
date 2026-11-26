@@ -298,6 +298,10 @@ pub struct Distances {
     pub rx: f64,
     /// Merkez üssüne jeodezik yüzey mesafesi (km).
     pub repi: f64,
+    /// Merkezlenmiş yönelim parametresi ΔDPP ([`crate::rupture`]; CY14
+    /// yönelim terimi). 0: ortalama yönelim (hesaplanmadıysa ya da etki
+    /// mesafesi dışında).
+    pub dpp: f64,
 }
 
 impl Fault {
@@ -534,6 +538,7 @@ impl Fault {
             rjb,
             rx,
             repi,
+            dpp: 0.0,
         }
     }
 

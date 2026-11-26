@@ -37,6 +37,9 @@ pub struct Input {
     pub fault: FaultType,
     pub vs30: f64,
     pub region: CrustRegion,
+    /// Merkezlenmiş DPP (yönelim; yalnızca CY14 kullanır, diğer üç modelde
+    /// yönelim terimi yok). 0: ortalama yönelim.
+    pub dpp: f64,
 }
 
 /// Mesafe sınırı (km, Rrup): dört modelin ortak sınırı (BSSA14 Rjb ≤ 400).
@@ -115,6 +118,7 @@ pub fn predict_one(model: Model, imt: Imt, i: &Input) -> Option<LnMotion> {
                 dip: i.dip,
                 fault: i.fault,
                 vs30: vs(cy14::VS30_MIN, cy14::VS30_MAX),
+                dpp: i.dpp,
             },
         ),
     }
@@ -174,6 +178,7 @@ mod tests {
             fault: FaultType::StrikeSlip,
             vs30: 400.0,
             region: CrustRegion::Global,
+            dpp: 0.0,
         }
     }
 
