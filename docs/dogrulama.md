@@ -1024,3 +1024,32 @@ olayda iyileştirir (Kahramanmaraş −%6, Kumamoto −%12), üçünde kötüle�
 beş olay ortalamasında SA 3 s std değişimi ≈ 0. KARAR: yayımlanmış hal
 (yalnız CY14) korunur; dört modele yayma kanıt yetersiz (kullanıcıya
 bildirildi). PGV / şiddete etki ±%1.
+
+## ASB14 (Akkar vd. 2014) Türkiye depremlerinde (2026-11-27)
+
+Komut: `SEISMIRA_GMM_WEIGHTS=<ASK14,BSSA14,CB14,CY14,ASB14> seismira-data
+validate-shakemap … --scenario <id> --vs30 data/vs30/vs30.sras --slab
+data/slab2/slab2.sslb` ve `validate-nga … --scenario izmit1999` / `"Duzce,
+Turkey"`. C (uygulamanın tam zinciri), ort. ΔI (JMA) / |ΔI| < 1 oranı (n).
+ΔI > 0: model az tahmin ediyor.
+
+| Deprem (gözlem) | Dört NGA-West2 (varsayılan) | Yalnız ASB14 | NGA + ASB14 yarı yarıya |
+|---|---|---|---|
+| Kahramanmaraş Mw 7,8, ShakeMap | −0,02 / %96 (192) | +0,24 / %93 (117, ≤ 200 km) | +0,05 / %95 (192) |
+| İzmit, ShakeMap atlas | −0,44 / %77 (31) | −0,25 / %92 (26) | −0,35 / %87 (31) |
+| İzmit, NGA-West2 kayıtları | −0,03 / %100 (28) | +0,16 / %100 (23) | +0,06 / %100 (28) |
+| Düzce, NGA-West2 kayıtları | −0,34 / %88 (26) | −0,14 / %100 (26) | −0,24 / %100 (26) |
+
+- Mesafeye göre (Kahramanmaraş, aynı istasyonlar): ASB14 0–25 km +0,46
+  (NGA +0,13), 25–200 km +0,10…+0,21 (NGA −0,05…+0,05). ASB14 bu Mw 7,8
+  depremde yakın alanı belirgin az tahmin ediyor; veri seti Mw 7,6'ya kadar
+  (makale), yani bu deprem modelin veri aralığının üstünde.
+- İzmit'te iki gözlem seti ters yönde: ShakeMap atlasıyla ASB14 daha iyi,
+  NGA-West2 kayıtlarıyla dört model daha iyi (ShakeMap atlası NGA'dan ~%37
+  düşük; yukarıdaki "NGA-West2 kayıtlarıyla CY14" bölümü). Düzce'de ASB14
+  daha iyi.
+- Sonuç: tek başına ASB14 de dört model de bu dört karşılaştırmada açık
+  üstünlük göstermiyor; yarı yarıya karışım ortalama |ΔI|'yı 0,21'den
+  (dört model) 0,18'e indiriyor ama Kahramanmaraş'ı biraz kötüleştiriyor.
+  KARAR: varsayılan DEĞİŞMEDİ (2026-11-24 kullanıcı kararı); ASB14
+  kullanıcı seçimi olarak sunuldu. Değişiklik kullanıcıya bildirildi.

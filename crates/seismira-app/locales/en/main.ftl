@@ -71,7 +71,7 @@ strike = Strike (°)
 dip = Dip (°)
 rake = Rake (°)
 fault-geometry = Fault geometry
-ranges-note = Validity ranges come from the published ranges of the ground-motion models (crust: average of ASK14, BSSA14, CB14, CY14; subduction: Parker et al. 2020).
+ranges-note = Validity ranges come from the published ranges of the ground-motion models (crust: average of ASK14, BSSA14, CB14, CY14 and optionally ASB14; subduction: Parker et al. 2020).
 start-needs-epicenter = Choose an epicenter first.
 
 issue-mw = For this setting and fault type, magnitude must be between { $min } and { $max }.
@@ -391,6 +391,7 @@ report-q-fault = Fault: strike { $strike }°, dip { $dip }°, rake { $rake }°
 report-q-rupture = Rupture: { $l } × { $w } km, top edge at { $ztor } km depth, { $n } segments
 report-q-gmm-crust = Ground-motion model: equal-weight average of four NGA-West2 models (ASK14, BSSA14, CB14, CY14); intensity from PGV (JMA Shindo, MMI).
 report-q-gmm-sub = Ground-motion model: Parker et al. (2020) subduction model; intensity from PGV (JMA Shindo, MMI).
+report-q-gmm-custom = Ground-motion model: weighted model average ({ $list }); intensity from PGV (JMA Shindo, MMI).
 report-cities = Cities
 report-max = Highest estimated intensity: Shindo { $shindo } (MMI { $mmi }), { $city }.
 report-class-counts = Cities within the model limit, by Shindo class: { $list }.
@@ -423,3 +424,16 @@ report-limit-5 = No casualty estimate is made.
 report-sources = Data sources and attributions
 map-zoom-in = Zoom in (+)
 map-zoom-out = Zoom out (−)
+
+# Yer hareketi modeli ağırlıkları (sağ panel)
+gmm-models = Ground-motion models
+gmm-help = For shallow crustal earthquakes a weighted average of the models is used (logic tree). Default: the four NGA-West2 models with equal weights.
+gmm-ask14 = ASK14 (Abrahamson, Silva & Kamai 2014)
+gmm-bssa14 = BSSA14 (Boore, Stewart, Seyhan & Atkinson 2014)
+gmm-cb14 = CB14 (Campbell & Bozorgnia 2014)
+gmm-cy14 = CY14 (Chiou & Youngs 2014)
+gmm-asb14 = ASB14 (Akkar, Sandıkkaya & Bommer 2014; Europe and Middle East)
+gmm-share-short = → { $p }%
+gmm-share = { $model } { $p }%
+gmm-asb14-note = ASB14 was derived from European and Middle Eastern records; valid for Mw 4–8, up to 200 km from the fault, 30 km focal depth and 4 s period. Outside these limits it is left out and the remaining models are used.
+gmm-reset = Reset to default

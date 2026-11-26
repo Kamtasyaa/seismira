@@ -11,7 +11,8 @@ Kurulum ve çalıştırma (depo kökünden):
 
 Çıktılar: data/test/cy14_ref.csv, data/test/psbah20_ref.csv,
 data/test/{bssa14,ask14,cb14}_ref.csv (yalnızca bunlar için:
-`.venv/bin/python scripts/gen_gmpe_ref.py ngaw2 bssa14`).
+`.venv/bin/python scripts/gen_gmpe_ref.py ngaw2 bssa14`), data/test/asb14_ref.csv
+(`.venv/bin/python scripts/gen_gmpe_ref.py asb14`).
 
 NGA-West2 diğer modeller (2026-11-24): pygmm 0.9.1, makale tabloları,
 bölgesel kollar ("region"); havza terimi kapalı (Z1 verilmez).
@@ -209,8 +210,41 @@ def ngaw2(which: str) -> None:
     write(which, rows)
 
 
+def asb14() -> None:
+    """ASB14 (Akkar, Sandıkkaya & Bommer 2014) referansı, Rjb sürümü.
+
+    pygmm makalenin tanımını (GM_AR) verir; Rust testi bileşen dönüşümü
+    olmadan karşılaştırır. Periyotlar tablo periyotlarıdır (ara değer yok).
+    """
+    rows = []
+    for mag, rjb, mech, vs30 in itertools.product(
+        [4.5, 5.5, 6.5, 6.75, 7.0, 7.6, 8.0],
+        [0.0, 5.0, 20.0, 60.0, 150.0, 200.0],
+        ["SS", "RS", "NS"],
+        [1100.0, 760.0, 400.0, 250.0, 160.0],
+    ):
+        s = pygmm.Scenario(mag=mag, dist_jb=rjb, mechanism=mech, v_s30=vs30)
+        m = pygmm.AkkarSandikkayaBommer2014(s)
+        row = dict(
+            mag=mag, rjb=rjb, mech=mech, vs30=vs30,
+            ln_pga=float(np.log(m.pga)), sd_pga=float(m.ln_std_pga),
+            ln_pgv=float(np.log(m.pgv)), sd_pgv=float(m.ln_std_pgv),
+        )
+        for t in [0.3, 1.0, 3.0]:
+            k = int(np.argmin(np.abs(m.periods - t)))
+            assert abs(m.periods[k] - t) < 1e-9
+            row[f"ln_sa{t}"] = float(np.log(m.spec_accels[k]))
+            row[f"sd_sa{t}"] = float(m.ln_stds[k])
+        rows.append(row)
+    write("asb14", rows)
+
+
 if __name__ == "__main__":
     import sys
+
+    if sys.argv[1:2] == ["asb14"]:
+        asb14()
+        raise SystemExit(0)
 
     if sys.argv[1:2] == ["ngaw2"]:
         for name in sys.argv[2:]:

@@ -168,6 +168,7 @@ pub fn run(flatfile: &Path, event: &str, scenario: Option<&str>) -> Result<()> {
                 vs30: clamp(vs30),
                 region,
                 dpp: 0.0,
+                weights: crate::gmm_weights(),
             },
         )
         .map(|m| m.mean)

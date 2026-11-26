@@ -147,6 +147,10 @@ pub struct Quake {
     /// `strike`, `hypo_along` ve `rupture_km` uzunluğu kullanılmaz
     /// (genişlik: `rupture_km`'deki ya da otomatik).
     pub trace: Option<Trace>,
+    /// Sığ kabukta yer hareketi modeli ağırlıkları (mantık ağacı,
+    /// [`crate::gmpe::ngaw2::Weights`]). Varsayılan: dört NGA-West2 eşit.
+    /// Dalma-batma ve levha içinde kullanılmaz (tek model).
+    pub gmm_weights: crate::gmpe::ngaw2::Weights,
 }
 
 impl Quake {
@@ -166,6 +170,7 @@ impl Quake {
             hypo_down: 0.5,
             rupture_km: None,
             trace: None,
+            gmm_weights: Default::default(),
         }
     }
 }

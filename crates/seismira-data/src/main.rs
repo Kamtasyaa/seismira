@@ -460,6 +460,7 @@ fn compare_shakemap(
                 vs30,
                 region: crust_region,
                 dpp: 0.0,
+                weights: gmm_weights(),
             },
         )
         .map(|m| m.mean),
@@ -668,6 +669,30 @@ fn validate_shakemap(stations: &Path, args: &[String]) -> Result<()> {
         q.hypo_along = a;
     }
     report_shakemap(stations, &q, vs30_map.as_ref(), slab.as_ref(), csv)
+}
+
+/// Sığ kabuk model ağırlıkları: `SEISMIRA_GMM_WEIGHTS` ortam değişkeni
+/// (ASK14,BSSA14,CB14,CY14,ASB14 sırasıyla, ör. "0,0,0,0,1" yalnızca ASB14);
+/// yoksa uygulamanın varsayılanı (dört NGA-West2 eşit).
+pub(crate) fn gmm_weights() -> seismira_core::gmpe::ngaw2::Weights {
+    static W: std::sync::OnceLock<seismira_core::gmpe::ngaw2::Weights> = std::sync::OnceLock::new();
+    *W.get_or_init(read_gmm_weights)
+}
+
+fn read_gmm_weights() -> seismira_core::gmpe::ngaw2::Weights {
+    use seismira_core::gmpe::ngaw2::Weights;
+    let Ok(v) = std::env::var("SEISMIRA_GMM_WEIGHTS") else {
+        return Weights::default();
+    };
+    let w: Vec<f64> = v
+        .split(',')
+        .map(|x| x.trim().parse().expect("SEISMIRA_GMM_WEIGHTS: sayı"))
+        .collect();
+    let w: [f64; 5] = w
+        .try_into()
+        .expect("SEISMIRA_GMM_WEIGHTS: beş ağırlık (ASK14,BSSA14,CB14,CY14,ASB14)");
+    eprintln!("Model ağırlıkları: {w:?}");
+    Weights(w)
 }
 
 /// Merkez üssünün kabuk bölgesi (uygulamadaki gibi: ülke, denizdeyse 100 km

@@ -313,6 +313,8 @@ impl SeismiraApp {
             _ => {}
         }
         self.cancel_sim();
+        // Model ağırlıkları kullanıcının seçimi: korunur.
+        q.gmm_weights = self.draft.quake.gmm_weights;
         self.draft.quake = q;
         self.draft.has_epicenter = true;
         self.draft.preset = None;

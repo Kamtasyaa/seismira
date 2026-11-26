@@ -71,7 +71,7 @@ strike = Doğrultu (°)
 dip = Eğim (°)
 rake = Kayma açısı (°)
 fault-geometry = Fay geometrisi
-ranges-note = Geçerlilik aralıkları yer hareketi modellerinin yayımlanmış aralıklarından gelir (kabuk: ASK14, BSSA14, CB14, CY14 ortalaması; dalma-batma: Parker vd. 2020).
+ranges-note = Geçerlilik aralıkları yer hareketi modellerinin yayımlanmış aralıklarından gelir (kabuk: ASK14, BSSA14, CB14, CY14 ve isteğe bağlı ASB14 ortalaması; dalma-batma: Parker vd. 2020).
 start-needs-epicenter = Başlatmak için önce merkez üssünü seçin.
 
 issue-mw = Bu ortam ve fay tipi için büyüklük { $min } – { $max } aralığında olmalı.
@@ -391,6 +391,7 @@ report-q-fault = Fay: doğrultu { $strike }°, eğim { $dip }°, kayma açısı 
 report-q-rupture = Kırılma: { $l } × { $w } km, üst kenar { $ztor } km derinlikte, { $n } parça
 report-q-gmm-crust = Yer hareketi modeli: dört NGA-West2 modelinin (ASK14, BSSA14, CB14, CY14) eşit ağırlıklı ortalaması; şiddet PGV'den (JMA Shindo, MMI).
 report-q-gmm-sub = Yer hareketi modeli: Parker vd. (2020) dalma-batma modeli; şiddet PGV'den (JMA Shindo, MMI).
+report-q-gmm-custom = Yer hareketi modeli: ağırlıklı model ortalaması ({ $list }); şiddet PGV'den (JMA Shindo, MMI).
 report-cities = Şehirler
 report-max = En yüksek tahmini şiddet: Shindo { $shindo } (MMI { $mmi }), { $city }.
 report-class-counts = Model sınırı içindeki şehirler, Shindo sınıfına göre: { $list }.
@@ -423,3 +424,16 @@ report-limit-5 = Can kaybı tahmini yapılmaz.
 report-sources = Veri kaynakları ve atıflar
 map-zoom-in = Yakınlaştır (+)
 map-zoom-out = Uzaklaştır (−)
+
+# Yer hareketi modeli ağırlıkları (sağ panel)
+gmm-models = Yer hareketi modelleri
+gmm-help = Sığ kabuk depremlerinde modellerin ağırlıklı ortalaması alınır (mantık ağacı). Varsayılan: dört NGA-West2 modeli eşit ağırlıkta.
+gmm-ask14 = ASK14 (Abrahamson, Silva ve Kamai 2014)
+gmm-bssa14 = BSSA14 (Boore, Stewart, Seyhan ve Atkinson 2014)
+gmm-cb14 = CB14 (Campbell ve Bozorgnia 2014)
+gmm-cy14 = CY14 (Chiou ve Youngs 2014)
+gmm-asb14 = ASB14 (Akkar, Sandıkkaya ve Bommer 2014; Avrupa ve Orta Doğu)
+gmm-share-short = → %{ $p }
+gmm-share = { $model } %{ $p }
+gmm-asb14-note = ASB14 Avrupa ve Orta Doğu kayıtlarıyla kuruldu; Mw 4–8, faya 200 km, odak 30 km ve 4 s periyoda kadar geçerli. Bu sınırların dışında ortalamaya katılmaz, kalan modellerle hesaplanır.
+gmm-reset = Varsayılana dön

@@ -805,6 +805,40 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
 - Performans (referans makine, Kahramanmaraş Mw 7,8): ince ızgara
   355 → 490 ms, hasar 268 → 290 ms (arka planda).
 
+### 7.4 ASB14 ve kullanıcı ağırlıkları (mantık ağacı, 2026-11-27)
+
+- Kullanıcı isteği (README "Eklenecekler": GMPE seçimi + mantık ağacı).
+  VARSAYILAN DEĞİŞMEDİ: dört NGA-West2 eşit, ASB14 ağırlığı 0; kullanıcı
+  sağ panelde "Yer hareketi modelleri" bölümünden ağırlıkları değiştirir
+  (`Quake::gmm_weights`, `gmpe::ngaw2::Weights`). Hazır senaryo ya da
+  gerçek deprem seçilince ağırlıklar korunur; rapor ağırlıkları yazar.
+- Model: Akkar, Sandıkkaya & Bommer (2014), BEE 12, 359–387,
+  doi:10.1007/s10518-013-9461-4; Rjb sürümü (`gmpe/asb14.rs`).
+  Denklemler (1)–(3) kabul edilmiş metinden (Imperial Spiral, sha256
+  9a2fe3a4…, `data/raw/refs/asb14/`, depoda değil). Katsayılar yazarların
+  elektronik ekinden (62 periyot), pygmm 0.9.1 veri dosyası üzerinden;
+  makalenin Tablo 3 ve 4.a'sıyla ortak 20 satırda birebir aynı
+  (`scripts/gen_asb14.py` denetler). pygmm ile 630 senaryoda < 0,01 ln.
+- DOĞRULANAMADI: makalenin düzeltmesi (erratum, doi:10.1007/s10518-013-9508-6)
+  Springer giriş istediği için okunamadı. Ek katsayıları 2016'da
+  yazarlardan alındığı için düzeltmeden sonradır; pygmm ve OpenQuake aynı
+  katsayıları kullanıyor. Erratum PDF'i gelirse kontrol edilmeli.
+- Bileşen: makale GM_AR (kaydedildiği yönde geometrik ortalama) verir;
+  Boore & Kishida (2017) ln(RotD50/GM_AR) "smooth" katsayılarıyla RotD50'ye
+  çevrilir (USGS esi-shakelib, kamu malı; PGA +%1,3, PGV +%2,3). Oranın σ'sı
+  karesel eklenir (ShakeMap kuralı).
+- Aralık: Mw 4–8, odak ≤ 30 km, Rjb ≤ 200 km (yazarlar "dikkatle uzatılabilir"
+  diyor; uzatılmadı), Vs30 150–1200 (bu aralığa çekilir), SA 0,01–4 s.
+  Aralık dışında ASB14 ortalamadan düşer, kalan modellerle hesaplanır:
+  200 km'de ve spektrumda 4 s'de ortalamada küçük bir sıçrama olur (SEÇİM,
+  sessiz ekstrapolasyon yerine). Yalnız ASB14 seçiliyse bu sınırların
+  ötesi "model dışı".
+- Ağırlıklar o sahada geçerli modeller arasında normalleştirilir; σ ve τ
+  karışım varyansıyla (yukarıdaki dört model bölümüyle aynı). ASB14'ün
+  bölgesel terimi, havza, tavan bloğu ve yönelim terimi yok.
+- Doğrulama: docs/dogrulama.md "ASB14 (Akkar vd. 2014) Türkiye
+  depremlerinde".
+
 ### 7.4 Parker vd. (2020), dalma-batma (Faz 5, 2026-11-20)
 
 - Künye: Parker, Stewart, Boore, Atkinson & Hassani (2020), PEER Report

@@ -99,10 +99,6 @@ Sismoloji ve yapı / Seismology and structures:
 
 - **Eurocode 8 tasarım spektrumu:** tepki spektrumu penceresinde TBDY-2018'in
   yanında EC8. / Eurocode 8 design spectrum next to TBDY-2018.
-- **GMPE seçimi ve mantık ağacı:** mevcut dört NGA-West2 ortalamasına
-  Akkar vd. (2014) gibi Türkiye ve Avrupa denklemleri, kullanıcı
-  tanımlı ağırlıklar. / More GMPEs (e.g. Akkar et al. 2014) with
-  user-defined logic-tree weights.
 
 Altyapı / Infrastructure:
 

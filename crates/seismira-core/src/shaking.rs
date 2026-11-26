@@ -282,6 +282,7 @@ impl<'a> Scenario<'a> {
                     vs30,
                     region: self.crust_region,
                     dpp: d.dpp,
+                    weights: self.quake.gmm_weights,
                 },
             ),
             Gmm::Psbah20(event) => psbah20::predict(

@@ -166,10 +166,18 @@ impl SeismiraApp {
                     ("n", n0(r.segments.len() as f64)),
                 ],
             ),
-            t(match q.setting {
-                seismira_core::quake::Setting::ShallowCrust => "report-q-gmm-crust",
-                _ => "report-q-gmm-sub",
-            }),
+            match q.setting {
+                seismira_core::quake::Setting::ShallowCrust
+                    if q.gmm_weights != Default::default() =>
+                {
+                    lang.t_args(
+                        "report-q-gmm-custom",
+                        &[("list", crate::panel::gmm_weights_text(lang, &q.gmm_weights))],
+                    )
+                }
+                seismira_core::quake::Setting::ShallowCrust => t("report-q-gmm-crust"),
+                _ => t("report-q-gmm-sub"),
+            },
         ]));
 
         // Şehirler: en güçlü 20.

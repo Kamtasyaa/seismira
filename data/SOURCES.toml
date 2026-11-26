@@ -89,6 +89,28 @@ snapshot = "nshmp-lib main, 2026-11-24; BSSA14.csv sha256 710d717e9629bfa938585e
 files = "crates/seismira-core/src/gmpe/bssa14.csv"
 
 [[dataset]]
+id = "asb14-coefficients"
+name = "Akkar, Sandıkkaya & Bommer (2014) GMPE katsayıları (Rjb modeli)"
+url = "https://github.com/arkottke/pygmm"
+license = "MIT (pygmm veri dosyası; katsayılar yazarların elektronik ekinden)"
+attribution = "Akkar, Sandıkkaya & Bommer (2014), Bulletin of Earthquake Engineering 12(1), 359–387. Katsayı dosyası: pygmm (A. Kottke)."
+modified = true            # Boore & Kishida (2017) RotD50/GM_AR sütunları eklendi, yinelenen PGV satırı atıldı; değerler değişmedi
+license_checked = "2026-11-27"
+snapshot = "pygmm 0.9.1 akkar-sandikkaya-bommer-2014-dist_jb.csv sha256 891b53add977e75c…; scripts/gen_asb14.py"
+files = "crates/seismira-core/src/gmpe/asb14.csv"
+
+[[dataset]]
+id = "boore-kishida-2017-d50gmar"
+name = "Boore & Kishida (2017) RotD50 / GM_AR bileşen oranı katsayıları"
+url = "https://code.usgs.gov/ghsc/esi/esi-shakelib"
+license = "ABD kamu malı (USGS)"
+attribution = "Boore & Kishida (2017), BSSA 107(1), 334–343. Katsayı dosyası: USGS ShakeMap (esi-shakelib)."
+modified = true            # yalnızca smooth sütunları, ASB14 periyotları; asb14.csv'ye eklendi
+license_checked = "2026-11-27"
+snapshot = "esi-shakelib main, 2026-11-27; nga-w2.lmR1M2_D50GMAR.4paper…csv sha256 cc3c38c5800ec026…"
+files = "crates/seismira-core/src/gmpe/asb14.csv (bk_* sütunları)"
+
+[[dataset]]
 id = "ask14-coefficients"
 name = "Abrahamson, Silva & Kamai (2014) GMPE katsayıları"
 url = "https://code.usgs.gov/ghsc/nshmp/nshmp-lib"

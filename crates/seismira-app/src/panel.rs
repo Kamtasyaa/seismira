@@ -1,6 +1,7 @@
 //! Sağ panel: deprem ayarları ve geçerlilik uyarıları (CLAUDE.md Bölüm 6).
 
 use eframe::egui::{self, Color32, RichText};
+use seismira_core::gmpe::ngaw2::{MODELS, Model, Weights};
 use seismira_core::quake::{FaultType, Issue, Quake, Setting, limits};
 use seismira_core::shaking::has_gmpe;
 use seismira_core::slab::{self, Slab2};
@@ -276,7 +277,11 @@ pub fn ui(
                 .labelled_by(label_id);
         });
         if let Some(p) = chosen {
-            draft.quake = p.quake;
+            // Model ağırlıkları senaryonun değil kullanıcının seçimi: korunur.
+            draft.quake = Quake {
+                gmm_weights: draft.quake.gmm_weights,
+                ..p.quake
+            };
             draft.has_epicenter = true;
             draft.preset = Some(p.id.clone());
             action = Action::Preset;
@@ -616,6 +621,10 @@ pub fn ui(
             );
         });
 
+    if q.setting == seismira_core::quake::Setting::ShallowCrust {
+        gmm_section(ui, lang, q);
+    }
+
     if cancel_drawing {
         draft.drawing = None;
     }
@@ -660,6 +669,82 @@ pub fn ui(
     ui.add_space(8.0);
     ui.label(RichText::new(t("ranges-note")).small().weak());
     action
+}
+
+/// Model ağırlıkları için çeviri anahtarı.
+fn gmm_key(m: Model) -> &'static str {
+    match m {
+        Model::Ask14 => "gmm-ask14",
+        Model::Bssa14 => "gmm-bssa14",
+        Model::Cb14 => "gmm-cb14",
+        Model::Cy14 => "gmm-cy14",
+        Model::Asb14 => "gmm-asb14",
+    }
+}
+
+/// Ağırlıklı modellerin listesi, payıyla: "ASK14 %25, …" (rapor için).
+pub fn gmm_weights_text(lang: Lang, w: &Weights) -> String {
+    MODELS
+        .iter()
+        .filter(|&&m| w.get(m) > 0.0)
+        .map(|&m| {
+            lang.t_args(
+                "gmm-share",
+                &[
+                    ("model", m.code().to_string()),
+                    ("p", lang.num(w.share(m) * 100.0, 0)),
+                ],
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Sığ kabuk yer hareketi modeli ağırlıkları (mantık ağacı). Varsayılan:
+/// dört NGA-West2 eşit, ASB14 kapalı (CLAUDE.md Bölüm 7). Tüm ağırlıklar
+/// sıfıra çekilemez: son açık model kapatılırsa değişiklik geri alınır.
+fn gmm_section(ui: &mut egui::Ui, lang: Lang, q: &mut Quake) {
+    let t = |k: &str| lang.t(k);
+    egui::CollapsingHeader::new(t("gmm-models"))
+        .default_open(false)
+        .show(ui, |ui| {
+            let before = q.gmm_weights;
+            ui.label(RichText::new(t("gmm-help")).small().weak());
+            ui.add_space(4.0);
+            for m in MODELS {
+                let l = ui.label(t(gmm_key(m))).id;
+                ui.spacing_mut().slider_width = (ui.available_width() - 120.0).max(40.0);
+                ui.horizontal(|ui| {
+                    let mut pct = q.gmm_weights.get(m) * 100.0;
+                    if ui
+                        .add(
+                            egui::Slider::new(&mut pct, 0.0..=100.0)
+                                .integer()
+                                .clamping(egui::SliderClamping::Edits),
+                        )
+                        .labelled_by(l)
+                        .changed()
+                    {
+                        q.gmm_weights.set(m, pct / 100.0);
+                    }
+                    ui.label(
+                        RichText::new(lang.t_args(
+                            "gmm-share-short",
+                            &[("p", lang.num(q.gmm_weights.share(m) * 100.0, 0))],
+                        ))
+                        .weak(),
+                    );
+                });
+                ui.add_space(2.0);
+            }
+            if !q.gmm_weights.any() {
+                q.gmm_weights = before;
+            }
+            ui.label(RichText::new(t("gmm-asb14-note")).small().weak());
+            if q.gmm_weights != Weights::default() && ui.button(t("gmm-reset")).clicked() {
+                q.gmm_weights = Weights::default();
+            }
+        });
 }
 
 #[cfg(test)]
@@ -775,6 +860,11 @@ mod preset_tests {
                     // "İleri seviye" açıkken de (kaydırıcılar, elle boyut).
                     h.get_by_label(&lang.t("advanced")).click();
                     h.run();
+                    // Sığ kabukta "Yer hareketi modelleri" açıkken de.
+                    if p.quake.setting == seismira_core::quake::Setting::ShallowCrust {
+                        h.get_by_label(&lang.t("gmm-models")).click();
+                        h.run();
+                    }
                     // Fay izli senaryoda parça tablosu açıkken de.
                     if let Some(tr) = p.quake.trace {
                         let n = lang.num(tr.segments() as f64, 0);
