@@ -19,6 +19,47 @@ use std::sync::mpsc::{Receiver, TryRecvError, channel};
 /// Vs30 haritası (dosya belleğe eşlenir; yalnızca gereken döşemeler okunur).
 pub type Vs30 = Vs30Map<memmap2::Mmap>;
 
+/// GEM kırılganlık eğrileri. Hazırlanması ~1,7 s sürdüğü için açılışta arka
+/// planda yüklenir (docs/inceleme bulgu 4; CLAUDE.md Bölüm 11). İç değer
+/// `None`: GEM paketi yok ya da okunamadı. Hesap iş parçacığı gerekirse
+/// dolmasını bekler ([`std::sync::OnceLock::wait`]); arayüz beklemez.
+pub type GemSlot = Arc<std::sync::OnceLock<Option<Arc<seismira_core::damage::VulnCurves>>>>;
+
+/// GEM verisi olmayan (dolu, boş) yuva.
+#[cfg(test)]
+pub fn gem_none() -> GemSlot {
+    Arc::new(std::sync::OnceLock::from(None))
+}
+
+/// GEM eğrilerini arka planda yükler; dosya yoksa yuva hemen `None` ile dolar.
+pub fn load_gem(path: std::path::PathBuf) -> GemSlot {
+    let slot: GemSlot = Arc::new(std::sync::OnceLock::new());
+    let s = slot.clone();
+    let spawned = std::thread::Builder::new()
+        .name("gem-eğrileri".into())
+        .spawn(move || {
+            let started = std::time::Instant::now();
+            let v = std::fs::File::open(&path)
+                .and_then(|f| {
+                    seismira_core::vulnerability::VulnModel::read(&mut std::io::BufReader::new(f))
+                })
+                .map(|m| Arc::new(seismira_core::damage::VulnCurves::new(&m)))
+                .inspect(|_| log::info!("GEM eğrileri hazır ({:.0?})", started.elapsed()))
+                .inspect_err(|e| {
+                    log::info!(
+                        "{}: {e} (GEM paketi yok; Avrupa dışı hasar gösterilmez)",
+                        path.display()
+                    )
+                })
+                .ok();
+            let _ = s.set(v);
+        });
+    if spawned.is_err() {
+        let _ = slot.set(None);
+    }
+    slot
+}
+
 /// Bölge kimliği rasterı ve bölge bilgileri (Natural Earth Admin-1).
 pub struct Regions {
     pub map: seismira_core::region::RegionMap<Vec<u8>>,
@@ -524,7 +565,8 @@ pub struct Datasets {
     pub slab: Option<Arc<Slab2>>,
     pub exposure: Option<Arc<Exposure>>,
     /// GEM paketi (isteğe bağlı): bölge başına birleşik zafiyet eğrileri.
-    pub vuln: Option<Arc<seismira_core::damage::VulnCurves>>,
+    /// GEM kırılganlık eğrileri ([`GemSlot`]).
+    pub vuln: GemSlot,
     pub ground: Option<Arc<Ground>>,
     pub tsunami: Option<Arc<crate::tsunami::TsunamiData>>,
     pub quality: Quality,
@@ -736,6 +778,8 @@ impl Job {
                 }
                 ctx.request_repaint();
                 if scenario.gmm.is_some() {
+                    // GEM eğrileri açılışta arka planda hazırlanıyor olabilir.
+                    let vuln = vuln.wait().clone();
                     shake_grid(
                         &scenario,
                         vs30.as_deref(),
@@ -1203,7 +1247,7 @@ mod tests {
                 regions: Some(regions.clone()),
                 slab: None,
                 exposure: Some(exposure.clone()),
-                vuln: None,
+                vuln: gem_none(),
                 ground: None,
                 tsunami: None,
                 quality: Quality::Low,

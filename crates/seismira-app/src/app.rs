@@ -423,7 +423,7 @@ pub struct SeismiraApp {
     /// ESRM20 bina stoku ve kırılganlık (~0,3 MB, açılışta okunur).
     exposure: Option<Arc<seismira_core::exposure::Exposure>>,
     /// GEM paketi (isteğe bağlı, CC BY-NC-SA; data/gem/gem.svul).
-    vuln: Option<Arc<seismira_core::damage::VulnCurves>>,
+    vuln: compute::GemSlot,
     /// Son hesabın tahmini bina hasarı.
     damage: Option<compute::DamageResults>,
     /// Zemin yenilmesi girdileri (`data/ground/`); yoksa katman gösterilmez.
@@ -527,19 +527,8 @@ impl SeismiraApp {
                 log::warn!("{}: {e} (bina hasarı gösterilmez)", exposure_path.display())
             })
             .ok();
-        let gem_path = paths::data_dir().join("gem").join("gem.svul");
-        let vuln = std::fs::File::open(&gem_path)
-            .and_then(|f| {
-                seismira_core::vulnerability::VulnModel::read(&mut std::io::BufReader::new(f))
-            })
-            .map(|m| Arc::new(seismira_core::damage::VulnCurves::new(&m)))
-            .inspect_err(|e| {
-                log::info!(
-                    "{}: {e} (GEM paketi yok; Avrupa dışı hasar gösterilmez)",
-                    gem_path.display()
-                )
-            })
-            .ok();
+        // GEM eğrileri arka planda (~1,7 s; açılışı bekletmesin).
+        let vuln = compute::load_gem(paths::data_dir().join("gem").join("gem.svul"));
         let presets =
             crate::scenarios::load(&paths::data_dir().join("scenarios").join("scenarios.json"))
                 .inspect_err(|e| log::warn!("hazır senaryolar yok: {e}"))
@@ -1549,7 +1538,7 @@ impl SeismiraApp {
                 }
                 _ if self.damage.is_some() => {
                     lines.push((
-                        lang.t(if self.vuln.is_some() {
+                        lang.t(if self.vuln.get().is_some_and(Option::is_some) {
                             "region-damage-nodata"
                         } else {
                             "region-damage-nodata-nogem"
