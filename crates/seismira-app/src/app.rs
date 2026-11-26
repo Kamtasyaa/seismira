@@ -15,6 +15,7 @@ use crate::map::{MapWidget, view::MapView};
 use crate::timeline::{self, Clock};
 use crate::{fonts, i18n::Lang, panel, paths, shindo_style, text_test, theme};
 
+mod real_ui;
 mod spectrum_ui;
 mod user_ui;
 
@@ -461,6 +462,8 @@ pub struct SeismiraApp {
     user: user_ui::UserState,
     /// Tepki spektrumu penceresi ([`spectrum_ui`]).
     spectrum: spectrum_ui::SpectrumState,
+    /// Gerçek depremler penceresi ([`real_ui`]).
+    real: real_ui::RealState,
 }
 
 /// Başlangıç görünümü. Geliştirme için `SEISMIRA_VIEW=boylam,enlem,ölçek`.
@@ -611,6 +614,7 @@ impl SeismiraApp {
             region_results: Vec::new(),
             user: Default::default(),
             spectrum: Default::default(),
+            real: Default::default(),
             alert: None,
             job: None,
             results: None,
@@ -728,6 +732,9 @@ impl SeismiraApp {
                 }
                 if ui.button(t("menu-spectrum")).clicked() {
                     self.spectrum.show = true;
+                }
+                if ui.button(t("menu-real")).clicked() {
+                    self.real.show = true;
                 }
             });
             ui.menu_button(t("menu-view"), |ui| {
@@ -2451,6 +2458,7 @@ impl eframe::App for SeismiraApp {
 
         self.user_windows(ui.ctx());
         self.spectrum_window(ui.ctx());
+        self.real_window(ui.ctx());
 
         let mut open = self.show_sources;
         egui::Window::new(t("sources-title"))

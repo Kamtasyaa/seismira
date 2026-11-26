@@ -393,3 +393,24 @@ Lisans kuralları:
   `seismira-data stable-regions` → data/regions/stable.sout (17 KB,
   depoda). Sürüm iş akışı bu dosyayı v0.1.0 veri paketinin üstüne ekler.
 
+## Gerçek depremler: USGS ve EMSC (2026-11-26, kullanıcı kararı)
+
+- Kullanıcı ureq 3.5.2 (MIT/Apache-2.0, rustls) ve üç kaynağı seçti; resmi
+  sayfalardan koşullar okundu:
+  - USGS: "USGS-authored or produced data and information are considered
+    to be in the U.S. Public Domain"; atıf rica: "Credit: U.S. Geological
+    Survey". fdsnws/event/1 sayfası: otomatik uygulamalar gerçek zamanlı
+    GeoJSON akışlarını kullanmalı → `summary/4.5_month.geojson`; moment
+    tensörü olay `detail` GeoJSON'undan. Hız sınırı yazılı değil.
+  - EMSC: seismicportal.eu/terms.html: veri hizmetlerinden indirilen
+    veriler CC BY 4.0; atıf "Credit: EMSC-CSEM SeismicPortal,
+    https://www.seismicportal.eu". Site / veritabanının toplu kopyası
+    izne tabi (biz yalnızca küçük sorgu yapıyoruz). Uç nokta
+    `fdsnws/event/1/query?format=json` 2026-11-26 denendi.
+  - AFAD: deprem.afad.gov.tr JavaScript ile oluşuyor; API belgesi ve
+    kullanım koşulları bulunamadı (apiv2 parametresiz 400) → EKLENMEDİ;
+    kullanıcıya izin e-postası önerildi.
+- İstek yalnızca "Listeyi getir" ile; User-Agent "seismira"; kişisel bilgi
+  gönderilmez. Canlı test `SEISMIRA_NET_TEST=1` (CI'da çalışmaz): USGS 162,
+  EMSC 164 olay (M ≥ 5, 30 gün).
+

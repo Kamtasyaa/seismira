@@ -52,6 +52,10 @@ offline.
   zaman–ivme .txt). Eğitim ve ön inceleme içindir; TBDY-2018 2.5.1 gereği
   tasarımda gerçek kayıtlar önceliklidir. / Spectrum-compatible synthetic
   accelerogram (education only, not for design).
+- **Gerçek depremler (isteğe bağlı, internet):** USGS ve EMSC'den son 30
+  günün depremleri; seçileni senaryo olarak yükleme (USGS'te moment
+  tensöründen fay düzlemi, Slab2 ile ortam tahmini). Yalnızca istenince
+  bağlanır. / Recent earthquakes from USGS and EMSC, loadable as scenarios.
 - **Dışa aktarma:** sarsıntı haritaları GeoTIFF (JMA şiddeti, PGV, PGA),
   şehir / bölge tabloları CSV, fay izi ve zemin yenilmesi GeoJSON
   (EPSG:4326; QGIS / ArcGIS). / Export shaking GeoTIFFs, city and region
@@ -111,10 +115,10 @@ Altyapı / Infrastructure:
 
 Veri ve analiz / Data and analysis:
 
-- **Gerçek deprem verisi (isteğe bağlı, internet varsa):** USGS, AFAD ya
-  da EMSC'den son depremlerin fay çözümü ve ShakeMap'ini alıp simüle
-  etme, istasyon kayıtlarıyla karşılaştırma. / Import recent real
-  events and compare with station records.
+- **Gerçek depremler için devamı:** ShakeMap fay modelini (çok parçalı iz)
+  ve istasyon kayıtlarını da alıp karşılaştırma; AFAD listesi (kullanım
+  koşulları netleşince). / Fetch ShakeMap rupture and station data for
+  real events; AFAD list once its terms are clear.
 - **Toplu senaryo ve olasılıksal analiz (PSHA başlangıcı):** bir fay
   üzerinde Mw 6,5–7,8 arası çok sayıda senaryo; ortalama hasar ve
   "50 yılda %10 aşılma" haritaları. / Batch scenarios and first steps

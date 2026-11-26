@@ -17,6 +17,7 @@ mod map;
 mod mmi_style;
 mod panel;
 mod paths;
+mod realquakes;
 mod scenarios;
 mod shindo_style;
 mod sources;

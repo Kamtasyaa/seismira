@@ -328,6 +328,26 @@ snapshot = "commit 6e13af7f76d52adfeefbd74dbe647705e92db7d0, strec/data/stable.g
 files = "data/regions/stable.sout (depoda; scripts/fetch_strec.py + seismira-data stable-regions)"
 
 [[dataset]]
+id = "usgs-realtime-feed"
+name = "USGS gerçek zamanlı deprem akışı ve olay ayrıntısı (isteğe bağlı, internet)"
+url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php"
+license = "Public Domain (USGS-authored data)"
+attribution = "Credit: U.S. Geological Survey"
+modified = false
+license_checked = "2026-11-26"
+files = "Uygulamayla gelmez; Veri → Gerçek depremler penceresi istek üzerine indirir (son 30 gün, M ≥ 4,5; moment tensörü olay ayrıntısından)"
+
+[[dataset]]
+id = "emsc-seismicportal"
+name = "EMSC-CSEM SeismicPortal FDSN olay servisi (isteğe bağlı, internet)"
+url = "https://www.seismicportal.eu"
+license = "CC-BY-4.0"
+attribution = "Credit: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu"
+modified = false
+license_checked = "2026-11-26"
+files = "Uygulamayla gelmez; Veri → Gerçek depremler penceresi istek üzerine indirir (son 30 gün)"
+
+[[dataset]]
 id = "etopo-2022-60s"
 name = "ETOPO 2022 Global Relief Model, 60″ yüzey yüksekliği (EGM2008)"
 url = "https://www.ncei.noaa.gov/products/etopo-global-relief-model"

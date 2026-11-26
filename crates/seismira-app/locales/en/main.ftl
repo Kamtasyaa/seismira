@@ -358,3 +358,21 @@ synth-working = Generating (a few seconds)…
 synth-stats = Spectral match: largest error { $max }%, mean { $mean }%; D5-95 { $d } s (target { $dt }); peak acceleration { $pga } g.
 synth-save = Save record (.txt)
 synth-axis = acceleration (g) – time (s)
+
+## Real earthquakes
+menu-real = Real earthquakes…
+real-title = Real earthquakes (last 30 days)
+real-intro = Fetches the last 30 days of earthquakes from the internet; you can load the one you choose as a scenario. It only connects when you press "Fetch list"; the rest of the application works offline.
+real-source = Source
+real-minmag = Minimum magnitude
+real-fetch = Fetch list
+real-error = Could not fetch the list (check your internet connection): { $e }
+real-count = { $n } earthquakes (newest first, times in UTC)
+real-apply = Load as scenario
+real-applied = Loaded: { $place }. Tectonic setting estimate: { $setting } (from Slab2 and depth; you can change it in the panel).
+real-not-mw = Note: magnitude type is { $t }, not moment magnitude (Mw); used approximately as Mw.
+real-mt-used = Fault strike, dip and rake from the moment tensor (nodal plane 1; which of the two planes is the fault may be ambiguous).
+real-mt-none = No moment tensor: default fault strike and dip; the real fault may differ.
+real-credit-usgs = Source: U.S. Geological Survey (USGS), earthquake.usgs.gov (public domain).
+real-credit-emsc = Source: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu (CC BY 4.0).
+real-disclaimer = This list is for information and education. For real earthquake information follow official agencies such as AFAD, Kandilli, JMA or USGS. (AFAD list not included: terms of use could not be found.)
