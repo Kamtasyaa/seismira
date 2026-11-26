@@ -98,7 +98,9 @@ type Sums<const N: usize> = HashMap<RegionId, (f64, [f64; N])>;
 /// bölgesi için `eval(bölge, şiddetler)` değerini, hücrenin bölgenin
 /// yerleşim hücreleri içindeki payıyla ağırlıklandırıp toplar. Dönen:
 /// bölge → (toplam pay, ağırlıklı toplam). `built(bölge)`: bölgenin
-/// yerleşim hücresi sayısı (stok yoksa `None`). İptal edilirse `None`.
+/// yerleşim hücrelerinin toplam ağırlığı (stok yoksa `None`);
+/// `cell_weight(k)`: pencerede k. hücrenin ağırlığı (eşit dağılımda 1 ve
+/// toplam = yerleşim hücresi sayısı). İptal edilirse `None`.
 #[allow(clippy::too_many_arguments)]
 fn sample_regions<const N: usize>(
     scenario: &Scenario,
@@ -107,7 +109,8 @@ fn sample_regions<const N: usize>(
     ids: &[RegionId],
     vs30: Option<&[f32]>,
     cancel: &AtomicBool,
-    built: impl Fn(RegionId) -> Option<u32> + Sync,
+    built: impl Fn(RegionId) -> Option<f64> + Sync,
+    cell_weight: impl Fn(usize) -> f64 + Sync,
     eval: impl Fn(RegionId, &SiteIms) -> [f64; N] + Sync,
 ) -> Option<Sums<N>> {
     let spec = domain.spec(step);
@@ -128,16 +131,20 @@ fn sample_regions<const N: usize>(
                     continue;
                 }
                 let id = raw & ID_MASK;
-                let Some(cells) = built(id).filter(|&c| c > 0) else {
+                let Some(cells) = built(id).filter(|&c| c > 0.0) else {
                     continue;
                 };
+                let cw = cell_weight(k);
+                if cw <= 0.0 {
+                    continue;
+                }
                 let v = match vs30 {
                     Some(win) if win[k].is_nan() => continue,
                     Some(win) => f64::from(win[k]),
                     None => REFERENCE_VS30,
                 };
                 let ims = site_ims(scenario, spec.center(col, row), v);
-                let share = weight_cells / f64::from(cells);
+                let share = weight_cells * cw / cells;
                 let e = acc.entry(id).or_insert((0.0, [0.0; N]));
                 e.0 += share;
                 if ims.iter().all(Option::is_none) {
@@ -169,6 +176,14 @@ fn sample_regions<const N: usize>(
     Some(total)
 }
 
+/// Bölge stokunun yerleşim hücrelerine dağıtım ağırlıkları (deney,
+/// docs/dogrulama.md "GHSL ağırlığı"): `cells[k]` penceredeki k. hücrenin
+/// ağırlığı, `totals(bölge)` bölgenin tüm yerleşim hücrelerindeki toplamı.
+pub struct CellWeights<'a> {
+    pub cells: &'a [f32],
+    pub totals: &'a (dyn Fn(RegionId) -> Option<f64> + Sync),
+}
+
 /// Bölgeler: alan içindeki yerleşim hücrelerinden. `ids` bölge rasterının
 /// alan penceresi (ham değer), `vs30` aynı pencerede Vs30 (NaN: deniz;
 /// yoksa referans zemin). İptal edilirse `None`.
@@ -181,6 +196,22 @@ pub fn regions(
     vs30: Option<&[f32]>,
     cancel: &AtomicBool,
 ) -> Option<Vec<RegionDamage>> {
+    regions_weighted(scenario, exposure, domain, step, ids, vs30, None, cancel)
+}
+
+/// [`regions`], bölge stoku il içinde `weights` ile dağıtılarak (`None`:
+/// yerleşim hücrelerine eşit, uygulamanın kuralı).
+#[allow(clippy::too_many_arguments)]
+pub fn regions_weighted(
+    scenario: &Scenario,
+    exposure: &Exposure,
+    domain: &Domain,
+    step: u32,
+    ids: &[RegionId],
+    vs30: Option<&[f32]>,
+    weights: Option<&CellWeights>,
+    cancel: &AtomicBool,
+) -> Option<Vec<RegionDamage>> {
     let total = sample_regions::<{ 3 * N_DS }>(
         scenario,
         domain,
@@ -188,7 +219,11 @@ pub fn regions(
         ids,
         vs30,
         cancel,
-        |id| exposure.region(id).map(|s| s.built_cells),
+        |id| match weights {
+            Some(w) => (w.totals)(id),
+            None => exposure.region(id).map(|s| f64::from(s.built_cells)),
+        },
+        |k| weights.map_or(1.0, |w| f64::from(w.cells[k])),
         |id, ims| {
             let mut out = [0.0; 3 * N_DS];
             if let Some(stock) = exposure.region(id) {
@@ -289,8 +324,9 @@ pub fn loss_regions(
             if skip(id) {
                 return None;
             }
-            curves.curves.get(&id).map(|c| c.0)
+            curves.curves.get(&id).map(|c| f64::from(c.0))
         },
+        |_| 1.0,
         |id, ims| curves.ratio(id, ims),
     )?;
     let mut out: Vec<RegionLoss> = total

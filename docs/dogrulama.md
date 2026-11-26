@@ -1053,3 +1053,33 @@ Turkey"`. C (uygulamanın tam zinciri), ort. ΔI (JMA) / |ΔI| < 1 oranı (n).
   (dört model) 0,18'e indiriyor ama Kahramanmaraş'ı biraz kötüleştiriyor.
   KARAR: varsayılan DEĞİŞMEDİ (2026-11-24 kullanıcı kararı); ASB14
   kullanıcı seçimi olarak sunuldu. Değişiklik kullanıcıya bildirildi.
+
+## Hasar: il stokunun GHSL ağırlığıyla dağıtılması (deney, 2026-11-27)
+
+Soru (inceleme 2026-11-24): ESRM20 Türkiye stoku il düzeyinde (81 nokta);
+uygulama il stokunu ilin yerleşim hücrelerine EŞİT dağıtıyor. Yoğun kent
+merkezi ile seyrek kırsal aynı payı alıyor. Hipotez: GHSL yapılaşma alanıyla
+ağırlık Adana'daki fazla tahmini (×7) ve Hatay'daki az tahmini (×0,38)
+düzeltir.
+
+Komut: `SEISMIRA_GHSL=data/raw/ghsl/GHS_BUILT_S_E2020_GLOBE_R2023A_4326_30ss_V1_0.tif
+seismira-data validate-damage …` (`damage::regions_weighted`, hücre ağırlığı
+= GHSL m², il toplamı ilin tüm yerleşim hücrelerinden); `SEISMIRA_GHSL_QUANT=1`
+ağırlığı 3 bitlik logaritmik düzeylere yuvarlar (bölge rasterının boş
+bitlerine sığdırma denemesi). noDamageLimit düzeltmesinden sonra (eb42e01).
+
+| | eşit (uygulama) | GHSL | GHSL 3 bit |
+|---|---|---|---|
+| il başına ln(model/gözlenen) ort. / std | −0,50 / 1,07 | −0,49 / 1,04 | −0,49 / 1,04 |
+| Adana model/gözlenen | 7,37 | 7,23 | 7,17 |
+| Hatay | 0,38 | 0,39 | 0,40 |
+| Adıyaman | 0,40 | 0,46 | 0,46 |
+| Malatya | 0,33 | 0,38 | 0,38 |
+| Gaziantep | 1,11 | 1,01 | 1,03 |
+| 11 il model (gözlenen bina %8,9) | %9,7 | %10,0 | %10,1 |
+
+Sonuç: etki küçük (ortalama +0,01, std −0,03); Adana ve Hatay sapmaları il
+içi dağılımdan kaynaklanmıyor (olası nedenler: bina stoku / kırılganlık
+ayrımı, Hatay'da 20 Şubat artçısı, Adana'da gözlenen konut paydası).
+KARAR: uygulama değiştirilmedi (veri biçimi değişikliğine değmez); deney
+kipi doğrulama aracında kalır.

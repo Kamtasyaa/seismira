@@ -65,12 +65,94 @@ fn events() -> Result<Vec<(&'static str, Quake)>> {
 }
 
 /// (bölge kimliği → hasar) bir deprem için.
+/// GHSL ağırlık deneyi (`SEISMIRA_GHSL=<GHS_BUILT_S…tif>`): il stoku il
+/// içinde yerleşim hücrelerine eşit değil, hücrenin GHSL yapılaşma alanıyla
+/// orantılı dağıtılır. `quant`: ağırlık 3 bitlik logaritmik düzeylere
+/// yuvarlanır (bölge rasterının boş iki bitine sığdırma denemesi).
+struct Ghsl {
+    tif: std::sync::Mutex<crate::geotiff::GeoTiff>,
+    totals: HashMap<u16, f64>,
+    quant: bool,
+}
+
+impl Ghsl {
+    fn weight(&self, v: f32) -> f32 {
+        if v.is_nan() || v <= 0.0 {
+            return 0.0;
+        }
+        if !self.quant {
+            return v;
+        }
+        // Hücre alanı ~0,64 km² (30″, 37° K): pay = v / 640 000 m².
+        // Düzeyler (pay üst sınırı): 2, 4, 8, 16, 32, 64 %, üstü; düzey
+        // temsilcisi aralığın geometrik ortası.
+        let f = f64::from(v) / 640_000.0;
+        let edges = [0.02, 0.04, 0.08, 0.16, 0.32, 0.64];
+        let k = edges.iter().position(|&e| f < e).unwrap_or(edges.len());
+        let lo = if k == 0 { 0.01 } else { edges[k - 1] };
+        let hi = if k < edges.len() { edges[k] } else { 1.0 };
+        ((lo * hi).sqrt() * 640_000.0) as f32
+    }
+
+    fn load(path: &Path, regions: &RegionMap<Vec<u8>>, base: Base, quant: bool) -> Result<Self> {
+        use seismira_core::region::{BUILT_BIT, ID_MASK};
+        let mut g = Ghsl {
+            tif: std::sync::Mutex::new(crate::geotiff::GeoTiff::open(path)?),
+            totals: HashMap::new(),
+            quant,
+        };
+        // Türkiye ve komşuları: illerin tamamı bu kutuda.
+        let (w0, e0, s0, n0) = (25.0, 46.0, 35.0, 43.0);
+        let col0 = ((w0 - base.west) / base.cell).floor() as i64;
+        let row0 = ((base.north - n0) / base.cell).floor() as i64;
+        let w = ((e0 - w0) / base.cell).ceil() as u32;
+        let h = ((n0 - s0) / base.cell).ceil() as u32;
+        let ids = regions.window(col0, row0, w, h)?;
+        let mut totals: HashMap<u16, f64> = HashMap::new();
+        for r in 0..h {
+            for c in 0..w {
+                let raw = ids[(r * w + c) as usize];
+                if raw & BUILT_BIT == 0 {
+                    continue;
+                }
+                let lon = base.west + (col0 as f64 + f64::from(c) + 0.5) * base.cell;
+                let lat = base.north - (row0 as f64 + f64::from(r) + 0.5) * base.cell;
+                let raw_v = g.tif.get_mut().expect("kilit").value_at(lon, lat)?;
+                let v = g.weight(raw_v);
+                *totals.entry(raw & ID_MASK).or_default() += f64::from(v);
+            }
+        }
+        g.totals = totals;
+        Ok(g)
+    }
+
+    fn window(&self, domain: &Domain, ids: &[u16]) -> Result<Vec<f32>> {
+        use seismira_core::region::BUILT_BIT;
+        let b = domain.base;
+        let mut out = vec![0.0f32; ids.len()];
+        let mut tif = self.tif.lock().expect("kilit");
+        for r in 0..domain.h {
+            for c in 0..domain.w {
+                let k = (r * domain.w + c) as usize;
+                if ids[k] & BUILT_BIT == 0 {
+                    continue;
+                }
+                let lon = b.west + (domain.col0 as f64 + f64::from(c) + 0.5) * b.cell;
+                let lat = b.north - (domain.row0 as f64 + f64::from(r) + 0.5) * b.cell;
+                out[k] = self.weight(tif.value_at(lon, lat)?);
+            }
+        }
+        Ok(out)
+    }
+}
+
 fn run_event(
     q: Quake,
     tt: &TravelTimes,
     vs30: &Vs30Map<Vec<u8>>,
     regions: &RegionMap<Vec<u8>>,
     exposure: &Exposure,
+    ghsl: Option<&Ghsl>,
 ) -> Result<HashMap<u16, RegionDamage>> {
     let scenario = Scenario::new(q, tt).with_crust_region(crate::crust_region_at(q.epicenter)?);
     let g = vs30.grid();
@@ -84,13 +166,21 @@ fn run_event(
     let ids = regions.window(domain.col0, domain.row0, domain.w, domain.h)?;
     let step = (domain.fine_step() * 2).max(2);
     let cancel = AtomicBool::new(false);
-    let out = damage::regions(
+    let cells = ghsl.map(|g| g.window(&domain, &ids)).transpose()?;
+    let tot = ghsl.map(|g| &g.totals);
+    let totals = move |id: u16| tot.and_then(|t| t.get(&id).copied());
+    let weights = cells.as_deref().map(|c| damage::CellWeights {
+        cells: c,
+        totals: &totals,
+    });
+    let out = damage::regions_weighted(
         &scenario,
         exposure,
         &domain,
         step,
         &ids,
         Some(&win),
+        weights.as_ref(),
         &cancel,
     )
     .context("iptal")?;
@@ -167,12 +257,37 @@ pub fn run(sbb_csv: &Path, esrm20_turkey_res: &Path) -> Result<()> {
     // Olay başına ağır hasar oranı (medyan, −1τ, +1τ), üç stokla: tüm
     // binalar (uygulama), konut binaları, konutlar.
     let stocks = [&exposure, &bl_exposure, &dw_exposure];
+    let ghsl = match std::env::var_os("SEISMIRA_GHSL") {
+        Some(p) => {
+            let g = vs30.grid();
+            let quant = std::env::var("SEISMIRA_GHSL_QUANT").is_ok_and(|v| v == "1");
+            let t = std::time::Instant::now();
+            let gh = Ghsl::load(
+                Path::new(&p),
+                &regions,
+                Base {
+                    west: g.west,
+                    north: g.north,
+                    cell: g.cell,
+                },
+                quant,
+            )?;
+            println!(
+                "GHSL ağırlığı (deney{}): {} bölge, {} ms",
+                if quant { ", 3 bit düzey" } else { "" },
+                gh.totals.len(),
+                t.elapsed().as_millis()
+            );
+            Some(gh)
+        }
+        None => None,
+    };
     let mut per_event: Vec<[HashMap<u16, [f64; 3]>; 3]> = Vec::new();
     for (name, q) in events()? {
         let t = std::time::Instant::now();
         let mut three: [HashMap<u16, [f64; 3]>; 3] = Default::default();
         for (k, ex) in stocks.iter().enumerate() {
-            let d = run_event(q, &tt, &vs30, &regions, ex)?;
+            let d = run_event(q, &tt, &vs30, &regions, ex, ghsl.as_ref())?;
             three[k] = d
                 .into_iter()
                 .filter(|(_, r)| r.buildings > 0.0)
