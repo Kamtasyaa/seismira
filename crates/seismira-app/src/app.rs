@@ -15,6 +15,7 @@ use crate::map::{MapWidget, view::MapView};
 use crate::timeline::{self, Clock};
 use crate::{fonts, i18n::Lang, panel, paths, shindo_style, text_test, theme};
 
+mod spectrum_ui;
 mod user_ui;
 
 /// Dalga halkası renkleri. P (önce gelen, zayıf sarsıntı) soğuk, S (güçlü
@@ -458,6 +459,8 @@ pub struct SeismiraApp {
     region_shown: std::collections::HashMap<seismira_core::region::RegionId, Shown>,
     /// Kullanıcının kendi verisi ve dışa aktarma ([`user_ui`]).
     user: user_ui::UserState,
+    /// Tepki spektrumu penceresi ([`spectrum_ui`]).
+    spectrum: spectrum_ui::SpectrumState,
 }
 
 /// Başlangıç görünümü. Geliştirme için `SEISMIRA_VIEW=boylam,enlem,ölçek`.
@@ -607,6 +610,7 @@ impl SeismiraApp {
             region_events: Vec::new(),
             region_results: Vec::new(),
             user: Default::default(),
+            spectrum: Default::default(),
             alert: None,
             job: None,
             results: None,
@@ -722,6 +726,9 @@ impl SeismiraApp {
                 if ui.button(t("menu-export")).clicked() {
                     self.user.show_export = true;
                 }
+                if ui.button(t("menu-spectrum")).clicked() {
+                    self.spectrum.show = true;
+                }
             });
             ui.menu_button(t("menu-view"), |ui| {
                 ui.checkbox(&mut self.show_disclaimer, t("menu-disclaimer"));
@@ -830,6 +837,11 @@ impl SeismiraApp {
                     pts.push(c);
                 }
             }
+        } else if let Some(c) = out.secondary_clicked
+            && self.sim.is_some()
+        {
+            // Sağ tık: tepki spektrumu noktası.
+            self.spectrum_pick(c);
         } else if let Some(c) = out.clicked {
             if self.sim.is_some() {
                 // Simülasyon sürerken tıklama onu bozmaz: bölge kartını açar
@@ -938,6 +950,7 @@ impl SeismiraApp {
             self.toggle_region_card((lon, lat));
         }
         self.draw_user_overlays(ui, rect);
+        self.draw_spectrum_marker(ui, rect);
         if let Some((id, at)) = self.region_card {
             self.draw_region_card(ui, rect, id, self.map.to_screen(rect, at));
         }
@@ -1774,6 +1787,7 @@ impl SeismiraApp {
         self.sim = None;
         self.user.grid = None;
         self.user.inventory_results = None;
+        self.spectrum.clear();
         self.clock = Clock {
             speed: self.clock.speed,
             ..Clock::default()
@@ -2436,6 +2450,7 @@ impl eframe::App for SeismiraApp {
         self.show_text_test = open;
 
         self.user_windows(ui.ctx());
+        self.spectrum_window(ui.ctx());
 
         let mut open = self.show_sources;
         egui::Window::new(t("sources-title"))

@@ -597,3 +597,21 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   uyarısı, birimler). Yazma arka planda; "Klasörü aç" (xdg-open / explorer
   / open).
 
+## Tepki spektrumu ve TBDY-2018 (2026-11-26, README "Önemli")
+
+- Veri → "Tepki spektrumu…"; simülasyon açıkken haritada SAĞ TIK noktayı
+  seçer (sol tık bölge kartı olarak kalır). Haritada turuncu elmas.
+- Spektrum: `Scenario::spectrum` (çekirdek), 0,02–6 s'de 46 logaritmik
+  periyot + PGA (T = 0), depremin modeli (kabukta dört NGA-West2 ortalaması,
+  dalma-batmada Parker vd. 2020), RotD50, %5 sönüm; medyan ve ±1σ (toplam
+  σ). Zemin: kullanıcı Vs30 → USGS → referans. Model sınırı dışı: yok.
+- TBDY-2018 (`seismira_core::tbdy`, Resmî Gazete metninden): kullanıcı S_S
+  ve S_1 girer (AFAD tdth.afad.gov.tr; harita uygulamada YOK), zemin sınıfı
+  Vs30'dan (Tablo 16.1; sınır değerde üst sınıf, VARSAYIM) ya da elle;
+  F_S, F_1 Tablo 2.1–2.2 doğrusal ara değer; S_ae(T) Denk. 2.2–2.3, T_L 6 s.
+  ZF: çizilmez. Uyarı metni: senaryo tahmini (tek olay) ile olasılıksal
+  tasarım spektrumu aynı şey değildir; harita katsayıları geometrik
+  ortalama, tahmin RotD50.
+- Grafik kütüphanesiz (egui çizici): doğrusal eksen, 2 / 4 / 6 s seçimi,
+  imleçte değer. CSV: ~/Seismira/spektrum-<UTC>.csv.
+

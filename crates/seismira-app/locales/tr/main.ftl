@@ -321,3 +321,29 @@ export-still-running = Hesap sürüyor; şimdi dışa aktarırsan henüz bitmemi
 export-button = Dışa aktar
 export-done = Yazıldı: { $dir }
 export-open = Klasörü aç
+
+## Tepki spektrumu
+menu-spectrum = Tepki spektrumu…
+spectrum-title = Tepki spektrumu
+spectrum-need-sim = Önce bir deprem başlat; sonra haritada bir noktaya sağ tıkla.
+spectrum-pick = Haritada bir noktaya sağ tıkla: o noktanın tepki spektrumu çizilir.
+spectrum-site = Nokta { $lat } K, { $lon } D; faya uzaklık { $rrup } km; Vs30 { $vs30 } m/s ({ $src }). Yeni nokta için haritada sağ tıkla.
+spectrum-vs30-user = senin yüklediğin harita
+spectrum-vs30-map = USGS haritası
+spectrum-vs30-reference = referans zemin, harita değeri yok
+spectrum-out-of-model = Bu nokta yer hareketi modelinin sınırı dışında; spektrum hesaplanmadı.
+spectrum-tbdy = TBDY-2018 tasarım spektrumu için harita spektral ivme katsayılarını gir (AFAD tdth.afad.gov.tr, istediğin deprem düzeyi için, ör. DD-2): kısa periyot S_S ve 1 s periyot S_1.
+spectrum-class = Zemin sınıfı
+spectrum-class-auto = { $c } (Vs30'dan)
+spectrum-zf = ZF zeminde tasarım spektrumu sahaya özel analizle belirlenir (TBDY 16.5); çizilmedi.
+spectrum-design-values = S_DS = { $sds } g, S_D1 = { $sd1 } g, T_A = { $ta } s, T_B = { $tb } s (TBDY Denk. 2.1–2.3).
+spectrum-tmax = Periyot aralığı
+spectrum-axis-t = Periyot T (s)
+spectrum-axis-sa = Spektral ivme (g)
+spectrum-legend-median = tahmin (medyan)
+spectrum-legend-band = olası aralık (±1σ)
+spectrum-legend-design = TBDY-2018 tasarım spektrumu
+spectrum-note = Tahmin bu deprem senaryosu içindir (bir olay); tasarım spektrumu ise bölgenin tüm olası depremlerinden gelen tehlikedir (olasılıksal). İkisi aynı şey değildir; karşılaştırma fikir verir. Tahmin iki yatay bileşenin RotD50 ortalaması, %5 sönüm.
+spectrum-save = Spektrumu kaydet (CSV)
+spectrum-hover = T = { $t } s: { $m } g (olası { $lo }–{ $hi })
+spectrum-hover-design = ; TBDY { $d } g

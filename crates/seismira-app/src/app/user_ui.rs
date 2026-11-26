@@ -651,7 +651,7 @@ fn opt(v: Option<f64>, digits: usize) -> String {
 }
 
 /// Dışa aktarma kök klasörü: `~/Seismira`.
-fn export_base() -> PathBuf {
+pub(super) fn export_base() -> PathBuf {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map_or_else(|| PathBuf::from("."), PathBuf::from)
@@ -696,7 +696,7 @@ fn write_export(
 
 /// Yerel değil UTC zaman damgası: YYYYAAGG-SSDDss (bağımlılıksız; Howard
 /// Hinnant'ın "civil_from_days" algoritması).
-fn timestamp() -> String {
+pub(super) fn timestamp() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs()) as i64;

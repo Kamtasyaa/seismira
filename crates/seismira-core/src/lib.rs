@@ -25,6 +25,7 @@ pub mod sim;
 pub mod site;
 pub mod slab;
 pub mod source;
+pub mod tbdy;
 pub mod tectonic;
 pub mod traveltime;
 pub mod tsunami;

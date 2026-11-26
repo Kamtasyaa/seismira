@@ -42,6 +42,11 @@ offline.
   bina envanteri (CSV) yüklenebilir (Veri menüsü; dosya yolu ya da
   sürükle-bırak). / Load your own fault trace, Vs30 map and building
   inventory (Data menu).
+- **Tepki spektrumu:** haritada sağ tıklanan noktada %5 sönümlü spektrum
+  (0,02–6 s, medyan ve ±1σ), kullanıcının girdiği S_S / S_1 ile TBDY-2018
+  yatay elastik tasarım spektrumuyla üst üste; CSV kaydı (Veri menüsü). /
+  Response spectrum at a right-clicked site with the TBDY-2018 design
+  spectrum overlay.
 - **Dışa aktarma:** sarsıntı haritaları GeoTIFF (JMA şiddeti, PGV, PGA),
   şehir / bölge tabloları CSV, fay izi ve zemin yenilmesi GeoJSON
   (EPSG:4326; QGIS / ArcGIS). / Export shaking GeoTIFFs, city and region
@@ -78,10 +83,8 @@ Planned features by priority; order and timing are not fixed.
 
 Sismoloji ve yapı / Seismology and structures:
 
-- **Tepki spektrumu:** tıklanan noktada 0,1–4,0 s spektral ivme (Sa)
-  eğrisi, TBDY-2018 (DD-1 / DD-2) ya da Eurocode 8 tasarım spektrumuyla
-  üst üste. / Response spectrum at any point, overlaid on TBDY-2018 or
-  Eurocode 8 design spectra.
+- **Eurocode 8 tasarım spektrumu:** tepki spektrumu penceresinde TBDY-2018'in
+  yanında EC8. / Eurocode 8 design spectrum next to TBDY-2018.
 - **Yapay ivme kaydı:** seçilen deprem ve zemine göre tahmini ivme-zaman
   kaydı; ETABS, SAP2000 gibi programlar için .txt / .csv dışa aktarma. /
   Synthetic accelerograms, exportable for structural analysis software.

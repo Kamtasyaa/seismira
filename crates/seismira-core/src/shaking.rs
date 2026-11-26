@@ -162,6 +162,34 @@ pub fn has_gmpe(q: &Quake) -> bool {
     Gmm::for_quake(q).is_some()
 }
 
+/// Spektrum periyotları (s): 0,02–6 s, logaritmik 46 nokta (TBDY T_L = 6 s'ye
+/// kadar; NGA-West2 ve Parker vd. 2020 tabloları 10 s'ye kadar).
+pub const SPECTRUM_PERIODS: [f64; 46] = {
+    let mut p = [0.0; 46];
+    // 0,02 · 300^(k/45): sabit ifade için önceden hesaplanmış çarpan
+    // tablosu yerine döngü (const fn'de powf yok): adım oranı r = 300^(1/45).
+    let r = 1.135_134_018_185_281_4_f64;
+    let mut k = 0;
+    let mut v = 0.02;
+    while k < 46 {
+        p[k] = v;
+        v *= r;
+        k += 1;
+    }
+    p
+};
+
+/// [`Scenario::spectrum`] sonucu.
+#[derive(Clone, Debug)]
+pub struct SiteSpectrum {
+    pub dist: Distances,
+    /// Hesapta kullanılan Vs30 (modelin aralığına çekilmiş).
+    pub vs30: f64,
+    pub pga: Option<LnMotion>,
+    /// (periyot s, ln SA).
+    pub sa: Vec<(f64, Option<LnMotion>)>,
+}
+
 /// Bir depremin hesap bağlamı.
 pub struct Scenario<'a> {
     pub quake: Quake,
@@ -257,6 +285,26 @@ impl<'a> Scenario<'a> {
                     region: self.region,
                 },
             ),
+        }
+    }
+
+    /// Bir noktanın %5 sönümlü tepki spektrumu (RotD50, g): [`SPECTRUM_PERIODS`]
+    /// periyotlarında depremin modeliyle (`ln_motion`, tabloda olmayan
+    /// periyotlar log-log ara değer). Model dışı (mesafe, girdi) `None`.
+    /// Dönen: mesafeler, kullanılan Vs30 (modele çekilmiş), PGA ve spektrum.
+    pub fn spectrum(&self, lonlat: (f64, f64), vs30: f64) -> SiteSpectrum {
+        let d = self.fault.distances(lonlat);
+        let v = self.clamp_vs30(vs30);
+        let in_range = self.max_rrup_km().is_some_and(|m| d.rrup <= m);
+        let get = |imt| in_range.then(|| self.ln_motion(imt, &d, v)).flatten();
+        SiteSpectrum {
+            dist: d,
+            vs30: v,
+            pga: get(Imt::Pga),
+            sa: SPECTRUM_PERIODS
+                .iter()
+                .map(|&t| (t, get(Imt::Sa(t))))
+                .collect(),
         }
     }
 
@@ -385,6 +433,32 @@ impl<'a> Scenario<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Spektrum: periyotlar 0,02–6 s; yakın sahada her periyotta değer;
+    /// kısa periyot ucu PGA'ya yakın (0,02 s), 6 s'de çok daha küçük.
+    #[test]
+    fn spektrum() {
+        assert!((SPECTRUM_PERIODS[0] - 0.02).abs() < 1e-12);
+        assert!(
+            (SPECTRUM_PERIODS[45] - 6.0).abs() < 1e-6,
+            "{}",
+            SPECTRUM_PERIODS[45]
+        );
+        let t = tt();
+        let mut q = Quake::new((29.97, 40.7));
+        q.mw = 7.4;
+        let s = Scenario::new(q, &t);
+        let sp = s.spectrum((30.2, 40.6), 400.0);
+        assert!(sp.sa.iter().all(|(_, m)| m.is_some()));
+        let pga = sp.pga.unwrap().median();
+        let sa002 = sp.sa[0].1.unwrap().median();
+        let sa6 = sp.sa[45].1.unwrap().median();
+        assert!((sa002 / pga - 1.0).abs() < 0.15, "{sa002} {pga}");
+        assert!(sa6 < 0.2 * pga, "{sa6} {pga}");
+        // Model sınırı dışı: hepsi None.
+        let far = s.spectrum((45.0, 40.0), 400.0);
+        assert!(far.pga.is_none() && far.sa.iter().all(|(_, m)| m.is_none()));
+    }
     use crate::quake::FaultType;
     use std::path::Path;
 

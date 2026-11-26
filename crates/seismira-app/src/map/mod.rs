@@ -52,6 +52,8 @@ pub struct MapOutput {
     pub clicked: Option<(f64, f64)>,
     /// Bu karede çift tıklandı (fay izi çizimini bitirir).
     pub double_clicked: bool,
+    /// Sağ tıklanan nokta (tepki spektrumu noktası).
+    pub secondary_clicked: Option<(f64, f64)>,
 }
 
 pub struct MapWidget {
@@ -308,6 +310,11 @@ impl MapWidget {
                 None
             },
             double_clicked: response.double_clicked(),
+            secondary_clicked: if response.secondary_clicked() {
+                response.interact_pointer_pos().map(to_lonlat)
+            } else {
+                None
+            },
         }
     }
 

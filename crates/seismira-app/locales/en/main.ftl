@@ -321,3 +321,29 @@ export-still-running = Still computing; if you export now, unfinished layers (da
 export-button = Export
 export-done = Written: { $dir }
 export-open = Open folder
+
+## Response spectrum
+menu-spectrum = Response spectrum…
+spectrum-title = Response spectrum
+spectrum-need-sim = Start an earthquake first, then right-click a point on the map.
+spectrum-pick = Right-click a point on the map to plot its response spectrum.
+spectrum-site = Site { $lat } N, { $lon } E; distance to fault { $rrup } km; Vs30 { $vs30 } m/s ({ $src }). Right-click the map for a new site.
+spectrum-vs30-user = your uploaded map
+spectrum-vs30-map = USGS map
+spectrum-vs30-reference = reference site, no map value
+spectrum-out-of-model = This site is beyond the ground-motion model's limit; no spectrum computed.
+spectrum-tbdy = For the TBDY-2018 (Turkish code) design spectrum, enter the map spectral acceleration coefficients (AFAD tdth.afad.gov.tr, for the hazard level you want, e.g. DD-2): short-period S_S and 1 s S_1.
+spectrum-class = Site class
+spectrum-class-auto = { $c } (from Vs30)
+spectrum-zf = For ZF sites the design spectrum requires a site-specific analysis (TBDY 16.5); not drawn.
+spectrum-design-values = S_DS = { $sds } g, S_D1 = { $sd1 } g, T_A = { $ta } s, T_B = { $tb } s (TBDY Eq. 2.1–2.3).
+spectrum-tmax = Period range
+spectrum-axis-t = Period T (s)
+spectrum-axis-sa = Spectral acceleration (g)
+spectrum-legend-median = prediction (median)
+spectrum-legend-band = likely range (±1σ)
+spectrum-legend-design = TBDY-2018 design spectrum
+spectrum-note = The prediction is for this one earthquake scenario; the design spectrum is the hazard from all possible earthquakes in the region (probabilistic). They are not the same thing; the comparison gives an idea. The prediction is RotD50 of the two horizontal components, 5% damping.
+spectrum-save = Save spectrum (CSV)
+spectrum-hover = T = { $t } s: { $m } g (likely { $lo }–{ $hi })
+spectrum-hover-design = ; TBDY { $d } g
