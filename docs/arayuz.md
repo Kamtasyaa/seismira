@@ -615,3 +615,20 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
 - Grafik kütüphanesiz (egui çizici): doğrusal eksen, 2 / 4 / 6 s seçimi,
   imleçte değer. CSV: ~/Seismira/spektrum-<UTC>.csv.
 
+
+## Dizüstü / dokunmatik yüzey uyumu (2026-11-26, kullanıcı isteği)
+
+- İki parmak kaydırma (tıklamadan) = haritayı her yöne kaydır; fare
+  tekerleği = yakınlaştır (önceki davranış); iki parmak sıkıştırma
+  (pinch) = yakınlaştır (macOS, Windows hassas dokunmatik yüzey: Ctrl +
+  kaydırma olarak gelir); Ctrl + iki parmak / tekerlek = yakınlaştır
+  (her yerde). Haritanın sağ kenarında + / − düğmeleri; klavyede + / −.
+- Ayrım (`map/mod.rs`): egui-winit kaynak bilgisini yalnızca macOS'ta
+  veriyor; Wayland'de tekerlek ayrık "satır" (LineDelta), dokunmatik
+  yüzey sürekli "nokta" (PixelDelta) birimiyle gelir (winit 0.30.13
+  wayland/seat/pointer kaynağı); Windows'ta dokunmatik yüzey kesirli
+  satır, tekerlek tam sayı satır.
+- BİLİNEN SINIR: winit 0.30.13'te sıkıştırma hareketi (PinchGesture)
+  yalnızca macOS / iOS'ta; Linux'ta (Wayland ve X11) iletilmiyor → Linux
+  dizüstünde yakınlaştırma Ctrl + iki parmak ya da + / − ile. eframe
+  0.37 winit 0.30'a bağlı; ileride winit yükseltilince eklenebilir.

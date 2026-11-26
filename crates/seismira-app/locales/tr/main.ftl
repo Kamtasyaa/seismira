@@ -420,3 +420,5 @@ report-limit-3 = Zemin (Vs30) haritası kaba çözünürlüklüdür; yerel zemin
 report-limit-4 = Sıvılaşma ve heyelan küresel ön tarama modelleridir (Zhu vd. 2017, Nowicki Jessee vd. 2018); saha incelemesinin yerini tutmaz.
 report-limit-5 = Can kaybı tahmini yapılmaz.
 report-sources = Veri kaynakları ve atıflar
+map-zoom-in = Yakınlaştır (+)
+map-zoom-out = Uzaklaştır (−)

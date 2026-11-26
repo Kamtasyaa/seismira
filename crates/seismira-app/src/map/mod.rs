@@ -56,6 +56,13 @@ pub struct MapOutput {
     pub secondary_clicked: Option<(f64, f64)>,
 }
 
+/// Kesirli "satır" birimli kaydırmayı noktaya çevirme (egui'nin satır
+/// yüksekliğine yakın).
+const LINE_POINTS: f32 = 40.0;
+/// Fare tekerleğinin bir çentiği için yakınlaştırma üssü (önceki
+/// davranış: 50 nokta × 0,0025 ≈ 0,125).
+const WHEEL_ZOOM_PER_LINE: f64 = 0.125;
+
 pub struct MapWidget {
     view: MapView,
     load: Load,
@@ -280,13 +287,49 @@ impl MapWidget {
         let response = ui.allocate_rect(rect, Sense::click_and_drag());
         self.view.normalize(rect);
 
-        // Girdi: sürükle = kaydır, tekerlek / iki parmak = yakınlaştır.
+        // Girdi (dizüstü / dokunmatik yüzey uyumu, 2026-11-26 kullanıcı
+        // isteği): sürükle = kaydır; fare tekerleği = yakınlaştır; dokunmatik
+        // yüzeyde iki parmak kaydırma = her yöne kaydır; iki parmak sıkıştırma
+        // (macOS, Windows) ya da Ctrl + iki parmak / tekerlek = yakınlaştır.
+        // Tekerlek / dokunmatik yüzey ayrımı: winit 0.30 kaynağı yalnızca
+        // macOS'ta söylüyor; Wayland'de tekerlek "satır", dokunmatik yüzey
+        // "nokta" birimiyle gelir; Windows'ta dokunmatik yüzey kesirli satır
+        // verir (tam sayı satır = tekerlek). Linux'ta sıkıştırma winit
+        // 0.30'da iletilmiyor: Ctrl + iki parmak ya da + / − düğmeleri.
         if response.dragged() {
             self.view.pan(rect, response.drag_delta());
         }
         if let Some(p) = response.hover_pos() {
-            let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
-            let factor = f64::from(zoom) * (f64::from(scroll) * 0.0025).exp();
+            let (wheel, pan, zoom) = ui.input(|i| {
+                let (mut wheel, mut pan) = (0.0f64, egui::Vec2::ZERO);
+                for e in &i.raw.events {
+                    if let egui::Event::MouseWheel {
+                        unit,
+                        delta,
+                        modifiers,
+                        ..
+                    } = e
+                    {
+                        if modifiers.command || modifiers.ctrl {
+                            continue; // egui bunu zoom_delta'ya çevirir
+                        }
+                        let integral = delta.x.fract() == 0.0 && delta.y.fract() == 0.0;
+                        match unit {
+                            egui::MouseWheelUnit::Line if integral => {
+                                wheel += f64::from(delta.y);
+                            }
+                            egui::MouseWheelUnit::Line => pan += *delta * LINE_POINTS,
+                            egui::MouseWheelUnit::Point => pan += *delta,
+                            egui::MouseWheelUnit::Page => wheel += f64::from(delta.y) * 3.0,
+                        }
+                    }
+                }
+                (wheel, pan, i.zoom_delta())
+            });
+            if pan != egui::Vec2::ZERO {
+                self.view.pan(rect, pan);
+            }
+            let factor = f64::from(zoom) * (wheel * WHEEL_ZOOM_PER_LINE).exp();
             if (factor - 1.0).abs() > 1e-6 {
                 self.view.zoom_at(rect, p, factor);
             }
@@ -559,6 +602,45 @@ impl MapWidget {
 
 impl MapWidget {
     /// Haritayı bir noktaya ortalar (ölçek değişmez).
+    /// Haritanın sağ kenarında + / − düğmeleri (dokunmatik yüzeyde sıkıştırma
+    /// olmayan sistemler için) ve klavyede + / − (metin kutusu odakta
+    /// değilken). Harita üstündeki katmanlardan sonra çağrılır.
+    pub fn zoom_buttons(&mut self, ui: &mut egui::Ui, rect: Rect, labels: (&str, &str)) {
+        let size = egui::vec2(30.0, 30.0);
+        let x = rect.right() - size.x - 10.0;
+        let y = rect.center().y - size.y - 3.0;
+        let step = 1.6;
+        let mut factor = 1.0;
+        for (i, (text, tip, f)) in [("+", labels.0, step), ("−", labels.1, 1.0 / step)]
+            .into_iter()
+            .enumerate()
+        {
+            let r = Rect::from_min_size(egui::pos2(x, y + i as f32 * (size.y + 6.0)), size);
+            let b = ui.put(r, egui::Button::new(egui::RichText::new(text).size(18.0)));
+            if b.on_hover_text(tip).clicked() {
+                factor *= f;
+            }
+        }
+        let typing = ui.ctx().memory(|m| m.focused().is_some());
+        if !typing {
+            let (plus, minus) = ui.input(|i| {
+                (
+                    i.key_pressed(egui::Key::Plus) || i.key_pressed(egui::Key::Equals),
+                    i.key_pressed(egui::Key::Minus),
+                )
+            });
+            if plus {
+                factor *= step;
+            }
+            if minus {
+                factor /= step;
+            }
+        }
+        if factor != 1.0 {
+            self.view.zoom_at(rect, rect.center(), factor);
+        }
+    }
+
     pub fn center_on(&mut self, lonlat: (f64, f64)) {
         let (x, y) = mercator::to_unit(lonlat.0, lonlat.1);
         self.view.center = [x, y];

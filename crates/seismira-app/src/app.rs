@@ -964,6 +964,8 @@ impl SeismiraApp {
         }
         self.draw_user_overlays(ui, rect);
         self.draw_spectrum_marker(ui, rect);
+        let labels = (lang.t("map-zoom-in"), lang.t("map-zoom-out"));
+        self.map.zoom_buttons(ui, rect, (&labels.0, &labels.1));
         if let Some((id, at)) = self.region_card {
             self.draw_region_card(ui, rect, id, self.map.to_screen(rect, at));
         }

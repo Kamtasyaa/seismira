@@ -420,3 +420,5 @@ report-limit-3 = The site (Vs30) map is coarse; local site effects may differ.
 report-limit-4 = Liquefaction and landslide are global screening models (Zhu et al. 2017, Nowicki Jessee et al. 2018); they do not replace site investigation.
 report-limit-5 = No casualty estimate is made.
 report-sources = Data sources and attributions
+map-zoom-in = Zoom in (+)
+map-zoom-out = Zoom out (−)
