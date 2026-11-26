@@ -82,7 +82,7 @@ jobs:
           # Depodaki küçük dosyalar kodla birlikte değişir (atıf listesi,
           # veri paketinden sonra eklenen kararlı kıta içi bölgeler): paketteki
           # eskisinin yerine geçer ya da eklenir, MANIFEST satırı yenilenir.
-          for f in data/SOURCES.toml data/regions/stable.sout; do
+          for f in data/SOURCES.toml data/regions/stable.sout data/scenarios/scenarios.json; do
             mkdir -p "dist/common/$(dirname "$f")"
             cp "$f" "dist/common/$f"
             (cd dist/common && { grep -v "  $f\$" data/MANIFEST.sha256 || true; } > m \
