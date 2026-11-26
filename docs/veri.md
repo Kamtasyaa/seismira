@@ -413,4 +413,13 @@ Lisans kuralları:
 - İstek yalnızca "Listeyi getir" ile; User-Agent "seismira"; kişisel bilgi
   gönderilmez. Canlı test `SEISMIRA_NET_TEST=1` (CI'da çalışmaz): USGS 162,
   EMSC 164 olay (M ≥ 5, 30 gün).
+- 2026-11-26: "Senaryoya aktar" USGS olay ayrıntısından ShakeMap
+  `download/rupture.json` (tercih ağırlığı en yüksek ShakeMap ürünü) ve
+  moment tensörünün iki düğüm düzlemini alır; fay `realquakes::
+  rupture_geometry` ile (scripts/gen_scenarios.py ile aynı kural: kollar
+  atlanır, ≤ 10 km basamak, kapsama ≥ %90 → çok parçalı iz; yoksa tek
+  düzlem); düzlem kırılmaya en yakın doğrultulu olan. Canlı test: Pazarcık
+  2 kuad → 16 noktalı iz, 227,6° düzlemi (önce 1. düzlem 317,6° seçiliyordu).
+  ShakeMap'i olmayan küçük olaylarda moment tensörü / varsayılan. AFAD'a
+  izin e-postası 2026-11-26 gönderildi (kullanıcı).
 

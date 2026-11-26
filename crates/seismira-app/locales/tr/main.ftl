@@ -373,6 +373,7 @@ real-applied = Yüklendi: { $place }. Tektonik ortam tahmini: { $setting } (Slab
 real-not-mw = Dikkat: büyüklük türü { $t }, moment büyüklüğü (Mw) değil; yaklaşık olarak Mw kabul edildi.
 real-mt-used = Fay doğrultusu, eğimi ve kayma açısı moment tensöründen (1. düğüm düzlemi; iki düzlemden hangisinin fay olduğu belirsiz olabilir).
 real-mt-none = Moment tensörü yok: fay doğrultusu ve eğimi varsayılan; gerçek fay farklı olabilir.
+real-rupture-used = Fay geometrisi USGS ShakeMap kırılma modelinden ({ $n } parça; hazır senaryolarla aynı kural); kayma açısı moment tensörünün kırılmaya uyan düzleminden.
 real-credit-usgs = Kaynak: U.S. Geological Survey (USGS), earthquake.usgs.gov (kamu malı).
 real-credit-emsc = Kaynak: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu (CC BY 4.0).
 real-disclaimer = Bu liste bilgi ve eğitim içindir. Gerçek deprem bilgisi için AFAD, Kandilli, JMA ya da USGS gibi resmi kurumları takip et. (AFAD listesi eklenmedi: kullanım koşulları bulunamadı.)

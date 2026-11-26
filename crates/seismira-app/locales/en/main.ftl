@@ -373,6 +373,7 @@ real-applied = Loaded: { $place }. Tectonic setting estimate: { $setting } (from
 real-not-mw = Note: magnitude type is { $t }, not moment magnitude (Mw); used approximately as Mw.
 real-mt-used = Fault strike, dip and rake from the moment tensor (nodal plane 1; which of the two planes is the fault may be ambiguous).
 real-mt-none = No moment tensor: default fault strike and dip; the real fault may differ.
+real-rupture-used = Fault geometry from the USGS ShakeMap rupture model ({ $n } segments; same rule as the preset scenarios); rake from the moment-tensor plane matching the rupture.
 real-credit-usgs = Source: U.S. Geological Survey (USGS), earthquake.usgs.gov (public domain).
 real-credit-emsc = Source: EMSC-CSEM SeismicPortal, https://www.seismicportal.eu (CC BY 4.0).
 real-disclaimer = This list is for information and education. For real earthquake information follow official agencies such as AFAD, Kandilli, JMA or USGS. (AFAD list not included: terms of use could not be found.)

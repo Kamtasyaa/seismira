@@ -7,13 +7,13 @@
 //! sığ kabuk, daha derin levha içi. Kullanıcı panelden değiştirebilir.
 
 use super::SeismiraApp;
-use crate::realquakes::{self, NodalPlane, RealQuake, Source};
+use crate::realquakes::{self, Geometry, RealQuake, Source};
 use eframe::egui::{self, RichText};
 use seismira_core::quake::{FaultType, Quake, Setting, limits};
 use std::sync::mpsc::{Receiver, TryRecvError};
 
 type Fetch = Result<Vec<RealQuake>, String>;
-type Apply = (RealQuake, Result<Option<NodalPlane>, String>);
+type Apply = (RealQuake, Result<realquakes::Detail, String>);
 
 pub(super) struct RealState {
     pub show: bool,
@@ -200,11 +200,12 @@ impl SeismiraApp {
             let _ = std::thread::Builder::new()
                 .name("moment-tensörü".into())
                 .spawn(move || {
-                    let np = match &q.detail {
-                        Some(u) => realquakes::fetch_nodal_plane(u),
-                        None => Ok(None),
+                    // USGS: moment tensörü + ShakeMap kırılma modeli.
+                    let d = match &q.detail {
+                        Some(u) => realquakes::fetch_detail(u),
+                        None => Ok(realquakes::Detail::default()),
                     };
-                    let _ = tx.send((q, np));
+                    let _ = tx.send((q, d));
                     c.request_repaint();
                 });
             self.real.applying = Some(rx);
@@ -212,7 +213,7 @@ impl SeismiraApp {
     }
 
     /// Seçilen depremi taslağa aktarır.
-    fn real_apply(&mut self, rq: &RealQuake, np: Result<Option<NodalPlane>, String>) {
+    fn real_apply(&mut self, rq: &RealQuake, detail: Result<realquakes::Detail, String>) {
         let lang = self.lang;
         let mut q = Quake::new((rq.lon, rq.lat));
         q.mw = rq.mag;
@@ -235,8 +236,67 @@ impl SeismiraApp {
             _ if q.depth_km <= limits::CRUST_DEPTH.1 => Setting::ShallowCrust,
             _ => Setting::Intraslab,
         };
-        let np = np.ok().flatten();
+        let detail = detail.unwrap_or_else(|e| {
+            log::warn!("olay ayrıntısı alınamadı: {e}");
+            realquakes::Detail::default()
+        });
+        // ShakeMap kırılma modeli varsa fay ondan; düğüm düzlemi kırılmaya
+        // en yakın olan (iki düzlem belirsizliğini çözer).
+        let rupture = realquakes::rupture_geometry(
+            &detail.quads,
+            &detail.planes,
+            (rq.lon, rq.lat),
+            q.depth_km,
+        );
+        let np = rupture
+            .as_ref()
+            .map(|(_, p)| *p)
+            .or(detail.planes.first().copied());
+        let mut segments = 0;
+        if let Some((g, p)) = &rupture {
+            q.rake = p.rake;
+            q.fault = FaultType::from_rake(p.rake);
+            match g {
+                Geometry::Trace {
+                    points,
+                    dip,
+                    width,
+                    hypo_down,
+                } => {
+                    q.trace = seismira_core::quake::Trace::new(points);
+                    segments = points.len() - 1;
+                    q.dip = *dip;
+                    q.hypo_down = *hypo_down;
+                    let len: f64 = points
+                        .windows(2)
+                        .map(|w| seismira_core::geo::distance_km(w[0], w[1]))
+                        .sum();
+                    q.rupture_km = Some([len.round(), width.round().max(1.0)]);
+                }
+                Geometry::Plane {
+                    strike,
+                    dip,
+                    length,
+                    width,
+                    hypo_along,
+                    hypo_down,
+                } => {
+                    segments = 1;
+                    q.strike = strike.round().rem_euclid(360.0);
+                    q.dip = dip.round().clamp(1.0, 90.0);
+                    q.hypo_along = *hypo_along;
+                    q.hypo_down = *hypo_down;
+                    q.rupture_km = Some([length.round().max(1.0), width.round().max(1.0)]);
+                }
+            }
+            // Arayüz modeli ters fay ister (Parker vd. 2020).
+            if q.setting == Setting::Interface && q.fault != FaultType::Reverse {
+                q.rake = 90.0;
+                q.fault = FaultType::Reverse;
+            }
+        }
         match (q.setting, np, hit) {
+            _ if rupture.is_some() => {}
             // Arayüz: levha geometrisi, ters fay (CY / Parker arayüzü).
             (Setting::Interface, _, Some(h)) => {
                 q.strike = h.geometry.strike.round().rem_euclid(360.0);
@@ -277,11 +337,15 @@ impl SeismiraApp {
             msg.push_str(&lang.t_args("real-not-mw", &[("t", rq.mag_type.clone())]));
         }
         msg.push(' ');
-        msg.push_str(&lang.t(if np.is_some() {
-            "real-mt-used"
+        if segments > 0 {
+            msg.push_str(&lang.t_args("real-rupture-used", &[("n", lang.num(segments as f64, 0))]));
         } else {
-            "real-mt-none"
-        }));
+            msg.push_str(&lang.t(if np.is_some() {
+                "real-mt-used"
+            } else {
+                "real-mt-none"
+            }));
+        }
         self.real.msg = Some(msg);
     }
 }

@@ -112,9 +112,346 @@ pub fn fetch(source: Source, min_mag: f64) -> Result<Vec<RealQuake>, String> {
     Ok(list)
 }
 
-/// USGS ayrıntısından tercih edilen moment tensörünün 1. düğüm düzlemi.
-pub fn fetch_nodal_plane(detail_url: &str) -> Result<Option<NodalPlane>, String> {
-    parse_usgs_detail(&get(detail_url)?)
+/// USGS olay ayrıntısı: iki düğüm düzlemi ve (varsa) ShakeMap kırılma
+/// modelinin kuadları.
+#[derive(Clone, Debug, Default)]
+pub struct Detail {
+    pub planes: Vec<NodalPlane>,
+    pub quads: Vec<Quad>,
+}
+
+/// ShakeMap `rupture.json` kuadı: üst ve alt kenar noktaları, derinlikler.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Quad {
+    pub top: Vec<(f64, f64)>,
+    pub bottom: Vec<(f64, f64)>,
+    pub ztop: f64,
+    pub zbot: f64,
+}
+
+/// Ayrıntı + ShakeMap kırılma modeli (ikincisi yoksa ya da alınamazsa boş).
+pub fn fetch_detail(detail_url: &str) -> Result<Detail, String> {
+    let text = get(detail_url)?;
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let mut d = Detail {
+        planes: nodal_planes(&v),
+        quads: Vec::new(),
+    };
+    let rupture_url = v["properties"]["products"]["shakemap"]
+        .as_array()
+        .and_then(|a| {
+            a.iter()
+                .max_by_key(|m| m["preferredWeight"].as_i64().unwrap_or(0))
+        })
+        .and_then(|m| m["contents"]["download/rupture.json"]["url"].as_str())
+        .map(str::to_string);
+    if let Some(u) = rupture_url {
+        match get(&u).and_then(|t| parse_rupture(&t)) {
+            Ok(q) => d.quads = q,
+            Err(e) => log::warn!("ShakeMap kırılma modeli alınamadı: {e}"),
+        }
+    }
+    Ok(d)
+}
+
+/// Tercih edilen moment tensörünün iki düğüm düzlemi.
+fn nodal_planes(v: &serde_json::Value) -> Vec<NodalPlane> {
+    let Some(best) = v["properties"]["products"]["moment-tensor"]
+        .as_array()
+        .and_then(|a| {
+            a.iter()
+                .max_by_key(|m| m["preferredWeight"].as_i64().unwrap_or(0))
+        })
+    else {
+        return Vec::new();
+    };
+    let p = &best["properties"];
+    let num = |k: String| p[k.as_str()].as_str().and_then(|s| s.parse::<f64>().ok());
+    (1..=2)
+        .filter_map(|i| {
+            Some(NodalPlane {
+                strike: num(format!("nodal-plane-{i}-strike"))?,
+                dip: num(format!("nodal-plane-{i}-dip"))?,
+                rake: num(format!("nodal-plane-{i}-rake"))?,
+            })
+        })
+        .collect()
+}
+
+/// `rupture.json` (GeoJSON MultiPolygon, köşeler boylam/enlem/derinlik):
+/// her halka bir kuad; üst kenar en sığ, alt kenar en derin köşeler
+/// (scripts/gen_scenarios.py `quads` ile aynı).
+pub fn parse_rupture(text: &str) -> Result<Vec<Quad>, String> {
+    let v: serde_json::Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for f in v["features"].as_array().into_iter().flatten() {
+        let g = &f["geometry"];
+        if g["type"] != "MultiPolygon" {
+            continue;
+        }
+        for poly in g["coordinates"].as_array().into_iter().flatten() {
+            for ring in poly.as_array().into_iter().flatten() {
+                let pts: Vec<(f64, f64, f64)> = ring
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|p| Some((p[0].as_f64()?, p[1].as_f64()?, p[2].as_f64()?)))
+                    .collect();
+                // Kapalı halkanın son noktası ilkinin tekrarı.
+                let pts = &pts[..pts.len().saturating_sub(1)];
+                if pts.len() < 3 {
+                    continue;
+                }
+                let ztop = pts.iter().map(|p| p.2).fold(f64::INFINITY, f64::min);
+                let zbot = pts.iter().map(|p| p.2).fold(f64::NEG_INFINITY, f64::max);
+                let pick = |z: f64| {
+                    pts.iter()
+                        .filter(|p| (p.2 - z).abs() < 1e-6)
+                        .map(|p| (p.0, p.1))
+                        .collect::<Vec<_>>()
+                };
+                out.push(Quad {
+                    top: pick(ztop),
+                    bottom: pick(zbot),
+                    ztop,
+                    zbot,
+                });
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Kırılma modelinden kurulan fay.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Geometry {
+    /// Çok parçalı iz (≥ 2 parça).
+    Trace {
+        points: Vec<(f64, f64)>,
+        dip: f64,
+        width: f64,
+        hypo_down: f64,
+    },
+    /// Tek düzlem.
+    Plane {
+        strike: f64,
+        dip: f64,
+        length: f64,
+        width: f64,
+        hypo_along: f64,
+        hypo_down: f64,
+    },
+}
+
+/// Kuadlardan fay geometrisi ve kullanılacak düğüm düzlemi (doğrultusu
+/// kırılmaya en yakın olan). scripts/gen_scenarios.py `build` +
+/// `chain_trace` kurallarının aynısı (hazır senaryolarla tutarlı):
+/// Mww doğrultusuna 45°'ten uzak kuadlar atlanır; kuadlar eksen boyunca uç
+/// uca (kollar atlanır, ≤ 10 km basamak, kapsama ≥ %90, ≥ 2 parça) → iz;
+/// olmazsa tek düzlem (uzunluk eksen uzanımı, eğim tek kuadda kuadın
+/// kendisinden, yoksa Mww). Kırılma modeli ya da düzlem yoksa `None`.
+pub fn rupture_geometry(
+    quads: &[Quad],
+    planes: &[NodalPlane],
+    epicenter: (f64, f64),
+    depth: f64,
+) -> Option<(Geometry, NodalPlane)> {
+    use seismira_core::geo;
+    let local = |p: (f64, f64)| {
+        let (km, az) = geo::distance_azimuth(epicenter, p);
+        let a = az.to_radians();
+        (km * a.sin(), km * a.cos())
+    };
+    let axial = |a: f64, b: f64| {
+        let d = (a - b).rem_euclid(180.0);
+        d.min(180.0 - d)
+    };
+    let az =
+        |a: (f64, f64), b: (f64, f64)| (b.0 - a.0).atan2(b.1 - a.1).to_degrees().rem_euclid(360.0);
+    let quads: Vec<&Quad> = quads.iter().filter(|q| q.top.len() >= 2).collect();
+    if quads.is_empty() || planes.is_empty() {
+        return None;
+    }
+    let xy_all: Vec<(f64, f64)> = quads
+        .iter()
+        .flat_map(|q| q.top.iter().map(|&p| local(p)))
+        .collect();
+    let axis_all = principal_axis(&xy_all);
+    let plane = *planes
+        .iter()
+        .min_by(|a, b| axial(a.strike, axis_all).total_cmp(&axial(b.strike, axis_all)))?;
+    let keep: Vec<&Quad> = quads
+        .into_iter()
+        .filter(|q| {
+            axial(
+                az(local(q.top[0]), local(q.top[q.top.len() - 1])),
+                plane.strike,
+            ) <= 45.0
+        })
+        .collect();
+    if keep.is_empty() {
+        return None;
+    }
+    let xy: Vec<(f64, f64)> = keep
+        .iter()
+        .flat_map(|q| q.top.iter().map(|&p| local(p)))
+        .collect();
+    let mut strike = principal_axis(&xy);
+    if ((strike - plane.strike + 180.0).rem_euclid(360.0) - 180.0).abs() > 90.0 {
+        strike = (strike + 180.0).rem_euclid(360.0);
+    }
+    let s = (strike.to_radians().sin(), strike.to_radians().cos());
+    let proj = |p: (f64, f64)| p.0 * s.0 + p.1 * s.1;
+    let (lo, hi) = xy
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), &p| {
+            (a.min(proj(p)), b.max(proj(p)))
+        });
+    let length = hi - lo;
+    if length < 1.0 {
+        return None;
+    }
+    let ztop = keep.iter().map(|q| q.ztop).fold(f64::INFINITY, f64::min);
+    let zbot = keep
+        .iter()
+        .map(|q| q.zbot)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let down = ((depth - ztop) / (zbot - ztop).max(1e-6)).clamp(0.0, 1.0);
+    if let Some(points) = chain_trace(&keep, &local, strike, length) {
+        let dip = plane.dip.clamp(1.0, 90.0);
+        return Some((
+            Geometry::Trace {
+                points,
+                dip,
+                width: (zbot - ztop) / dip.to_radians().sin(),
+                hypo_down: down,
+            },
+            plane,
+        ));
+    }
+    let mut along = -lo / length;
+    let mut dip = plane.dip;
+    if keep.len() == 1 && !keep[0].bottom.is_empty() {
+        let mean = |v: &[(f64, f64)]| {
+            let n = v.len() as f64;
+            let (x, y) = v.iter().fold((0.0, 0.0), |(a, b), &p| {
+                let q = local(p);
+                (a + q.0, b + q.1)
+            });
+            (x / n, y / n)
+        };
+        let (tm, bm) = (mean(&keep[0].top), mean(&keep[0].bottom));
+        let horiz = (bm.0 - tm.0).hypot(bm.1 - tm.1);
+        if horiz > 0.5 {
+            dip = (zbot - ztop).atan2(horiz).to_degrees();
+            // Eğim yönü doğrultunun sağında (Aki & Richards).
+            let cand = (az(tm, bm) - 90.0).rem_euclid(360.0);
+            if ((cand - strike + 180.0).rem_euclid(360.0) - 180.0).abs() > 90.0 {
+                strike = (strike + 180.0).rem_euclid(360.0);
+                along = 1.0 - along;
+            }
+        }
+    }
+    let dip = dip.clamp(1.0, 90.0);
+    Some((
+        Geometry::Plane {
+            strike,
+            dip,
+            length,
+            width: (zbot - ztop) / dip.to_radians().sin(),
+            hypo_along: along.clamp(0.0, 1.0),
+            hypo_down: down,
+        },
+        plane,
+    ))
+}
+
+/// Noktaların ana ekseninin azimutu (0–180).
+fn principal_axis(xy: &[(f64, f64)]) -> f64 {
+    let n = xy.len() as f64;
+    let mx = xy.iter().map(|p| p.0).sum::<f64>() / n;
+    let my = xy.iter().map(|p| p.1).sum::<f64>() / n;
+    let (mut sxx, mut syy, mut sxy) = (0.0, 0.0, 0.0);
+    for p in xy {
+        sxx += (p.0 - mx).powi(2);
+        syy += (p.1 - my).powi(2);
+        sxy += (p.0 - mx) * (p.1 - my);
+    }
+    let theta = 0.5 * (2.0 * sxy).atan2(sxx - syy);
+    (90.0 - theta.to_degrees()).rem_euclid(180.0)
+}
+
+/// gen_scenarios.py `chain_trace`: kuad üst kenarlarını eksen boyunca uç
+/// uca bağlar; koşullar sağlanmazsa `None`.
+/// Zincirleme öğesi: eksen üzerindeki başlangıç ve bitiş, noktalar
+/// (boylam, enlem) ve yerel km karşılıkları.
+type ChainItem = (f64, f64, Vec<(f64, f64)>, Vec<(f64, f64)>);
+
+fn chain_trace(
+    keep: &[&Quad],
+    local: &impl Fn((f64, f64)) -> (f64, f64),
+    strike: f64,
+    length: f64,
+) -> Option<Vec<(f64, f64)>> {
+    const GAP_KM: f64 = 10.0;
+    let s = (strike.to_radians().sin(), strike.to_radians().cos());
+    let proj = |p: (f64, f64)| p.0 * s.0 + p.1 * s.1;
+    let mut items: Vec<ChainItem> = keep
+        .iter()
+        .map(|q| {
+            let mut pts = q.top.clone();
+            let mut xy: Vec<(f64, f64)> = pts.iter().map(|&p| local(p)).collect();
+            if proj(xy[xy.len() - 1]) < proj(xy[0]) {
+                pts.reverse();
+                xy.reverse();
+            }
+            (proj(xy[0]), proj(xy[xy.len() - 1]), pts, xy)
+        })
+        .collect();
+    items.sort_by(|a, b| (b.1 - b.0).total_cmp(&(a.1 - a.0)));
+    let mut accepted: Vec<ChainItem> = Vec::new();
+    for it in items {
+        let own = it.1 - it.0;
+        let overlaps = accepted
+            .iter()
+            .any(|a| it.1.min(a.1) - it.0.max(a.0) > (0.5 * own).min(1.0));
+        if !overlaps {
+            accepted.push(it);
+        }
+    }
+    accepted.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let (mut pts, mut xys) = (accepted[0].2.clone(), accepted[0].3.clone());
+    for w in accepted.windows(2) {
+        let (a, b) = (&w[0], &w[1]);
+        if b.0 < a.1 - 1.0 {
+            return None;
+        }
+        let la = a.3[a.3.len() - 1];
+        if (b.3[0].0 - la.0).hypot(b.3[0].1 - la.1) > GAP_KM {
+            return None;
+        }
+        pts.extend_from_slice(&b.2);
+        xys.extend_from_slice(&b.3);
+    }
+    let (mut out, mut oxy) = (vec![pts[0]], vec![xys[0]]);
+    for (p, xy) in pts.iter().zip(&xys).skip(1) {
+        let l = oxy[oxy.len() - 1];
+        if (xy.0 - l.0).hypot(xy.1 - l.1) >= 1.0 {
+            out.push(*p);
+            oxy.push(*xy);
+        }
+    }
+    if out.len() > 1 {
+        let last = out.len() - 1;
+        out[last] = pts[pts.len() - 1];
+        oxy[last] = xys[xys.len() - 1];
+    }
+    let extent = proj(oxy[oxy.len() - 1]) - proj(oxy[0]);
+    if extent < 0.9 * length || out.len() < 3 || out.len() > seismira_core::quake::MAX_TRACE_POINTS
+    {
+        return None;
+    }
+    Some(out)
 }
 
 pub fn parse_usgs(text: &str) -> Result<Vec<RealQuake>, String> {
@@ -144,24 +481,12 @@ pub fn parse_usgs(text: &str) -> Result<Vec<RealQuake>, String> {
         .collect())
 }
 
-pub fn parse_usgs_detail(text: &str) -> Result<Option<NodalPlane>, String> {
+/// Ayrıntı metninden tercih edilen moment tensörünün iki düğüm düzlemi
+/// (testler için; uygulama [`fetch_detail`] kullanır).
+#[cfg(test)]
+pub fn parse_detail_planes(text: &str) -> Result<Vec<NodalPlane>, String> {
     let v: serde_json::Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
-    let Some(mts) = v["properties"]["products"]["moment-tensor"].as_array() else {
-        return Ok(None);
-    };
-    // Tercih ağırlığı en yüksek ürün.
-    let best = mts
-        .iter()
-        .max_by_key(|m| m["preferredWeight"].as_i64().unwrap_or(0));
-    Ok(best.and_then(|m| {
-        let p = &m["properties"];
-        let num = |k: &str| p[k].as_str().and_then(|s| s.parse::<f64>().ok());
-        Some(NodalPlane {
-            strike: num("nodal-plane-1-strike")?,
-            dip: num("nodal-plane-1-dip")?,
-            rake: num("nodal-plane-1-rake")?,
-        })
-    }))
+    Ok(nodal_planes(&v))
 }
 
 pub fn parse_emsc(text: &str) -> Result<Vec<RealQuake>, String> {
@@ -269,13 +594,95 @@ mod tests {
             assert!(!l.is_empty());
             assert!(l.windows(2).all(|w| w[0].time_ms >= w[1].time_ms));
         }
-        // 2023 Pazarcık (us6000jllz) moment tensörü.
-        let np = fetch_nodal_plane(
+        // 2023 Pazarcık (us6000jllz): moment tensörü + ShakeMap kırılması →
+        // 15 parçalı iz, 227,6° düzlemi.
+        let d = fetch_detail(
             "https://earthquake.usgs.gov/earthquakes/feed/v1.0/detail/us6000jllz.geojson",
         )
         .unwrap();
-        eprintln!("Pazarcık düğüm düzlemi: {np:?}");
-        assert!(np.is_some());
+        let (g, p) = rupture_geometry(&d.quads, &d.planes, (37.0143, 37.2256), 10.0).unwrap();
+        eprintln!("Pazarcık: düzlem {p:?}, {} kuad", d.quads.len());
+        assert!(matches!(g, Geometry::Trace { ref points, .. } if points.len() == 16));
+        assert!((p.strike - 227.61).abs() < 0.5);
+    }
+
+    /// Yereldeki gerçek ShakeMap dosyası (CI'da yok, varsa): Kahramanmaraş
+    /// izi hazır senaryodakiyle (gen_scenarios.py) aynı nokta sayısı, düzlem
+    /// 2 (227,6°) seçilir.
+    #[test]
+    fn kahramanmaras_kirilmasi() {
+        let p = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/raw/validation/kahramanmaras2023/rupture.json"
+        );
+        let Ok(text) = std::fs::read_to_string(p) else {
+            return;
+        };
+        let quads = parse_rupture(&text).unwrap();
+        let planes = [
+            NodalPlane {
+                strike: 317.63,
+                dip: 88.71,
+                rake: -179.18,
+            },
+            NodalPlane {
+                strike: 227.61,
+                dip: 89.18,
+                rake: -1.29,
+            },
+        ];
+        let (g, plane) = rupture_geometry(&quads, &planes, (37.0143, 37.2256), 10.0).unwrap();
+        assert_eq!(plane.strike, 227.61);
+        let Geometry::Trace { points, width, .. } = g else {
+            panic!("iz bekleniyordu: {g:?}");
+        };
+        assert_eq!(points.len(), 16);
+        assert!((width - 15.0).abs() < 0.1, "{width}");
+    }
+
+    /// Yapay iki kuad (uç uca, doğu-batı) → iz; tek kuad (eğimli) → düzlem.
+    #[test]
+    fn yapay_kirilma() {
+        let q = |x0: f64, x1: f64| Quad {
+            top: vec![(x0, 40.0), ((x0 + x1) / 2.0, 40.0), (x1, 40.0)],
+            bottom: vec![(x0, 39.9), (x1, 39.9)],
+            ztop: 0.0,
+            zbot: 15.0,
+        };
+        let planes = [NodalPlane {
+            strike: 90.0,
+            dip: 80.0,
+            rake: 0.0,
+        }];
+        let (g, _) =
+            rupture_geometry(&[q(30.0, 30.5), q(30.5, 31.0)], &planes, (30.5, 40.0), 8.0).unwrap();
+        assert!(
+            matches!(g, Geometry::Trace { ref points, .. } if points.len() >= 3),
+            "{g:?}"
+        );
+        let one = Quad {
+            top: vec![(30.0, 40.0), (30.4, 40.0)],
+            bottom: vec![(30.0, 39.9), (30.4, 39.9)],
+            ztop: 1.0,
+            zbot: 16.0,
+        };
+        let (g, _) = rupture_geometry(&[one], &planes, (30.2, 39.95), 8.0).unwrap();
+        let Geometry::Plane {
+            strike,
+            dip,
+            length,
+            ..
+        } = g
+        else {
+            panic!("düzlem bekleniyordu");
+        };
+        // Alt kenar güneyde: eğim yönü güney → doğrultu doğu (90°; Aki &
+        // Richards: doğrultuya bakınca fay sağa, yani güneye eğimli), eğim
+        // atan(15 / 11,1 km) ≈ 53,5°.
+        assert!((strike - 90.0).abs() < 1.0, "{strike}");
+        assert!((dip - 53.5).abs() < 1.0, "{dip}");
+        assert!((length - 34.1).abs() < 0.5, "{length}");
+        assert!(rupture_geometry(&[], &planes, (30.0, 40.0), 10.0).is_none());
     }
 
     #[test]
@@ -302,12 +709,12 @@ mod tests {
         assert!(e.is_mw());
         let detail = r#"{"properties":{"products":{"moment-tensor":[{"preferredWeight":1,"properties":{"nodal-plane-1-strike":"10","nodal-plane-1-dip":"20","nodal-plane-1-rake":"90"}},{"preferredWeight":5,"properties":{"nodal-plane-1-strike":"224.5","nodal-plane-1-dip":"89","nodal-plane-1-rake":"-1"}}]}}}"#;
         assert_eq!(
-            parse_usgs_detail(detail).unwrap(),
-            Some(NodalPlane {
+            parse_detail_planes(detail).unwrap()[0],
+            NodalPlane {
                 strike: 224.5,
                 dip: 89.0,
                 rake: -1.0
-            })
+            }
         );
     }
 }

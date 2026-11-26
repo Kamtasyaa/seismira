@@ -53,8 +53,9 @@ offline.
   tasarımda gerçek kayıtlar önceliklidir. / Spectrum-compatible synthetic
   accelerogram (education only, not for design).
 - **Gerçek depremler (isteğe bağlı, internet):** USGS ve EMSC'den son 30
-  günün depremleri; seçileni senaryo olarak yükleme (USGS'te moment
-  tensöründen fay düzlemi, Slab2 ile ortam tahmini). Yalnızca istenince
+  günün depremleri; seçileni senaryo olarak yükleme (USGS'te ShakeMap
+  kırılma modelinden çok parçalı iz ya da fay düzlemi, kırılmaya uyan
+  moment tensörü düzlemi; Slab2 ile ortam tahmini). Yalnızca istenince
   bağlanır. / Recent earthquakes from USGS and EMSC, loadable as scenarios.
 - **Otomatik rapor:** dışa aktarmada Markdown ve tarayıcıda yazdırılabilir
   HTML (PDF için "Yazdır"): deprem, en çok etkilenen şehirler ve iller,
@@ -119,10 +120,9 @@ Altyapı / Infrastructure:
 
 Veri ve analiz / Data and analysis:
 
-- **Gerçek depremler için devamı:** ShakeMap fay modelini (çok parçalı iz)
-  ve istasyon kayıtlarını da alıp karşılaştırma; AFAD listesi (kullanım
-  koşulları netleşince). / Fetch ShakeMap rupture and station data for
-  real events; AFAD list once its terms are clear.
+- **Gerçek depremler için devamı:** ShakeMap istasyon kayıtlarını alıp
+  tahminle karşılaştırma; AFAD listesi (izin istendi). / Compare with
+  ShakeMap station data; AFAD list (permission requested).
 - **Toplu senaryo ve olasılıksal analiz (PSHA başlangıcı):** bir fay
   üzerinde Mw 6,5–7,8 arası çok sayıda senaryo; ortalama hasar ve
   "50 yılda %10 aşılma" haritaları. / Batch scenarios and first steps
