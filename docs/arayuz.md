@@ -623,6 +623,10 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   (pinch) = yakınlaştır (macOS, Windows hassas dokunmatik yüzey: Ctrl +
   kaydırma olarak gelir); Ctrl + iki parmak / tekerlek = yakınlaştır
   (her yerde). Haritanın sağ kenarında + / − düğmeleri; klavyede + / −.
+  Sağ tuşla sürükleme (dokunmatik yüzeyde iki parmakla basılı tutup
+  kaydırma) = yakınlaştır: yukarı yakın, aşağı uzak, çapa sürüklemenin
+  başladığı nokta (Google Earth davranışı; kullanıcı ekran kaydıyla
+  gösterdi). Sağ tıklayıp bırakmak spektrum noktası seçmeye devam eder.
 - Ayrım (`map/mod.rs`): egui-winit kaynak bilgisini yalnızca macOS'ta
   veriyor; Wayland'de tekerlek ayrık "satır" (LineDelta), dokunmatik
   yüzey sürekli "nokta" (PixelDelta) birimiyle gelir (winit 0.30.13

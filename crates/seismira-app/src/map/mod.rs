@@ -59,12 +59,17 @@ pub struct MapOutput {
 /// Kesirli "satır" birimli kaydırmayı noktaya çevirme (egui'nin satır
 /// yüksekliğine yakın).
 const LINE_POINTS: f32 = 40.0;
+/// Sağ tuşla sürüklemede nokta başına yakınlaştırma üssü (100 nokta ≈ ×2,7).
+const DRAG_ZOOM_PER_POINT: f64 = 0.01;
 /// Fare tekerleğinin bir çentiği için yakınlaştırma üssü (önceki
 /// davranış: 50 nokta × 0,0025 ≈ 0,125).
 const WHEEL_ZOOM_PER_LINE: f64 = 0.125;
 
 pub struct MapWidget {
     view: MapView,
+    /// Sağ tuşla sürükleyerek yakınlaştırmanın çapası (sürüklemenin
+    /// başladığı nokta; Google Earth davranışı).
+    zoom_anchor: Option<Pos2>,
     load: Load,
     /// Hangi ayrıntı düzeyleri bellekte, GPU'ya yüklenmeyi bekliyor.
     pending: Vec<(usize, MapFile)>,
@@ -136,6 +141,7 @@ impl MapWidget {
             load: Load::Loading(rx),
             pending: Vec::new(),
             loaded: [false; 3],
+            zoom_anchor: None,
             errors: Vec::new(),
             gpu_ready: false,
             grid_pending: None,
@@ -296,8 +302,23 @@ impl MapWidget {
         // "nokta" birimiyle gelir; Windows'ta dokunmatik yüzey kesirli satır
         // verir (tam sayı satır = tekerlek). Linux'ta sıkıştırma winit
         // 0.30'da iletilmiyor: Ctrl + iki parmak ya da + / − düğmeleri.
-        if response.dragged() {
+        // Sol tuş (ya da tek parmak basılı) sürükleme = kaydır; sağ tuş (iki
+        // parmak basılı dokunmatik yüzey) sürükleme = yakınlaştır: yukarı
+        // yakın, aşağı uzak, çapa sürüklemenin başladığı nokta (Google
+        // Earth; kullanıcı isteği 2026-11-26).
+        if response.drag_started_by(egui::PointerButton::Secondary) {
+            self.zoom_anchor = response.interact_pointer_pos();
+        }
+        if response.dragged_by(egui::PointerButton::Secondary) {
+            let dy = f64::from(response.drag_delta().y);
+            let at = self.zoom_anchor.unwrap_or(rect.center());
+            self.view
+                .zoom_at(rect, at, (-dy * DRAG_ZOOM_PER_POINT).exp());
+        } else if response.dragged() {
             self.view.pan(rect, response.drag_delta());
+        }
+        if response.drag_stopped() {
+            self.zoom_anchor = None;
         }
         if let Some(p) = response.hover_pos() {
             let (wheel, pan, zoom) = ui.input(|i| {
