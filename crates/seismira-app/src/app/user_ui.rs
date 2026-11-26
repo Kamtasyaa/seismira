@@ -39,6 +39,8 @@ pub(super) struct UserState {
     export_msg: Option<(bool, String, Option<PathBuf>)>,
     /// Son ince sarsıntı ızgarası (dışa aktarma için).
     pub grid: Option<Arc<seismira_core::grid::ShakeGrid>>,
+    /// Geliştirme: `SEISMIRA_EXPORT=1` ile bir kez dışa aktarıldı.
+    pub dev_exported: bool,
 }
 
 impl SeismiraApp {
@@ -409,10 +411,16 @@ impl SeismiraApp {
                         crate::panel::WARN_COLOR
                     };
                     ui.colored_label(color, text);
-                    if let Some(d) = dir
-                        && ui.button(t("export-open")).clicked()
-                    {
-                        open_dir = Some(d.clone());
+                    if let Some(d) = dir {
+                        ui.horizontal(|ui| {
+                            if ui.button(t("export-open")).clicked() {
+                                open_dir = Some(d.clone());
+                            }
+                            let report = d.join("rapor_report.html");
+                            if report.exists() && ui.button(t("export-open-report")).clicked() {
+                                open_dir = Some(report);
+                            }
+                        });
                     }
                 }
             });
@@ -462,7 +470,7 @@ impl SeismiraApp {
 
     /// Dosya metinleri arayüzde hazırlanır (küçük), yazma ve GeoTIFF'ler
     /// arka planda.
-    fn export_now(&mut self, ctx: &egui::Context) {
+    pub(super) fn export_now(&mut self, ctx: &egui::Context) {
         let Some(sim) = &self.sim else {
             return;
         };
@@ -630,6 +638,11 @@ impl SeismiraApp {
         }
 
         files.push(("BENIOKU_README.txt".into(), readme(&quake, &rupture)));
+        // Otomatik rapor (Markdown + tarayıcıda yazdırılabilir HTML).
+        if let Some((md, html)) = self.build_report() {
+            files.push(("rapor_report.md".into(), md));
+            files.push(("rapor_report.html".into(), html));
+        }
 
         let grid = self.user.grid.clone();
         let (tx, rx) = std::sync::mpsc::channel();

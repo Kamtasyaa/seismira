@@ -16,6 +16,7 @@ use crate::timeline::{self, Clock};
 use crate::{fonts, i18n::Lang, panel, paths, shindo_style, text_test, theme};
 
 mod real_ui;
+mod report;
 mod spectrum_ui;
 mod user_ui;
 
@@ -654,6 +655,11 @@ impl SeismiraApp {
             self.draft.quake = p.quake;
             self.draft.has_epicenter = true;
             self.draft.preset = Some(p.id.clone());
+            // `SEISMIRA_PRESET_START=1`: hemen başlatır (rapor / dışa
+            // aktarma denemesi; `SEISMIRA_EXPORT=1` ile birlikte).
+            if std::env::var("SEISMIRA_PRESET_START").is_ok_and(|v| v == "1") {
+                self.start_sim(ctx);
+            }
         }
         let Some(v) = std::env::var("SEISMIRA_DEMO").ok().map(|s| {
             s.split(',')
@@ -2420,6 +2426,15 @@ impl eframe::App for SeismiraApp {
             }
             if done {
                 self.job = None;
+                // Geliştirme: `SEISMIRA_EXPORT=1` hesap bitince bir kez dışa
+                // aktarır (rapor denemesi).
+                if std::env::var("SEISMIRA_EXPORT").is_ok_and(|v| v == "1")
+                    && !self.user.dev_exported
+                {
+                    self.user.dev_exported = true;
+                    let ctx = ui.ctx().clone();
+                    self.export_now(&ctx);
+                }
             }
         }
 

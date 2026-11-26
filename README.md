@@ -56,6 +56,10 @@ offline.
   günün depremleri; seçileni senaryo olarak yükleme (USGS'te moment
   tensöründen fay düzlemi, Slab2 ile ortam tahmini). Yalnızca istenince
   bağlanır. / Recent earthquakes from USGS and EMSC, loadable as scenarios.
+- **Otomatik rapor:** dışa aktarmada Markdown ve tarayıcıda yazdırılabilir
+  HTML (PDF için "Yazdır"): deprem, en çok etkilenen şehirler ve iller,
+  hasar, zemin yenilmesi, tsunami, erken uyarı, sınırlar, kaynaklar. /
+  Automatic Markdown / printable HTML report.
 - **Dışa aktarma:** sarsıntı haritaları GeoTIFF (JMA şiddeti, PGV, PGA),
   şehir / bölge tabloları CSV, fay izi ve zemin yenilmesi GeoJSON
   (EPSG:4326; QGIS / ArcGIS). / Export shaking GeoTIFFs, city and region
@@ -123,9 +127,6 @@ Veri ve analiz / Data and analysis:
   üzerinde Mw 6,5–7,8 arası çok sayıda senaryo; ortalama hasar ve
   "50 yılda %10 aşılma" haritaları. / Batch scenarios and first steps
   towards probabilistic hazard maps.
-- **Otomatik teknik rapor (PDF / Markdown):** deprem parametreleri, en
-  çok etkilenen yerler, en yüksek PGA / PGV, tsunami varış süreleri,
-  hasar dağılımı. / One-page technical summary report.
 
 ### Normal öncelik / Normal
 
