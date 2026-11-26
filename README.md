@@ -103,10 +103,6 @@ Sismoloji ve yapı / Seismology and structures:
   Akkar vd. (2014) gibi Türkiye ve Avrupa denklemleri, kullanıcı
   tanımlı ağırlıklar. / More GMPEs (e.g. Akkar et al. 2014) with
   user-defined logic-tree weights.
-- **Yönelim etkisi (directivity):** kırılmanın ilerlediği yönde
-  sarsıntının artması, kırılma başlangıç noktası seçimi. Doğrultu, eğim
-  ve kayma açısı zaten ayarlanabiliyor. / Rupture directivity and
-  hypocentre position on the fault.
 
 Altyapı / Infrastructure:
 
