@@ -1021,3 +1021,20 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   depremleri için ve oluş anına göre veriyor (S-net bölgesinde %50 için
   ~22 s); istasyonda algılamadan uyarıya geçen süre için yayımlanmış bir
   sayı bulunamadı.
+
+### Tepki spektrumu, TBDY-2018 ve yapay ivme kaydı (2026-11-26)
+
+- Senaryo spektrumu: `Scenario::spectrum`, depremin modeli (RotD50, %5).
+- TBDY-2018 tasarım spektrumu: `tbdy.rs` (Resmî Gazete metni; ayrıntı
+  modül notunda ve docs/arayuz.md).
+- SDOF tepkisi: `sdof.rs`, Nigam & Jennings (1969) BSSA 59(2) tam çözümü
+  (Eş. 6d–6e, 7; taranmış PDF'ten okundu). Test: rezonansta harmonik
+  girdi Sa = √(1+4β²)/(2β)·A (%1 içinde), rijit uçta Sa ≈ PGA.
+- Yapay kayıt: `synthetic.rs`, Gasparini & Vanmarcke (1976, SIMQKE)
+  yaklaşımı; RAPOR OKUNAMADI (açık kopya yok), zarf ve yineleme kuralı bizim
+  seçimimiz; doğruluk çıktıdan sınanır (TBDY ZC hedefinde 0,05–4 s en büyük
+  spektrum hatası %5,1, ortalama %1,1; D5-95 16,4 s / hedef 15 s). Süre:
+  noktada D5-95 medyanı (`Scenario::d595`). TBDY 2.5.1: gerçek kayıtlar
+  öncelikli, benzeştirilmiş kayıt koşullu ve en az 11 → TASARIM İÇİN DEĞİL
+  (arayüzde ve dosya başlığında). Taban düzeltmesi yalnızca ortalama.
+

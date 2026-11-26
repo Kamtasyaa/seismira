@@ -18,9 +18,16 @@ const DESIGN: Color32 = Color32::from_rgb(0x7F, 0xD8, 0xFF);
 
 pub(super) struct SpectrumState {
     pub show: bool,
-    /// Seçili nokta ve hesaplanan spektrum (Vs30 kaynağı metni ile).
+    /// Seçili nokta ve hesaplanan spektrum (Vs30, Vs30 kaynağı metni,
+    /// noktadaki D5-95 medyanı s).
     pub point: Option<(f64, f64)>,
-    result: Option<(SiteSpectrum, f64, &'static str)>,
+    result: Option<(SiteSpectrum, f64, &'static str, f64)>,
+    /// Yapay kayıt: hedef TBDY mi (değilse senaryo tahmini), tohum, arka
+    /// plan üretimi ve sonucu.
+    synth_design: bool,
+    seed: u64,
+    synth_job: Option<std::sync::mpsc::Receiver<seismira_core::synthetic::Accelerogram>>,
+    synth: Option<seismira_core::synthetic::Accelerogram>,
     /// TBDY harita katsayıları (kullanıcı girer; 0 = girilmedi).
     ss: f64,
     s1: f64,
@@ -42,6 +49,10 @@ impl Default for SpectrumState {
             class: None,
             t_max: 4.0,
             msg: None,
+            synth_design: false,
+            seed: 1,
+            synth_job: None,
+            synth: None,
         }
     }
 }
@@ -51,6 +62,8 @@ impl SpectrumState {
     pub fn clear(&mut self) {
         self.point = None;
         self.result = None;
+        self.synth = None;
+        self.synth_job = None;
     }
 }
 
@@ -84,8 +97,11 @@ impl SeismiraApp {
             },
         };
         let sp = scenario.spectrum(at, vs30);
+        let d595 = scenario.d595(sp.dist.rrup, sp.vs30);
         self.spectrum.point = Some(at);
-        self.spectrum.result = Some((sp, vs30, src));
+        self.spectrum.result = Some((sp, vs30, src, d595));
+        self.spectrum.synth = None;
+        self.spectrum.synth_job = None;
         self.spectrum.msg = None;
         self.spectrum.show = true;
     }
@@ -95,13 +111,28 @@ impl SeismiraApp {
         let t = |k: &str| lang.t(k);
         let mut open = self.spectrum.show;
         let mut save = false;
+        let mut save_synth = false;
         egui::Window::new(t("spectrum-title"))
             .open(&mut open)
             .default_pos([360.0, 90.0])
             .default_width(520.0)
             .show(ctx, |ui| {
                 let st = &mut self.spectrum;
-                let Some((sp, vs30_raw, src)) = &st.result else {
+                // Arka plan üretimi bitti mi?
+                if let Some(rx) = &st.synth_job {
+                    match rx.try_recv() {
+                        Ok(g) => {
+                            st.synth = Some(g);
+                            st.synth_job = None;
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            ui.ctx()
+                                .request_repaint_after(std::time::Duration::from_millis(150));
+                        }
+                        Err(_) => st.synth_job = None,
+                    }
+                }
+                let Some((sp, vs30_raw, src, d595)) = &st.result else {
                     ui.label(t(if self.sim.is_some() {
                         "spectrum-pick"
                     } else {
@@ -225,17 +256,112 @@ impl SeismiraApp {
                 if let Some(m) = &st.msg {
                     ui.label(RichText::new(m).small());
                 }
+                // Yapay ivme kaydı (README "Önemli").
+                ui.separator();
+                ui.label(RichText::new(t("synth-title")).strong());
+                ui.label(RichText::new(t("synth-intro")).small().weak());
+                ui.horizontal_wrapped(|ui| {
+                    ui.radio_value(&mut st.synth_design, false, t("synth-target-scenario"));
+                    ui.add_enabled_ui(design.is_some(), |ui| {
+                        ui.radio_value(&mut st.synth_design, true, t("synth-target-design"));
+                    });
+                });
+                if design.is_none() {
+                    st.synth_design = false;
+                }
+                ui.label(
+                    RichText::new(lang.t_args("synth-duration", &[("d", lang.num(*d595, 1))]))
+                        .small(),
+                );
+                ui.horizontal(|ui| {
+                    let busy = st.synth_job.is_some();
+                    let label = if st.synth.is_some() {
+                        "synth-again"
+                    } else {
+                        "synth-make"
+                    };
+                    if ui.add_enabled(!busy, egui::Button::new(t(label))).clicked() {
+                        if st.synth.is_some() {
+                            st.seed = st.seed.wrapping_add(1);
+                        }
+                        // Hedef: 0,05–5 s (spektrum periyotları).
+                        let (periods, target): (Vec<f64>, Vec<f64>) = if st.synth_design {
+                            let d = design.expect("tasarım");
+                            seismira_core::shaking::SPECTRUM_PERIODS
+                                .iter()
+                                .filter(|&&t| (0.05..=5.0).contains(&t))
+                                .map(|&t| (t, d.sae(t)))
+                                .unzip()
+                        } else {
+                            sp.sa
+                                .iter()
+                                .filter(|(t, m)| (0.05..=5.0).contains(t) && m.is_some())
+                                .map(|&(t, m)| (t, m.map_or(0.0, |m| m.median())))
+                                .unzip()
+                        };
+                        if periods.len() >= 5 {
+                            let (tx, rx) = std::sync::mpsc::channel();
+                            let (d, seed, c) = (*d595, st.seed, ui.ctx().clone());
+                            let _ = std::thread::Builder::new()
+                                .name("yapay-kayıt".into())
+                                .spawn(move || {
+                                    let g = seismira_core::synthetic::generate(
+                                        &periods, &target, d, seed,
+                                    );
+                                    let _ = tx.send(g);
+                                    c.request_repaint();
+                                });
+                            st.synth_job = Some(rx);
+                            st.synth = None;
+                        }
+                    }
+                    if busy {
+                        ui.spinner();
+                        ui.label(RichText::new(t("synth-working")).small());
+                    }
+                });
+                if let Some(g) = &st.synth {
+                    accel_plot(ui, lang, g);
+                    let errs: Vec<f64> = g
+                        .achieved
+                        .iter()
+                        .zip(&g.target)
+                        .map(|(a, b)| (a / b - 1.0).abs())
+                        .collect();
+                    let max = errs.iter().fold(0.0f64, |m, e| m.max(*e));
+                    let mean = errs.iter().sum::<f64>() / errs.len().max(1) as f64;
+                    let pga = g.acc.iter().fold(0.0f64, |m, a| m.max(a.abs()));
+                    ui.label(
+                        RichText::new(lang.t_args(
+                            "synth-stats",
+                            &[
+                                ("max", lang.num(100.0 * max, 1)),
+                                ("mean", lang.num(100.0 * mean, 1)),
+                                ("d", lang.num(g.d595, 1)),
+                                ("dt", lang.num(g.d595_target, 1)),
+                                ("pga", lang.num(pga, 3)),
+                            ],
+                        ))
+                        .small(),
+                    );
+                    if ui.button(t("synth-save")).clicked() {
+                        save_synth = true;
+                    }
+                }
             });
         self.spectrum.show = open;
         if save {
             self.spectrum_save();
+        }
+        if save_synth {
+            self.synth_save();
         }
     }
 
     fn spectrum_save(&mut self) {
         let lang = self.lang;
         let st = &mut self.spectrum;
-        let Some((sp, vs30, _)) = &st.result else {
+        let Some((sp, vs30, _, _)) = &st.result else {
             return;
         };
         let (lon, lat) = st.point.unwrap_or_default();
@@ -276,6 +402,41 @@ impl SeismiraApp {
         }
         let dir = super::user_ui::export_base();
         let path = dir.join(format!("spektrum-{}.csv", super::user_ui::timestamp()));
+        st.msg = Some(
+            match std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&path, s)) {
+                Ok(()) => lang.t_args("export-done", &[("dir", path.display().to_string())]),
+                Err(e) => format!("{}: {e}", path.display()),
+            },
+        );
+    }
+
+    /// Yapay kaydı iki sütunlu metin olarak yazar (zaman s, ivme g).
+    fn synth_save(&mut self) {
+        let lang = self.lang;
+        let st = &mut self.spectrum;
+        let (Some(g), Some((lon, lat))) = (&st.synth, st.point) else {
+            return;
+        };
+        let target = if st.synth_design {
+            format!("TBDY-2018 S_S {} S_1 {}", st.ss, st.s1)
+        } else {
+            "senaryo tahmini (medyan) / scenario prediction (median)".to_string()
+        };
+        let mut s = format!(
+            "# Seismira yapay ivme kaydı / synthetic accelerogram. EĞİTİM SİMÜLASYONU.\n\
+             # TASARIM İÇİN DEĞİLDİR: TBDY-2018 2.5.1 gerçek kayıtları önceliklendirir;\n\
+             # benzeştirilmiş kayıt ancak koşullarıyla ve en az 11 kayıtla kullanılabilir.\n\
+             # NOT FOR DESIGN. Spectrum-compatible, random phases (seed {}).\n\
+             # nokta / site: {lon:.5} E, {lat:.5} N; hedef / target: {target}\n\
+             # D5-95 {:.1} s (hedef {:.1}); dt {} s; %5 sönüm / 5% damping\n\
+             # sütunlar / columns: zaman_s ivme_g (time_s acc_g)\n",
+            st.seed, g.d595, g.d595_target, g.dt
+        );
+        for (k, a) in g.acc.iter().enumerate() {
+            let _ = writeln!(s, "{:.3} {:.6}", k as f64 * g.dt, a);
+        }
+        let dir = super::user_ui::export_base();
+        let path = dir.join(format!("yapay-kayit-{}.txt", super::user_ui::timestamp()));
         st.msg = Some(
             match std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&path, s)) {
                 Ok(()) => lang.t_args("export-done", &[("dir", path.display().to_string())]),
@@ -485,6 +646,65 @@ fn plot(
     }
 }
 
+/// İvme-zaman grafiği (g).
+fn accel_plot(
+    ui: &mut egui::Ui,
+    lang: crate::i18n::Lang,
+    g: &seismira_core::synthetic::Accelerogram,
+) {
+    let w = ui.available_width().max(300.0);
+    let (resp, painter) = ui.allocate_painter(vec2(w, 140.0), egui::Sense::hover());
+    let outer = resp.rect;
+    let area = egui::Rect::from_min_max(outer.min + vec2(46.0, 6.0), outer.max - vec2(10.0, 20.0));
+    let text = ui.visuals().text_color();
+    let grid = ui.visuals().widgets.noninteractive.bg_stroke.color;
+    let font = egui::FontId::proportional(11.0);
+    let pga = g.acc.iter().fold(0.0f64, |m, a| m.max(a.abs())).max(1e-6);
+    let y_max = nice_ceil(pga);
+    let t_end = g.acc.len() as f64 * g.dt;
+    let x = |t: f64| area.left() + (t / t_end) as f32 * area.width();
+    let y = |v: f64| area.center().y - (v / y_max) as f32 * area.height() / 2.0;
+    for v in [-y_max, 0.0, y_max] {
+        painter.line_segment(
+            [pos2(area.left(), y(v)), pos2(area.right(), y(v))],
+            Stroke::new(0.5, grid),
+        );
+        painter.text(
+            pos2(area.left() - 4.0, y(v)),
+            egui::Align2::RIGHT_CENTER,
+            lang.num(v, 2),
+            font.clone(),
+            text,
+        );
+    }
+    let step = nice_ceil(t_end / 6.0);
+    let mut tk = 0.0;
+    while tk <= t_end + 1e-9 {
+        painter.text(
+            pos2(x(tk), area.bottom() + 2.0),
+            egui::Align2::CENTER_TOP,
+            lang.num(tk, 0),
+            font.clone(),
+            text,
+        );
+        tk += step;
+    }
+    let line: Vec<Pos2> = g
+        .acc
+        .iter()
+        .enumerate()
+        .map(|(k, a)| pos2(x(k as f64 * g.dt), y(*a)))
+        .collect();
+    painter.add(egui::Shape::line(line, Stroke::new(1.0, MEDIAN)));
+    painter.text(
+        pos2(area.right(), area.top()),
+        egui::Align2::RIGHT_TOP,
+        lang.t("synth-axis"),
+        font,
+        text,
+    );
+}
+
 /// Eksen üst sınırı için "güzel" yuvarlama (1, 2, 2,5, 5 × 10^k).
 fn nice_ceil(v: f64) -> f64 {
     let e = v.log10().floor();
@@ -526,6 +746,21 @@ mod tests {
             h.hover_at(egui::pos2(260.0, 120.0));
             h.run();
         }
+    }
+
+    /// İvme grafiği pencere açmadan çizilir (küçük yapay kayıt).
+    #[test]
+    fn ivme_grafigi() {
+        let periods = [0.1, 0.3, 1.0, 3.0];
+        let target = [0.5, 0.8, 0.3, 0.08];
+        let g = seismira_core::synthetic::generate(&periods, &target, 5.0, 3);
+        let mut h = egui_kittest::Harness::builder()
+            .with_size([520.0, 200.0])
+            .with_context_setup(|ctx| {
+                crate::fonts::install(ctx, &crate::paths::assets_dir(), crate::i18n::Lang::Tr);
+            })
+            .build_ui(|ui| accel_plot(ui, crate::i18n::Lang::Tr, &g));
+        h.run();
     }
 
     #[test]

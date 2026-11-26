@@ -347,3 +347,14 @@ spectrum-note = The prediction is for this one earthquake scenario; the design s
 spectrum-save = Save spectrum (CSV)
 spectrum-hover = T = { $t } s: { $m } g (likely { $lo }–{ $hi })
 spectrum-hover-design = ; TBDY { $d } g
+synth-title = Synthetic accelerogram
+synth-intro = A random-phase synthetic record compatible with the chosen target spectrum (two columns for programs such as ETABS / SAP2000: time s, acceleration g). FOR EDUCATION AND PRELIMINARY STUDY, NOT FOR DESIGN: under TBDY-2018 2.5.1 recorded motions come first in time-history analysis; simulated records only under its conditions and with at least 11 records.
+synth-target-scenario = Target: this scenario's prediction (median)
+synth-target-design = Target: TBDY design spectrum
+synth-duration = Significant duration (D5-95) at this site ≈ { $d } s (duration model)
+synth-make = Generate record
+synth-again = New record (different random)
+synth-working = Generating (a few seconds)…
+synth-stats = Spectral match: largest error { $max }%, mean { $mean }%; D5-95 { $d } s (target { $dt }); peak acceleration { $pga } g.
+synth-save = Save record (.txt)
+synth-axis = acceleration (g) – time (s)

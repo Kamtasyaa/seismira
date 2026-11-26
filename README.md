@@ -47,6 +47,11 @@ offline.
   yatay elastik tasarım spektrumuyla üst üste; CSV kaydı (Veri menüsü). /
   Response spectrum at a right-clicked site with the TBDY-2018 design
   spectrum overlay.
+- **Yapay ivme kaydı:** tepki spektrumu penceresinde, senaryo tahminine ya
+  da TBDY spektrumuna uyumlu rastgele fazlı kayıt (ETABS / SAP2000 için
+  zaman–ivme .txt). Eğitim ve ön inceleme içindir; TBDY-2018 2.5.1 gereği
+  tasarımda gerçek kayıtlar önceliklidir. / Spectrum-compatible synthetic
+  accelerogram (education only, not for design).
 - **Dışa aktarma:** sarsıntı haritaları GeoTIFF (JMA şiddeti, PGV, PGA),
   şehir / bölge tabloları CSV, fay izi ve zemin yenilmesi GeoJSON
   (EPSG:4326; QGIS / ArcGIS). / Export shaking GeoTIFFs, city and region
@@ -85,9 +90,6 @@ Sismoloji ve yapı / Seismology and structures:
 
 - **Eurocode 8 tasarım spektrumu:** tepki spektrumu penceresinde TBDY-2018'in
   yanında EC8. / Eurocode 8 design spectrum next to TBDY-2018.
-- **Yapay ivme kaydı:** seçilen deprem ve zemine göre tahmini ivme-zaman
-  kaydı; ETABS, SAP2000 gibi programlar için .txt / .csv dışa aktarma. /
-  Synthetic accelerograms, exportable for structural analysis software.
 - **GMPE seçimi ve mantık ağacı:** mevcut dört NGA-West2 ortalamasına
   Akkar vd. (2014) gibi Türkiye ve Avrupa denklemleri, kullanıcı
   tanımlı ağırlıklar. / More GMPEs (e.g. Akkar et al. 2014) with

@@ -318,6 +318,19 @@ impl<'a> Scenario<'a> {
         }
     }
 
+    /// Anlamlı süre D5-95 medyanı (s) bir sahada: kabukta Afshari & Stewart
+    /// (2016), dalma-batmada Bahrampouri vd. (2021) ([`crate::duration`];
+    /// ızgaradaki t_bitiş ile aynı seçim).
+    pub fn d595(&self, rrup: f64, vs30_used: f64) -> f64 {
+        let q = &self.quake;
+        match self.gmm {
+            Some(Gmm::Psbah20(event)) => {
+                crate::duration::bahrampouri2021::d595(q.mw, rrup, vs30_used, event, q.fault).0
+            }
+            _ => crate::duration::d595(q.mw, rrup, vs30_used, q.fault).0,
+        }
+    }
+
     /// Hesapta kullanılan Vs30: modelin aralığına çekilmiş.
     pub fn clamp_vs30(&self, vs30: f64) -> f64 {
         let (lo, hi) = self.gmm.map_or((0.0, f64::INFINITY), Gmm::vs30_range);

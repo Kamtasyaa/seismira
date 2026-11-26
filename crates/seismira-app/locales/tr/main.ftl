@@ -347,3 +347,14 @@ spectrum-note = Tahmin bu deprem senaryosu içindir (bir olay); tasarım spektru
 spectrum-save = Spektrumu kaydet (CSV)
 spectrum-hover = T = { $t } s: { $m } g (olası { $lo }–{ $hi })
 spectrum-hover-design = ; TBDY { $d } g
+synth-title = Yapay ivme kaydı
+synth-intro = Seçilen hedef spektruma uyumlu, rastgele fazlı yapay bir kayıt (ETABS / SAP2000 gibi programlar için iki sütun: zaman s, ivme g). EĞİTİM VE ÖN İNCELEME İÇİNDİR, TASARIM İÇİN DEĞİL: TBDY-2018 2.5.1'e göre zaman tanım alanında hesapta önce gerçek kayıtlar kullanılır; benzeştirilmiş kayıtlar ancak koşullarıyla ve en az 11 kayıtla.
+synth-target-scenario = Hedef: bu senaryonun tahmini (medyan)
+synth-target-design = Hedef: TBDY tasarım spektrumu
+synth-duration = Anlamlı süre (D5-95) bu noktada ≈ { $d } s (süre modeli)
+synth-make = Kayıt üret
+synth-again = Yeni kayıt (farklı rastgele)
+synth-working = Üretiliyor (birkaç saniye)…
+synth-stats = Spektrum uyumu: en büyük hata %{ $max }, ortalama %{ $mean }; D5-95 { $d } s (hedef { $dt }); en büyük ivme { $pga } g.
+synth-save = Kaydı kaydet (.txt)
+synth-axis = ivme (g) – zaman (s)
