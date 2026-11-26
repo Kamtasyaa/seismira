@@ -422,4 +422,10 @@ Lisans kuralları:
   2 kuad → 16 noktalı iz, 227,6° düzlemi (önce 1. düzlem 317,6° seçiliyordu).
   ShakeMap'i olmayan küçük olaylarda moment tensörü / varsayılan. AFAD'a
   izin e-postası 2026-11-26 gönderildi (kullanıcı).
+- 2026-11-27: aynı ShakeMap ürününden `download/stationlist.json` da
+  alınır (USGS kamu malı; atıf pencerede). Yalnız aletsel ("seismic")
+  istasyonlar, PGV iki yatay kanalın geometrik ortalaması; ShakeMap'in
+  işaretlediği (flag ≠ "0") genlikler atlanır. Diske yazılmaz, oturum
+  boyunca bellekte (`realquakes::parse_stations`). Canlı test: Pazarcık
+  261 istasyon.
 

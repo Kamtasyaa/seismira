@@ -437,3 +437,37 @@ gmm-share-short = → { $p }%
 gmm-share = { $model } { $p }%
 gmm-asb14-note = ASB14 was derived from European and Middle Eastern records; valid for Mw 4–8, up to 200 km from the fault, 30 km focal depth and 4 s period. Outside these limits it is left out and the remaining models are used.
 gmm-reset = Reset to default
+
+# Gözlemlerle karşılaştırma (Veri menüsü)
+menu-observed = Compare with observations…
+real-stations = { $n } station records received from ShakeMap: start the simulation, then Data → Compare with observations.
+obs-title = Comparison with observations
+obs-none = First load a USGS earthquake from Data → Recent earthquakes. Works for events with ShakeMap station data (mostly M 5.5 and above).
+obs-loaded = { $place }: { $n } station records.
+obs-start = Start the simulation to compare stations with the prediction.
+obs-other-quake = The simulated earthquake differs from the loaded real one (epicenter more than 50 km away); no comparison.
+obs-computing = Computing…
+obs-no-overlap = No stations within the model limit.
+obs-n = Stations (within model limit)
+obs-mean = Mean difference ΔI (observed − predicted)
+obs-within = Difference below 1 intensity unit
+obs-pct = { $p }%
+obs-std = Scatter (standard deviation of ln PGV)
+obs-verdict-under = On average the model UNDER-predicts shaking for this earthquake (ΔI > +0.3).
+obs-verdict-over = On average the model OVER-predicts shaking for this earthquake (ΔI < −0.3).
+obs-verdict-ok = Consistent on average (|ΔI| ≤ 0.3; validation criterion, docs/dogrulama.md). At single stations a factor of two either way is normal.
+obs-bin-dist = Distance to fault
+obs-bin-n = Stations
+obs-bin-mean = Mean ΔI
+obs-on-map = Show stations on the map
+obs-legend-under = observed stronger (ΔI ≥ +0.5)
+obs-legend-ok = consistent
+obs-legend-over = observed weaker (ΔI ≤ −0.5)
+obs-stations = Station list
+obs-col-code = Station
+obs-col-r = Rrup (km)
+obs-col-obs = Observed PGV (cm/s)
+obs-col-pred = Predicted (cm/s)
+obs-col-d = ΔI
+obs-tip = { $code }: ΔI { $d } · observed { $obs } / predicted { $pred } cm/s · { $r } km
+obs-method = Observed: peak ground velocity (PGV) at the station, geometric mean of the two horizontal components. Predicted: with this simulation's settings (fault, site, model). Both are converted to JMA intensity the same way; ΔI = 1.82 · log10(observed / predicted). The real event's own between-event deviation (e.g. stress drop) is a large part of this difference.

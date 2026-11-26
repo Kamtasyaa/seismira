@@ -236,7 +236,7 @@ impl SeismiraApp {
             _ if q.depth_km <= limits::CRUST_DEPTH.1 => Setting::ShallowCrust,
             _ => Setting::Intraslab,
         };
-        let detail = detail.unwrap_or_else(|e| {
+        let mut detail = detail.unwrap_or_else(|e| {
             log::warn!("olay ayrıntısı alınamadı: {e}");
             realquakes::Detail::default()
         });
@@ -320,6 +320,9 @@ impl SeismiraApp {
         self.draft.preset = None;
         self.draft.drawing = None;
         self.map.center_on((rq.lon, rq.lat));
+        let stations = std::mem::take(&mut detail.stations);
+        let n_stations = stations.len();
+        self.observed.set((rq.lon, rq.lat), &rq.place, stations);
         let mut msg = lang.t_args(
             "real-applied",
             &[
@@ -347,6 +350,10 @@ impl SeismiraApp {
             } else {
                 "real-mt-none"
             }));
+        }
+        if n_stations > 0 {
+            msg.push(' ');
+            msg.push_str(&lang.t_args("real-stations", &[("n", lang.num(n_stations as f64, 0))]));
         }
         self.real.msg = Some(msg);
     }

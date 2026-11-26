@@ -112,9 +112,8 @@ Altyapı / Infrastructure:
 
 Veri ve analiz / Data and analysis:
 
-- **Gerçek depremler için devamı:** ShakeMap istasyon kayıtlarını alıp
-  tahminle karşılaştırma; AFAD listesi (izin istendi). / Compare with
-  ShakeMap station data; AFAD list (permission requested).
+- **AFAD deprem listesi:** gerçek depremler penceresine AFAD kaynağı
+  (kullanım izni istendi). / AFAD earthquake list (permission requested).
 - **Toplu senaryo ve olasılıksal analiz (PSHA başlangıcı):** bir fay
   üzerinde Mw 6,5–7,8 arası çok sayıda senaryo; ortalama hasar ve
   "50 yılda %10 aşılma" haritaları. / Batch scenarios and first steps

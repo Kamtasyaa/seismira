@@ -15,6 +15,7 @@ use crate::map::{MapWidget, view::MapView};
 use crate::timeline::{self, Clock};
 use crate::{fonts, i18n::Lang, panel, paths, shindo_style, text_test, theme};
 
+mod observed_ui;
 mod real_ui;
 mod report;
 mod spectrum_ui;
@@ -465,6 +466,8 @@ pub struct SeismiraApp {
     spectrum: spectrum_ui::SpectrumState,
     /// Gerçek depremler penceresi ([`real_ui`]).
     real: real_ui::RealState,
+    /// Gerçek depremde ShakeMap istasyonlarıyla karşılaştırma.
+    observed: observed_ui::ObservedState,
 }
 
 /// Başlangıç görünümü. Geliştirme için `SEISMIRA_VIEW=boylam,enlem,ölçek`.
@@ -616,6 +619,7 @@ impl SeismiraApp {
             user: Default::default(),
             spectrum: Default::default(),
             real: Default::default(),
+            observed: Default::default(),
             alert: None,
             job: None,
             results: None,
@@ -655,6 +659,21 @@ impl SeismiraApp {
             self.draft.quake = p.quake;
             self.draft.has_epicenter = true;
             self.draft.preset = Some(p.id.clone());
+            // `SEISMIRA_OBSERVED=<stationlist.json>`: yerel ShakeMap istasyon
+            // listesini gözlem karşılaştırmasına yükler, pencereyi açar
+            // (ekran görüntüsü / deneme; normalde gerçek depremden gelir).
+            if let Some(path) = std::env::var_os("SEISMIRA_OBSERVED") {
+                match std::fs::read_to_string(&path)
+                    .map_err(|e| e.to_string())
+                    .and_then(|t| crate::realquakes::parse_stations(&t))
+                {
+                    Ok(st) => {
+                        self.observed.set(p.quake.epicenter, &p.id, st);
+                        self.observed.show = true;
+                    }
+                    Err(e) => log::error!("SEISMIRA_OBSERVED: {e}"),
+                }
+            }
             // `SEISMIRA_PRESET_START=1`: hemen başlatır (rapor / dışa
             // aktarma denemesi; `SEISMIRA_EXPORT=1` ile birlikte).
             if std::env::var("SEISMIRA_PRESET_START").is_ok_and(|v| v == "1") {
@@ -741,6 +760,9 @@ impl SeismiraApp {
                 }
                 if ui.button(t("menu-real")).clicked() {
                     self.real.show = true;
+                }
+                if ui.button(t("menu-observed")).clicked() {
+                    self.observed.show = true;
                 }
             });
             ui.menu_button(t("menu-view"), |ui| {
@@ -964,6 +986,7 @@ impl SeismiraApp {
         }
         self.draw_user_overlays(ui, rect);
         self.draw_spectrum_marker(ui, rect);
+        self.draw_observed(ui, rect);
         let labels = (lang.t("map-zoom-in"), lang.t("map-zoom-out"));
         self.map.zoom_buttons(ui, rect, (&labels.0, &labels.1));
         if let Some((id, at)) = self.region_card {
@@ -2476,6 +2499,8 @@ impl eframe::App for SeismiraApp {
         self.user_windows(ui.ctx());
         self.spectrum_window(ui.ctx());
         self.real_window(ui.ctx());
+        self.observed_update(ui.ctx());
+        self.observed_window(ui.ctx());
 
         let mut open = self.show_sources;
         egui::Window::new(t("sources-title"))

@@ -636,3 +636,25 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   yalnızca macOS / iOS'ta; Linux'ta (Wayland ve X11) iletilmiyor → Linux
   dizüstünde yakınlaştırma Ctrl + iki parmak ya da + / − ile. eframe
   0.37 winit 0.30'a bağlı; ileride winit yükseltilince eklenebilir.
+
+## Gözlemlerle karşılaştırma (2026-11-27, README "Önemli")
+
+- Veri → "Gözlemlerle karşılaştır…" penceresi. USGS'den "Senaryoya aktar"
+  ile yüklenen depremde ShakeMap istasyonları gelir; simülasyon
+  başlayınca (ve ayarlar değişip yeniden başlayınca) arka planda
+  `seismira_core::observed::compare` hesaplanır: uygulamanın tam zinciri
+  (fay, Vs30: kullanıcı → harita → referans, model ağırlıkları).
+  Simülasyondaki merkez üssü yüklenen depremden 50 km'den uzaksa
+  karşılaştırma yapılmaz (pencere bunu söyler).
+- Pencere: istasyon sayısı (model sınırı içinde), ortalama ΔI (gözlem −
+  tahmin, JMA birimi), |ΔI| < 1 oranı, ln PGV saçılımı, kısa yorum
+  (|ΔI| ≤ 0,3 doğrulama ölçütü), mesafe dilimleri, istasyon listesi.
+- Harita (varsayılan açık, pencereden kapatılır): |ΔI| < 0,5 içi boş beyaz
+  daire; ΔI ≥ 0,5 turuncu-kırmızı yukarı üçgen (gözlem daha güçlü);
+  ΔI ≤ −0,5 mavi aşağı üçgen (gözlem daha zayıf). Biçim + renk (renk tek
+  bilgi taşıyıcı değil); boyut |ΔI| ile büyür. Fare üstünde etiket.
+- Yöntem `validate-shakemap` "C" ile aynı; canlı deneme (Pazarcık, hazır
+  senaryo fayı, Vs30 haritası): 192 istasyon, ΔI −0,02, %96, std 0,58 —
+  doğrulama aracıyla birebir (docs/dogrulama.md).
+- Geliştirme: `SEISMIRA_OBSERVED=<stationlist.json>` (SEISMIRA_PRESET ile)
+  yerel listeyi yükleyip pencereyi açar.

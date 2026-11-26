@@ -112,12 +112,14 @@ pub fn fetch(source: Source, min_mag: f64) -> Result<Vec<RealQuake>, String> {
     Ok(list)
 }
 
-/// USGS olay ayrıntısı: iki düğüm düzlemi ve (varsa) ShakeMap kırılma
-/// modelinin kuadları.
+/// USGS olay ayrıntısı: iki düğüm düzlemi, (varsa) ShakeMap kırılma
+/// modelinin kuadları ve istasyon gözlemleri.
 #[derive(Clone, Debug, Default)]
 pub struct Detail {
     pub planes: Vec<NodalPlane>,
     pub quads: Vec<Quad>,
+    /// ShakeMap `stationlist.json` aletsel istasyonları (PGV'si olanlar).
+    pub stations: Vec<seismira_core::observed::Station>,
 }
 
 /// ShakeMap `rupture.json` kuadı: üst ve alt kenar noktaları, derinlikler.
@@ -135,23 +137,98 @@ pub fn fetch_detail(detail_url: &str) -> Result<Detail, String> {
     let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
     let mut d = Detail {
         planes: nodal_planes(&v),
-        quads: Vec::new(),
+        ..Detail::default()
     };
-    let rupture_url = v["properties"]["products"]["shakemap"]
+    let shakemap = v["properties"]["products"]["shakemap"]
         .as_array()
         .and_then(|a| {
             a.iter()
                 .max_by_key(|m| m["preferredWeight"].as_i64().unwrap_or(0))
-        })
-        .and_then(|m| m["contents"]["download/rupture.json"]["url"].as_str())
-        .map(str::to_string);
-    if let Some(u) = rupture_url {
+        });
+    let url = |name: &str| {
+        shakemap
+            .and_then(|m| m["contents"][name]["url"].as_str())
+            .map(str::to_string)
+    };
+    if let Some(u) = url("download/rupture.json") {
         match get(&u).and_then(|t| parse_rupture(&t)) {
             Ok(q) => d.quads = q,
             Err(e) => log::warn!("ShakeMap kırılma modeli alınamadı: {e}"),
         }
     }
+    if let Some(u) = url("download/stationlist.json") {
+        match get(&u).and_then(|t| parse_stations(&t)) {
+            Ok(s) => d.stations = s,
+            Err(e) => log::warn!("ShakeMap istasyon listesi alınamadı: {e}"),
+        }
+    }
     Ok(d)
+}
+
+/// ShakeMap `stationlist.json` (GeoJSON): aletsel ("seismic") istasyonların
+/// PGV'si (cm/s), iki yatay kanalın geometrik ortalaması. Tek yatay kanallı
+/// ("UNK" ya da eski verilerde "peak") istasyonda değer olduğu gibi alınır;
+/// diğer durumlar (yalnız düşey, üç ve daha fazla yatay kanal) atlanır.
+/// Kanal kuralı `seismira-data validate-shakemap`le aynı (docs/dogrulama.md);
+/// ek olarak ShakeMap'in işaretlediği (flag ≠ "0") genlikler atlanır.
+/// "Macroseismic" (DYFI vb. şiddet bildirimleri) alınmaz.
+pub fn parse_stations(text: &str) -> Result<Vec<seismira_core::observed::Station>, String> {
+    let v: serde_json::Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+    let feats = v["features"].as_array().ok_or("features yok")?;
+    let mut out = Vec::new();
+    for f in feats {
+        let p = &f["properties"];
+        if p["station_type"] != "seismic" {
+            continue;
+        }
+        let ch: Vec<(&str, f64)> = p["channels"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|c| {
+                let name = c["name"].as_str()?;
+                let a = c["amplitudes"]
+                    .as_array()?
+                    .iter()
+                    .find(|a| a["name"] == "pgv")?;
+                // Kusurlu işaretli genlikler (ShakeMap "flag" ≠ "0") atlanır.
+                if a["flag"].as_str().is_some_and(|f| f != "0") {
+                    return None;
+                }
+                Some((name, a["value"].as_f64()?))
+            })
+            .filter(|(n, _)| !n.ends_with('Z'))
+            .collect();
+        let pgv = match ch[..] {
+            [(_, a), (_, b)] => (a * b).sqrt(),
+            [("UNK" | "peak", a)] => a,
+            _ => continue,
+        };
+        let Some(c) = f["geometry"]["coordinates"].as_array() else {
+            continue;
+        };
+        let (Some(lon), Some(lat)) = (
+            c.first().and_then(|x| x.as_f64()),
+            c.get(1).and_then(|x| x.as_f64()),
+        ) else {
+            continue;
+        };
+        if !(pgv.is_finite() && pgv > 0.0) {
+            continue;
+        }
+        let net = p["network"].as_str().unwrap_or("");
+        let code = p["code"].as_str().unwrap_or("?");
+        out.push(seismira_core::observed::Station {
+            code: if net.is_empty() || code.starts_with(net) {
+                code.to_string()
+            } else {
+                format!("{net}.{code}")
+            },
+            lonlat: (lon, lat),
+            pgv_cm_s: pgv,
+        });
+    }
+    Ok(out)
 }
 
 /// Tercih edilen moment tensörünün iki düğüm düzlemi.
@@ -604,6 +681,43 @@ mod tests {
         eprintln!("Pazarcık: düzlem {p:?}, {} kuad", d.quads.len());
         assert!(matches!(g, Geometry::Trace { ref points, .. } if points.len() == 16));
         assert!((p.strike - 227.61).abs() < 0.5);
+        // ShakeMap istasyonları ve hazır senaryoyla karşılaştırma
+        // (validate-shakemap C: 192 istasyon, ΔI −0,02; Vs30 haritası
+        // yereldeyse onunla, yoksa referans zeminle).
+        eprintln!("Pazarcık: {} istasyon", d.stations.len());
+        assert!(d.stations.len() > 150);
+        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data");
+        let presets =
+            crate::scenarios::load(&std::path::Path::new(root).join("scenarios/scenarios.json"))
+                .unwrap();
+        let q = presets
+            .iter()
+            .find(|p| p.id == "kahramanmaras2023")
+            .unwrap()
+            .quake;
+        let tt = seismira_core::traveltime::TravelTimes::load(
+            &std::path::Path::new(root).join("traveltime/ak135.ttt"),
+        )
+        .unwrap();
+        let sc = seismira_core::shaking::Scenario::new(q, &tt)
+            .with_crust_region(seismira_core::gmpe::CrustRegion::Turkey);
+        let vs30 =
+            crate::compute::load_vs30(&std::path::Path::new(root).join("vs30/vs30.sras")).ok();
+        let rows = seismira_core::observed::compare(&sc, &d.stations, |(lon, lat)| {
+            vs30.as_ref()
+                .and_then(|m| m.site(lon, lat).ok())
+                .unwrap_or_else(seismira_core::site::Site::reference)
+        });
+        let s = seismira_core::observed::summarize(&rows).unwrap();
+        eprintln!(
+            "Pazarcık karşılaştırma (Vs30 haritası: {}): n {} ΔI {:+.2} |ΔI|<1 %{:.0} std {:.2}",
+            vs30.is_some(),
+            s.n,
+            s.mean_delta,
+            s.within_one * 100.0,
+            s.std_ln
+        );
+        assert!(s.mean_delta.abs() < 0.3);
     }
 
     /// Yereldeki gerçek ShakeMap dosyası (CI'da yok, varsa): Kahramanmaraş
@@ -716,5 +830,39 @@ mod tests {
                 rake: -1.0
             }
         );
+    }
+
+    /// İzmit 1999 ShakeMap atlas listesi (depoda): validate-shakemap ile
+    /// aynı istasyonlar (31 mesafeli + mesafesizler), PGV'ler pozitif.
+    #[test]
+    fn istasyon_listesi() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/validation/izmit1999/stationlist.json"
+        );
+        let st = parse_stations(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert!(st.len() >= 31, "{}", st.len());
+        assert!(st.iter().all(|s| s.pgv_cm_s > 0.0));
+        // Bölgede (Marmara ve çevresi).
+        assert!(
+            st.iter()
+                .all(|s| (25.0..35.0).contains(&s.lonlat.0) && (36.0..43.0).contains(&s.lonlat.1))
+        );
+        // Küçük örnek: iki yatay kanal geometrik ortalama, düşey atlanır,
+        // kusurlu işaretli kanal ve "macroseismic" alınmaz.
+        let j = r#"{"features":[
+          {"geometry":{"coordinates":[30,40]},"properties":{"station_type":"seismic","network":"TK","code":"0101","channels":[
+            {"name":"HNE","amplitudes":[{"name":"pgv","value":4.0,"flag":"0"}]},
+            {"name":"HNN","amplitudes":[{"name":"pgv","value":9.0,"flag":"0"}]},
+            {"name":"HNZ","amplitudes":[{"name":"pgv","value":100.0,"flag":"0"}]}]}},
+          {"geometry":{"coordinates":[31,40]},"properties":{"station_type":"seismic","code":"B","channels":[
+            {"name":"HNE","amplitudes":[{"name":"pgv","value":4.0,"flag":"0"}]},
+            {"name":"HNN","amplitudes":[{"name":"pgv","value":9.0,"flag":"T"}]}]}},
+          {"geometry":{"coordinates":[32,40]},"properties":{"station_type":"macroseismic","code":"C","channels":[]}}
+        ]}"#;
+        let s = parse_stations(j).unwrap();
+        assert_eq!(s.len(), 1, "{s:?}");
+        assert_eq!(s[0].code, "TK.0101");
+        assert!((s[0].pgv_cm_s - 6.0).abs() < 1e-12);
     }
 }

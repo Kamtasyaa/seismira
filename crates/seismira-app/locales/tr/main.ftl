@@ -437,3 +437,37 @@ gmm-share-short = → %{ $p }
 gmm-share = { $model } %{ $p }
 gmm-asb14-note = ASB14 Avrupa ve Orta Doğu kayıtlarıyla kuruldu; Mw 4–8, faya 200 km, odak 30 km ve 4 s periyoda kadar geçerli. Bu sınırların dışında ortalamaya katılmaz, kalan modellerle hesaplanır.
 gmm-reset = Varsayılana dön
+
+# Gözlemlerle karşılaştırma (Veri menüsü)
+menu-observed = Gözlemlerle karşılaştır…
+real-stations = ShakeMap'ten { $n } istasyon kaydı alındı: simülasyonu başlatınca Veri → Gözlemlerle karşılaştır.
+obs-title = Gözlemlerle karşılaştırma
+obs-none = Karşılaştırma için önce Veri → Gerçek depremler penceresinden USGS kaynaklı bir deprem yükle. ShakeMap istasyon kaydı olan depremlerde çalışır (çoğunlukla M 5,5 ve üstü).
+obs-loaded = { $place }: { $n } istasyon kaydı.
+obs-start = Simülasyonu başlatınca istasyonlar tahminle karşılaştırılır.
+obs-other-quake = Simülasyondaki deprem yüklenen gerçek depremden farklı (merkez üssü 50 km'den uzak); karşılaştırma yapılmadı.
+obs-computing = Hesaplanıyor…
+obs-no-overlap = Model sınırı içinde istasyon yok.
+obs-n = İstasyon (model sınırı içinde)
+obs-mean = Ortalama fark ΔI (gözlem − tahmin)
+obs-within = Farkı 1 şiddet biriminden küçük
+obs-pct = %{ $p }
+obs-std = Saçılım (ln PGV standart sapması)
+obs-verdict-under = Model bu depremde sarsıntıyı ortalamada AZ tahmin ediyor (ΔI > +0,3).
+obs-verdict-over = Model bu depremde sarsıntıyı ortalamada FAZLA tahmin ediyor (ΔI < −0,3).
+obs-verdict-ok = Ortalamada uyumlu (|ΔI| ≤ 0,3; doğrulama ölçütü, docs/dogrulama.md). Tek tek istasyonlarda yarım ile iki kat arası fark olağan.
+obs-bin-dist = Faya uzaklık
+obs-bin-n = İstasyon
+obs-bin-mean = Ort. ΔI
+obs-on-map = İstasyonları haritada göster
+obs-legend-under = gözlem daha güçlü (ΔI ≥ +0,5)
+obs-legend-ok = uyumlu
+obs-legend-over = gözlem daha zayıf (ΔI ≤ −0,5)
+obs-stations = İstasyon listesi
+obs-col-code = İstasyon
+obs-col-r = Rrup (km)
+obs-col-obs = Gözlenen PGV (cm/s)
+obs-col-pred = Tahmin (cm/s)
+obs-col-d = ΔI
+obs-tip = { $code }: ΔI { $d } · gözlenen { $obs } / tahmin { $pred } cm/s · { $r } km
+obs-method = Gözlem: istasyonun en büyük yer hızı (PGV), iki yatay bileşenin geometrik ortalaması. Tahmin: bu simülasyonun ayarlarıyla (fay, zemin, model). İkisi de aynı dönüşümle JMA şiddetine çevrilir; ΔI = 1,82 · log10(gözlenen / tahmin). Gerçek depremin kendi olaylar arası sapması (ör. gerilme düşümü) bu farkın önemli bir kısmıdır.

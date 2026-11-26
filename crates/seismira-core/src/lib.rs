@@ -17,6 +17,7 @@ pub mod intensity;
 pub mod mapfile;
 pub mod mercator;
 pub mod mmi;
+pub mod observed;
 pub mod quake;
 pub mod raster;
 pub mod region;
