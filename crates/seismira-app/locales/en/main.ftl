@@ -543,3 +543,8 @@ hazard-credit = ESHM20, Danciu et al. (2021), EFEHR, doi:10.12686/a15, CC BY 4.0
 spectrum-legend-uhs = ESHM20 rock, { $p }% in 50 years
 spectrum-uhs-note = ESHM20 curves are the probabilistic hazard at this point (from all possible earthquakes in the region, reference rock Vs30 800 m/s; Danciu et al. 2021, CC BY 4.0). The scenario curve is one earthquake on this site's soil.
 spectrum-hover-uhs =  · ESHM20 { $p }%: { $v } g
+
+# Tema (Görünüm menüsü)
+menu-theme = Theme
+theme-dark = Dark
+theme-light = Light

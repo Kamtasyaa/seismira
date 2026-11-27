@@ -52,10 +52,12 @@ pub fn text_on(c: Color32) -> Color32 {
     }
 }
 
-/// Kutu kenarı: koyu zemin (harita karası) üzerinde 3:1'i tutmayan koyu
-/// dolgularda açık kenar, diğerlerinde koyu kenar (WCAG 1.4.11).
+/// Kutu kenarı (WCAG 1.4.11): harita karası üzerinde 3:1'i tutmayan
+/// dolgularda karaya zıt kenar (koyu temada açık, açık temada koyu),
+/// diğerlerinde koyu kenar.
 fn box_outline(fill: Color32) -> Color32 {
-    if contrast(fill, crate::theme::MAP_LAND) < 3.0 {
+    let land = crate::theme::map_land();
+    if contrast(fill, land) < 3.0 && luminance(land) < 0.5 {
         Color32::from_white_alpha(170)
     } else {
         Color32::from_black_alpha(180)

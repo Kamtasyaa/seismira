@@ -123,7 +123,7 @@ impl SeismiraApp {
                 });
                 if let Some(e) = &st.error {
                     ui.colored_label(
-                        crate::panel::WARN_COLOR,
+                        crate::panel::warn_color(),
                         lang.t_args("real-error", &[("e", e.clone())]),
                     );
                 }

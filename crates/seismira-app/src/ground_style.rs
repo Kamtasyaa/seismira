@@ -123,7 +123,7 @@ pub fn draw_legend(ui: &egui::Ui, rect: Rect, lang: Lang, kinds: &[(String, Stri
         bottom_right - vec2(width + 12.0, height + 10.0),
         bottom_right,
     );
-    painter.rect_filled(bg, 4.0, crate::theme::MAP_BG.gamma_multiply(0.85));
+    painter.rect_filled(bg, 4.0, crate::theme::box_bg(0.85));
     let mut y = bg.top() + 5.0;
     for (k, g) in galleys.into_iter().enumerate() {
         let x = bg.left() + 6.0;
@@ -131,7 +131,7 @@ pub fn draw_legend(ui: &egui::Ui, rect: Rect, lang: Lang, kinds: &[(String, Stri
             let sq = Rect::from_min_size(egui::pos2(x, y + 2.0), vec2(icon, icon - 2.0));
             painter.rect_stroke(sq, 0.0, Stroke::new(2.0, RED), StrokeKind::Inside);
         }
-        painter.galley(egui::pos2(x + icon + 6.0, y), g, Color32::WHITE);
+        painter.galley(egui::pos2(x + icon + 6.0, y), g, crate::theme::box_text());
         y += line_h;
     }
 }

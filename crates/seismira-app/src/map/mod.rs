@@ -21,11 +21,8 @@ use view::MapView;
 
 /// Harita renkleri (koyu tema). Okyanus, panel arka planından koyudur.
 mod colors {
+    pub use crate::theme::{admin0 as ADMIN0, admin1 as ADMIN1, map_bg as OCEAN, map_land as LAND};
     use eframe::egui::Color32;
-    pub const OCEAN: Color32 = crate::theme::MAP_BG;
-    pub const LAND: Color32 = crate::theme::MAP_LAND;
-    pub const ADMIN0: Color32 = Color32::from_rgb(0x55, 0x61, 0x73);
-    pub const ADMIN1: Color32 = Color32::from_rgb(0x33, 0x3D, 0x4B);
     pub const EPICENTER: Color32 = Color32::from_rgb(0xFF, 0x4D, 0x4D);
 }
 
@@ -116,7 +113,6 @@ pub struct RegionStyle {
 }
 
 /// Sınırın altındaki koyu kontur (kontrast için): renk ve ek kalınlık.
-const HALO: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 190);
 const HALO_EXTRA: f32 = 2.5;
 
 /// Sarsıntı ızgarası katmanının opaklığı (görsel ayar): sınırlar ve
@@ -384,7 +380,7 @@ impl MapWidget {
         }
 
         let painter = ui.painter_at(rect);
-        painter.rect_filled(rect, 0.0, colors::OCEAN);
+        painter.rect_filled(rect, 0.0, colors::OCEAN());
         if let Some(lod) = self.pick_lod() {
             painter.add(gpu::paint_callback(rect, self.paint(rect, lod)));
         }
@@ -423,13 +419,13 @@ impl MapWidget {
             _pad: [0.0; 3],
         };
         let mut layers = vec![
-            (LayerId::Land, colors::LAND),
-            (LayerId::Lakes, colors::OCEAN),
+            (LayerId::Land, colors::LAND()),
+            (LayerId::Lakes, colors::OCEAN()),
         ];
         if v.scale >= ADMIN1_FROM {
-            layers.push((LayerId::Admin1, colors::ADMIN1));
+            layers.push((LayerId::Admin1, colors::ADMIN1()));
         }
-        layers.push((LayerId::Admin0, colors::ADMIN0));
+        layers.push((LayerId::Admin0, colors::ADMIN0()));
         // Izgara, kara ve göllerden sonra (sınırların altında).
         let grid = self
             .grid_spec
@@ -514,7 +510,11 @@ impl MapWidget {
         // bir önceki bölgenin rengini örtmesin.
         for st in styles.iter().filter(|s| s.line_width > 0.0) {
             if let Some(r) = self.line_ranges.get(&st.id) {
-                lines.push(line(r.clone(), HALO, st.line_width + HALO_EXTRA));
+                lines.push(line(
+                    r.clone(),
+                    crate::theme::halo(),
+                    st.line_width + HALO_EXTRA,
+                ));
             }
         }
         for st in styles.iter().filter(|s| s.line_width > 0.0) {

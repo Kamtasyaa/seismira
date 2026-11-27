@@ -398,7 +398,7 @@ impl SeismiraApp {
                     });
                 }
                 if let Some(m) = &st.msg {
-                    ui.colored_label(crate::panel::WARN_COLOR, m);
+                    ui.colored_label(crate::panel::warn_color(), m);
                 }
                 let Some(r) = &st.result else {
                     return;

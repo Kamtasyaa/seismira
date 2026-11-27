@@ -9,8 +9,15 @@ use seismira_core::source::Fault;
 
 use crate::i18n::Lang;
 
-const BLOCK_COLOR: Color32 = Color32::from_rgb(0xFF, 0x6B, 0x6B);
-pub(crate) const WARN_COLOR: Color32 = Color32::from_rgb(0xE8, 0xB4, 0x4C);
+/// Engelleyen / uyaran girdi sorunu rengi (açık temada koyulaşır,
+/// [`crate::theme::readable`]).
+fn block_color() -> Color32 {
+    crate::theme::readable(Color32::from_rgb(0xFF, 0x6B, 0x6B))
+}
+
+pub(crate) fn warn_color() -> Color32 {
+    crate::theme::readable(Color32::from_rgb(0xE8, 0xB4, 0x4C))
+}
 
 /// Paneldeki taslak deprem. Merkez üssü seçilene kadar Başlat kapalı.
 pub struct Draft {
@@ -172,7 +179,7 @@ fn slab_section(ui: &mut egui::Ui, lang: Lang, q: &mut Quake, slab: &Slab2) {
         ui.label(
             RichText::new(format!("⚠ {}", lang.t("slab-none")))
                 .small()
-                .color(WARN_COLOR),
+                .color(warn_color()),
         );
         return;
     };
@@ -220,7 +227,7 @@ fn slab_section(ui: &mut egui::Ui, lang: Lang, q: &mut Quake, slab: &Slab2) {
                         )
                     ))
                     .small()
-                    .color(WARN_COLOR),
+                    .color(warn_color()),
                 );
             }
         }
@@ -231,7 +238,7 @@ fn slab_section(ui: &mut egui::Ui, lang: Lang, q: &mut Quake, slab: &Slab2) {
                     lang.t_args("slab-above", &[("d", lang.num(g.depth_km, 0))])
                 ))
                 .small()
-                .color(WARN_COLOR),
+                .color(warn_color()),
             );
         }
         _ => {}
@@ -642,14 +649,14 @@ pub fn ui(
     ui.add_space(8.0);
     for &issue in issues {
         let (icon, color) = if issue.blocks() {
-            ("⛔", BLOCK_COLOR)
+            ("⛔", block_color())
         } else {
-            ("⚠", WARN_COLOR)
+            ("⚠", warn_color())
         };
         ui.label(RichText::new(format!("{icon} {}", issue_text(lang, issue))).color(color));
     }
     if !has_gmpe(&draft.quake) {
-        ui.label(RichText::new(format!("ⓘ {}", t("no-gmpe"))).color(WARN_COLOR));
+        ui.label(RichText::new(format!("ⓘ {}", t("no-gmpe"))).color(warn_color()));
     }
     if !draft.has_epicenter {
         ui.label(RichText::new(t("start-needs-epicenter")).weak());

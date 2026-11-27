@@ -165,7 +165,7 @@ impl SeismiraApp {
                     .small(),
                 );
                 if sp.sa.iter().all(|(_, m)| m.is_none()) {
-                    ui.colored_label(crate::panel::WARN_COLOR, t("spectrum-out-of-model"));
+                    ui.colored_label(crate::panel::warn_color(), t("spectrum-out-of-model"));
                     return;
                 }
                 // TBDY girdileri.
@@ -718,7 +718,7 @@ fn plot(
         let g = painter.layout_no_wrap(s, egui::FontId::proportional(12.0), text);
         let r = egui::Rect::from_min_size(pos2(area.left() + 8.0, area.top() + 6.0), g.size())
             .expand(4.0);
-        painter.rect_filled(r, 3.0, crate::theme::MAP_BG.gamma_multiply(0.92));
+        painter.rect_filled(r, 3.0, crate::theme::box_bg(0.92));
         painter.galley(r.min + vec2(4.0, 4.0), g, text);
     }
 }

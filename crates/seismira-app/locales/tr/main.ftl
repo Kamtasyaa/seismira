@@ -543,3 +543,8 @@ hazard-credit = ESHM20, Danciu vd. (2021), EFEHR, doi:10.12686/a15, CC BY 4.0
 spectrum-legend-uhs = ESHM20 kaya, 50 yılda %{ $p }
 spectrum-uhs-note = ESHM20 eğrileri bu noktanın olasılıksal tehlikesidir (bölgedeki tüm olası depremlerden, referans kaya Vs30 800 m/s; Danciu vd. 2021, CC BY 4.0). Senaryo eğrisi ise bu noktanın zemininde tek bir depremin tahminidir.
 spectrum-hover-uhs =  · ESHM20 %{ $p }: { $v } g
+
+# Tema (Görünüm menüsü)
+menu-theme = Tema
+theme-dark = Koyu
+theme-light = Açık

@@ -240,7 +240,9 @@ impl CityLayer {
 }
 
 /// Model geçerlilik sınırı çizgisinin rengi.
-pub const MODEL_LIMIT_COLOR: Color32 = Color32::from_rgba_premultiplied(150, 150, 160, 170);
+pub fn model_limit_color() -> Color32 {
+    crate::theme::model_limit()
+}
 
 /// Sağ altta Shindo ölçek açıklaması (Bölüm 10).
 pub fn draw_legend(ui: &egui::Ui, rect: Rect, title: &str, limit_note: Option<&str>, scale: Scale) {
@@ -275,7 +277,7 @@ pub fn draw_legend(ui: &egui::Ui, rect: Rect, title: &str, limit_note: Option<&s
         origin - vec2(6.0, 22.0),
         rect.right_bottom() - vec2(6.0, 6.0),
     );
-    painter.rect_filled(bg, 4.0, crate::theme::MAP_BG.gamma_multiply(0.85));
+    painter.rect_filled(bg, 4.0, crate::theme::box_bg(0.85));
     painter.text(
         origin - vec2(0.0, 4.0),
         Align2::LEFT_BOTTOM,
@@ -293,7 +295,7 @@ pub fn draw_legend(ui: &egui::Ui, rect: Rect, title: &str, limit_note: Option<&s
         let y = origin.y + shindo_style::BOX_SIZE.y + 11.0;
         painter.add(egui::Shape::dashed_line(
             &[egui::pos2(origin.x, y), egui::pos2(origin.x + 22.0, y)],
-            Stroke::new(1.5, MODEL_LIMIT_COLOR),
+            Stroke::new(1.5, model_limit_color()),
             5.0,
             3.0,
         ));

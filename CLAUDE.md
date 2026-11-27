@@ -73,7 +73,8 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
 
 - Windows, Linux ve macOS'ta BİREBİR AYNI görünüm ve davranış.
 - Temel veri uygulamayla gelir; uygulama internetsiz çalışır.
-- Tema: koyu, haritayı öne çıkaran, modern ve sade.
+- Tema: koyu (varsayılan), haritayı öne çıkaran, modern ve sade; isteğe bağlı
+  açık tema (Görünüm → Tema, 2026-11-27 kullanıcı isteği).
 - Tüm metin UTF-8, her yazı sistemi doğru görünmeli; Noto yazı tipleri
   gömülü. Koda gömülü arayüz metni YOK (çeviri altyapısı Faz 1'den).
 - Yanıp sönme ≤ ~1 Hz, yumuşak (istisna: tsunami kıyıları tam açık/kapalı,

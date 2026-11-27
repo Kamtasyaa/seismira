@@ -261,7 +261,7 @@ impl SeismiraApp {
                     let color = if *ok {
                         ui.visuals().text_color()
                     } else {
-                        crate::panel::WARN_COLOR
+                        crate::panel::warn_color()
                     };
                     ui.colored_label(color, text);
                 }
@@ -409,7 +409,7 @@ impl SeismiraApp {
                     let color = if *ok {
                         ui.visuals().text_color()
                     } else {
-                        crate::panel::WARN_COLOR
+                        crate::panel::warn_color()
                     };
                     ui.colored_label(color, text);
                     if let Some(d) = dir {

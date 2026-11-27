@@ -182,7 +182,7 @@ impl SeismiraApp {
                         ui.label(RichText::new(t("obs-start")).weak());
                     }
                     Some(q) if !self.observed_matches(&q) => {
-                        ui.colored_label(crate::panel::WARN_COLOR, t("obs-other-quake"));
+                        ui.colored_label(crate::panel::warn_color(), t("obs-other-quake"));
                     }
                     Some(_) => match self.observed_current() {
                         None => {

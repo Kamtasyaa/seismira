@@ -726,3 +726,19 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   (%10 yeşil, %2 pembe, noktalı + işaret) ve açıklama: olasılıksal (kaya)
   ile senaryo (sahanın zemini, tek deprem) farkı.
 - Geliştirme: `SEISMIRA_HAZARD=<katman sırası>`.
+
+## Açık tema (2026-11-27, kullanıcı isteği)
+
+- Görünüm → Tema: Koyu (varsayılan) / Açık; seçim hatırlanır
+  (`theme`), geliştirme için `SEISMIRA_THEME=light|dark`.
+- `theme.rs` renk işlevleri: harita zemini / karası / sınırlar
+  (açıkta OSM benzeri açık mavi deniz, krem kara), harita üstü kutu zemini
+  ve yazısı (`box_bg`, `box_text`), haritada doğrudan çizilen nötr çizgi
+  (`map_ink`: fay, iz, uyarı sınırı; koyuda beyaz, açıkta koyu gri),
+  sınır hâlesi, model sınırı, panelde renkli metin (`readable` / `on_panel`:
+  açıkta ×0,55 koyulaştırma; uyarı, engel, bildirim renkleri).
+- Erişilebilirlik (WCAG 2.2 AA, test `acik_tema_kontrast`): açıkta metin gri
+  30, soluk metin gri 90 panel / pencerede ≥ 4,5:1; koyulaştırılmış uyarı
+  renkleri panelde ≥ 4,5:1. Shindo kutu kenarı kara rengine göre seçilir
+  (açık temada Shindo 1 kutusu da kenarlı).
+- Şiddet, tsunami, tehlike renkleri tema bağımsız (standart ölçek renkleri).

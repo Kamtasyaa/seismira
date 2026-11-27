@@ -40,6 +40,7 @@ const STORAGE_LANDSLIDE: &str = "landslide";
 const STORAGE_TSUNAMI: &str = "tsunami";
 const STORAGE_QUALITY: &str = "quality";
 const STORAGE_SCALE: &str = "intensity_scale";
+const STORAGE_THEME: &str = "theme";
 
 /// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
 const BLINK_HZ: f64 = 1.0;
@@ -150,9 +151,9 @@ fn region_styles(
             // olabilir (ör. 41 il) ve tüm haritayı grileştirmesin.
             RegionState::Warning => Some((
                 0u8,
-                Color32::WHITE,
+                theme::map_ink(1.0),
                 2.0,
-                Color32::WHITE.gamma_multiply(0.04 + 0.10 * pulse),
+                theme::map_ink(0.04 + 0.10 * pulse),
                 true,
             )),
             RegionState::Shaking(now) => {
@@ -453,6 +454,8 @@ pub struct SeismiraApp {
     hazard_data: Option<Arc<hazard_ui::Hazard>>,
     /// Tehlike haritası katmanı ([`hazard_ui`]).
     hazard: hazard_ui::HazardState,
+    /// Koyu / açık tema (Görünüm → Tema; hatırlanır).
+    theme_mode: theme::Mode,
     /// Son hesabın tahmini bina hasarı.
     damage: Option<compute::DamageResults>,
     /// Zemin yenilmesi girdileri (`data/ground/`); yoksa katman gösterilmez.
@@ -520,7 +523,13 @@ impl SeismiraApp {
             .unwrap_or_else(Lang::from_system);
         let assets = paths::assets_dir();
         log::info!("veri klasörü: {}", assets.display());
-        theme::apply(&cc.egui_ctx);
+        // Tema: kayıtlı seçim; geliştirme için `SEISMIRA_THEME=light|dark`.
+        let theme_mode = std::env::var("SEISMIRA_THEME")
+            .ok()
+            .or_else(|| cc.storage.and_then(|s| s.get_string(STORAGE_THEME)))
+            .and_then(|v| theme::Mode::from_code(&v))
+            .unwrap_or_default();
+        theme::apply(&cc.egui_ctx, theme_mode);
         fonts::install(&cc.egui_ctx, &assets, lang);
         // Küçük tablo (~0.5 MB): açılışta, ilk kareden önce okunur.
         let tt_path = paths::data_dir().join("traveltime").join("ak135.ttt");
@@ -648,6 +657,7 @@ impl SeismiraApp {
             infra: Default::default(),
             batch: Default::default(),
             hazard_data,
+            theme_mode,
             // `SEISMIRA_HAZARD=<katman>`: tehlike katmanını açık başlatır
             // (ekran görüntüsü / deneme).
             hazard: hazard_ui::HazardState {
@@ -846,6 +856,14 @@ impl SeismiraApp {
                     ui.checkbox(&mut self.infra.on_map, t("menu-infra-map"));
                 }
                 self.hazard_menu(ui);
+                ui.menu_button(t("menu-theme"), |ui| {
+                    let before = self.theme_mode;
+                    ui.radio_value(&mut self.theme_mode, theme::Mode::Dark, t("theme-dark"));
+                    ui.radio_value(&mut self.theme_mode, theme::Mode::Light, t("theme-light"));
+                    if self.theme_mode != before {
+                        theme::apply(ui.ctx(), self.theme_mode);
+                    }
+                });
                 if self.ground.as_ref().is_some_and(|g| g.has_landslide()) {
                     ui.checkbox(&mut self.show_landslide, t("menu-landslide"));
                 }
@@ -1010,7 +1028,7 @@ impl SeismiraApp {
                 ui,
                 rect,
                 limit,
-                Stroke::new(1.5, city_layer::MODEL_LIMIT_COLOR),
+                Stroke::new(1.5, city_layer::model_limit_color()),
             );
         }
 
@@ -1113,7 +1131,7 @@ impl SeismiraApp {
             );
             let pos = rect.left_bottom() + egui::vec2(10.0, -10.0 - galley.size().y);
             let bg = egui::Rect::from_min_size(pos, galley.size()).expand(4.0);
-            painter.rect_filled(bg, 4.0, theme::MAP_BG.gamma_multiply(0.85));
+            painter.rect_filled(bg, 4.0, theme::box_bg(0.85));
             painter.galley(pos, galley, weak);
         }
     }
@@ -1187,13 +1205,13 @@ impl SeismiraApp {
         let rupture = seismira_core::rupture::Rupture::from_quake(quake);
         let (outline, edge) = if trace {
             (
-                Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 255, 255, 150)),
-                Stroke::new(3.0, Color32::WHITE),
+                Stroke::new(1.5, theme::map_ink(0.59)),
+                Stroke::new(3.0, theme::map_ink(1.0)),
             )
         } else {
             (
-                Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 60)),
-                Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 255, 255, 170)),
+                Stroke::new(1.0, theme::map_ink(0.24)),
+                Stroke::new(1.5, theme::map_ink(0.67)),
             )
         };
         let densify = |a: (f64, f64), b: (f64, f64)| -> Vec<(f64, f64)> {
@@ -1236,7 +1254,7 @@ impl SeismiraApp {
         pts: &[(f64, f64)],
         hover: Option<(f64, f64)>,
     ) {
-        let edge = Stroke::new(2.5, Color32::WHITE);
+        let edge = Stroke::new(2.5, theme::map_ink(1.0));
         if pts.len() >= 2 {
             self.map.draw_lonlat_line(ui, rect, pts, edge);
         }
@@ -1245,14 +1263,14 @@ impl SeismiraApp {
                 ui,
                 rect,
                 &[last, h],
-                Stroke::new(1.5, Color32::from_white_alpha(170)),
+                Stroke::new(1.5, theme::map_ink(0.67)),
             );
         }
         let painter = ui.painter_at(rect);
         for &p in pts {
             let c = self.map.to_screen(rect, p);
             painter.circle_filled(c, 5.0, Color32::from_black_alpha(160));
-            painter.circle_filled(c, 3.5, Color32::WHITE);
+            painter.circle_filled(c, 3.5, theme::map_ink(1.0));
         }
         // İmleç hareket ettikçe lastik çizgi güncellensin.
         if hover.is_some() {
@@ -1775,7 +1793,7 @@ impl SeismiraApp {
             egui::pos2(rect.left() + 12.0, rect.bottom() - 48.0 - h),
             egui::vec2(w, h),
         );
-        painter.rect_filled(bg, 4.0, theme::MAP_BG.gamma_multiply(0.85));
+        painter.rect_filled(bg, 4.0, theme::box_bg(0.85));
         let mut y = bg.top() + 5.0;
         for ((color, _), g) in rows.iter().zip(galleys) {
             let x = bg.left() + 6.0;
@@ -1784,7 +1802,7 @@ impl SeismiraApp {
                 painter.line_segment([a, b], Stroke::new(OUTER, Color32::from_black_alpha(150)));
                 painter.line_segment([a, b], Stroke::new(inner(*c), c.color()));
             }
-            painter.galley(egui::pos2(x + 18.0, y), g, Color32::WHITE);
+            painter.galley(egui::pos2(x + 18.0, y), g, theme::box_text());
             y += 17.0;
         }
         // İpucu: en yakın nokta.
@@ -1813,10 +1831,10 @@ impl SeismiraApp {
                     ("eta", timeline::format_hms(c.eta_s)),
                 ],
             );
-            let g = painter.layout_no_wrap(text, font, Color32::WHITE);
+            let g = painter.layout_no_wrap(text, font, theme::box_text());
             let r = egui::Rect::from_min_size(hp + egui::vec2(14.0, 10.0), g.size()).expand(5.0);
-            painter.rect_filled(r, 4.0, theme::MAP_BG.gamma_multiply(0.95));
-            painter.galley(r.min + egui::vec2(5.0, 5.0), g, Color32::WHITE);
+            painter.rect_filled(r, 4.0, theme::box_bg(0.95));
+            painter.galley(r.min + egui::vec2(5.0, 5.0), g, theme::box_text());
         }
         // Yalnızca açılma/kapanma anında yeniden çiz (Bölüm 11).
         if next_toggle.is_finite() {
@@ -1990,7 +2008,7 @@ impl SeismiraApp {
                 egui::pos2(right, y + galley.size().y),
             )
             .expand(4.0);
-            painter.rect_filled(bg, 4.0, theme::MAP_BG.gamma_multiply(0.85));
+            painter.rect_filled(bg, 4.0, theme::box_bg(0.85));
             painter.line_segment(
                 [
                     egui::pos2(text_pos.x - 26.0, line_y),
@@ -2376,7 +2394,10 @@ impl SeismiraApp {
                             // Kalan genişlikte alt satıra geçsin.
                             ui.vertical(|ui| {
                                 ui.add(
-                                    egui::Label::new(RichText::new(&n.text).color(n.color)).wrap(),
+                                    egui::Label::new(
+                                        RichText::new(&n.text).color(theme::on_panel(ui, n.color)),
+                                    )
+                                    .wrap(),
                                 );
                             });
                         });
@@ -2423,7 +2444,7 @@ impl eframe::App for SeismiraApp {
                         |ui| {
                             ui.label(
                                 RichText::new(format!("⚠ {}", t("disclaimer")))
-                                    .color(theme::WARN_TEXT),
+                                    .color(theme::warn_text()),
                             );
                         },
                         |ui| {
@@ -2645,6 +2666,7 @@ impl eframe::App for SeismiraApp {
         );
         storage.set_string(STORAGE_QUALITY, self.quality.code().to_owned());
         storage.set_string(STORAGE_SCALE, self.scale.code().to_owned());
+        storage.set_string(STORAGE_THEME, self.theme_mode.code().to_owned());
     }
 }
 
