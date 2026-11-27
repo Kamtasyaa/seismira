@@ -12,7 +12,8 @@ Kurulum ve çalıştırma (depo kökünden):
 Çıktılar: data/test/cy14_ref.csv, data/test/psbah20_ref.csv,
 data/test/{bssa14,ask14,cb14}_ref.csv (yalnızca bunlar için:
 `.venv/bin/python scripts/gen_gmpe_ref.py ngaw2 bssa14`), data/test/asb14_ref.csv
-(`.venv/bin/python scripts/gen_gmpe_ref.py asb14`).
+(`.venv/bin/python scripts/gen_gmpe_ref.py asb14`), data/test/cy14_region_ref.csv
+(`… gen_gmpe_ref.py cy14_regions`).
 
 NGA-West2 diğer modeller (2026-11-24): pygmm 0.9.1, makale tabloları,
 bölgesel kollar ("region"); havza terimi kapalı (Z1 verilmez).
@@ -210,6 +211,36 @@ def ngaw2(which: str) -> None:
     write(which, rows)
 
 
+def cy14_regions() -> None:
+    """CY14 bölgesel kolları (Japonya, İtalya, Çin): pygmm 0.9.1, yayımlanmış
+    model (nshmp=False). Z1 verilmez: pygmm bölgenin Z1 bağıntısını kullanır,
+    havza terimi 0 (bizim uygulamamızla aynı)."""
+    rows = []
+    for region, mag, rrup, vs30 in itertools.product(
+        ["japan", "italy", "china"],
+        [5.5, 6.5, 6.95, 7.5],
+        [5.0, 20.0, 60.0, 150.0, 300.0],
+        [760.0, 400.0, 250.0],
+    ):
+        s = pygmm.Scenario(
+            mag=mag, dist_rup=rrup, dist_jb=rrup, dist_x=0.0, dip=90.0,
+            depth_tor=0.0, mechanism="SS", v_s30=vs30, on_hanging_wall=False,
+            vs_source="inferred", region=region,
+        )
+        m = pygmm.ChiouYoungs2014(s)
+        row = dict(
+            region=region, mag=mag, rrup=rrup, vs30=vs30,
+            ln_pga=float(np.log(m.pga)), sd_pga=float(m.ln_std_pga),
+            ln_pgv=float(np.log(m.pgv)), sd_pgv=float(m.ln_std_pgv),
+        )
+        psa = np.atleast_1d(m.interp_spec_accels([1.0]))
+        sds = np.atleast_1d(m.interp_ln_stds([1.0]))
+        row["ln_sa1.0"] = float(np.log(psa[0]))
+        row["sd_sa1.0"] = float(sds[0])
+        rows.append(row)
+    write("cy14_region", rows)
+
+
 def asb14() -> None:
     """ASB14 (Akkar, Sandıkkaya & Bommer 2014) referansı, Rjb sürümü.
 
@@ -244,6 +275,9 @@ if __name__ == "__main__":
 
     if sys.argv[1:2] == ["asb14"]:
         asb14()
+        raise SystemExit(0)
+    if sys.argv[1:2] == ["cy14_regions"]:
+        cy14_regions()
         raise SystemExit(0)
 
     if sys.argv[1:2] == ["ngaw2"]:

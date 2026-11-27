@@ -171,8 +171,7 @@ pub fn predict_one(model: Model, imt: Imt, i: &Input) -> Option<LnMotion> {
                 region: i.region,
             },
         ),
-        // CY14'ün bölgesel kolu (Japonya Vs30 ölçeklemesi vb.) bağlı değil:
-        // temel model (cy14.rs modül notu).
+        // CY14 bölgesel kolu: Japonya / İtalya / Çin (cy14.rs modül notu).
         Model::Cy14 => cy14::predict(
             imt,
             &cy14::Input {
@@ -185,6 +184,7 @@ pub fn predict_one(model: Model, imt: Imt, i: &Input) -> Option<LnMotion> {
                 fault: i.fault,
                 vs30: vs(cy14::VS30_MIN, cy14::VS30_MAX),
                 dpp: i.dpp,
+                region: i.region,
             },
         ),
         Model::Asb14 => asb14::predict(

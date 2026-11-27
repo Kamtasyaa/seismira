@@ -12,7 +12,19 @@
 //!
 //! Kapsam ve seçimler:
 //! - Bileşen: RotD50.
-//! - Bölge: Kaliforniya/küresel temel model (bölgesel düzeltmeler yok).
+//! - Bölge (2026-11-27): rapor Ek A (PEER 2013/07 s. 75–76, Tablo A.1)
+//!   ve s. 30 ("bölgesel farkların hesaba katıldığı bölgelerde Ek A'daki
+//!   katsayılar kullanılmalı"):
+//!   - Japonya ve İtalya: γ(M) × γ_JP_IT; yalnızca 6,0 < M < 6,9 (rapor:
+//!     verideki Japon ve İtalyan depremleri bu aralıkta, "bu çarpan
+//!     yalnızca bu M aralığında geçerli").
+//!   - Çin: γ(M) × γ_WN (2008 Wenchuan verisinden; her büyüklükte, pygmm
+//!     ile aynı SEÇİM).
+//!   - Japonya: doğrusal zemin katsayısı φ1_JP ve σ2_JP. φ5_JP / φ6_JP
+//!     (havza) ve Japonya Z1 bağıntısı kullanılmaz: havza terimi zaten 0.
+//!   - Kaynak denetimi: Tablo A.1 dosyamızla 21 periyotta aynı (γ_WN 10 s:
+//!     raporun düzeltme notuna göre 0). PGV satırı ve σ2_JP raporda yok:
+//!     nshmp-lib ile yazarların NGA-West2 tablosu v5.7 (pygmm) birebir aynı.
 //! - Yönelim (directivity): Eş. 3.6–3.8 (PEER 2013/07 s. 24, birincil
 //!   kaynaktan 2026-11-26): f_D = c8 · f_R · f_M · exp(−c8a (M − c8b)²) ·
 //!   ΔDPP, f_R = max(0, 1 − max(Rrup − 40, 0)/30), f_M = min(1,
@@ -49,6 +61,8 @@ pub struct Input {
     pub vs30: f64,
     /// Merkezlenmiş DPP (ΔDPP); 0: ortalama yönelim.
     pub dpp: f64,
+    /// Bölgesel düzeltme (modül notu); Japonya, İtalya, Çin dışında temel model.
+    pub region: super::CrustRegion,
 }
 
 /// Modelin mesafe sınırı (km, Rrup).
@@ -114,6 +128,10 @@ struct Coeffs {
     sigma1: f64,
     sigma2: f64,
     sigma3: f64,
+    gamma_jp_it: f64,
+    gamma_wn: f64,
+    phi1_jp: f64,
+    sigma2_jp: f64,
 }
 
 // Tüm periyotlar için sabit katsayılar (makale Tablo 1).
@@ -148,9 +166,43 @@ fn parse(csv: &str) -> Table {
             .unwrap_or_else(|| panic!("{name} sütunu yok"))
     };
     let idx: Vec<usize> = [
-        "c1", "c1a", "c1b", "c1c", "c1d", "cn", "cM", "c3", "c5", "cHM", "c6", "c7", "c7b", "c9",
-        "c9a", "c9b", "c11b", "cgamma1", "cgamma2", "cgamma3", "phi1", "phi2", "phi3", "phi4",
-        "phi5", "tau1", "tau2", "sigma1", "sigma2", "sigma3", "c8", "c8a", "c8b",
+        "c1",
+        "c1a",
+        "c1b",
+        "c1c",
+        "c1d",
+        "cn",
+        "cM",
+        "c3",
+        "c5",
+        "cHM",
+        "c6",
+        "c7",
+        "c7b",
+        "c9",
+        "c9a",
+        "c9b",
+        "c11b",
+        "cgamma1",
+        "cgamma2",
+        "cgamma3",
+        "phi1",
+        "phi2",
+        "phi3",
+        "phi4",
+        "phi5",
+        "tau1",
+        "tau2",
+        "sigma1",
+        "sigma2",
+        "sigma3",
+        "c8",
+        "c8a",
+        "c8b",
+        "gamma_JP_IT",
+        "gamma_WN",
+        "phi1_JP",
+        "sigma2_JP",
     ]
     .iter()
     .map(|n| col(n))
@@ -194,6 +246,10 @@ fn parse(csv: &str) -> Table {
             c8: v(30),
             c8a: v(31),
             c8b: v(32),
+            gamma_jp_it: v(33),
+            gamma_wn: v(34),
+            phi1_jp: v(35),
+            sigma2_jp: v(36),
         };
         match f[0] {
             "PGA" => pga = Some(c),
@@ -228,7 +284,14 @@ fn compute(c: &Coeffs, i: &Input) -> LnMotion {
     // Eş. 11: referans kaya (Vs30 = 1130 m/s) için ln y_ref.
     let r1 = c.c1 + C2 * (m - 6.0) + ((C2 - c.c3) / c.cn) * (1.0 + (c.cn * (c.cm - m)).exp()).ln();
     let r2 = C4 * (i.rrup + c.c5 * (c.c6 * (m - c.chm).max(0.0)).cosh()).ln();
-    let gamma = c.g1 + c.g2 / (m - c.g3).max(0.0).cosh();
+    use super::CrustRegion;
+    // Ek A: bölgesel anelastik sönümlenme çarpanı.
+    let scale = match i.region {
+        CrustRegion::Japan | CrustRegion::Italy if m > 6.0 && m < 6.9 => c.gamma_jp_it,
+        CrustRegion::China => c.gamma_wn,
+        _ => 1.0,
+    };
+    let gamma = scale * (c.g1 + c.g2 / (m - c.g3).max(0.0).cosh());
     let r3 = (C4A - C4) * (i.rrup * i.rrup + CRB * CRB).sqrt().ln() + i.rrup * gamma;
     let cosh_m = (2.0 * (m - 4.5).max(0.0)).cosh();
     let cos_d = i.dip.to_radians().cos();
@@ -259,7 +322,9 @@ fn compute(c: &Coeffs, i: &Input) -> LnMotion {
     let y_ref = ln_ref.exp();
 
     // Eş. 12: zemin etkisi (doğrusal + doğrusal olmayan), havza terimi 0.
-    let sl = c.phi1 * (i.vs30 / 1130.0).ln().min(0.0);
+    let japan = i.region == CrustRegion::Japan;
+    let phi1 = if japan { c.phi1_jp } else { c.phi1 };
+    let sl = phi1 * (i.vs30 / 1130.0).ln().min(0.0);
     let snl_base = c.phi2
         * ((c.phi3 * (i.vs30.min(1130.0) - 360.0)).exp() - (c.phi3 * (1130.0 - 360.0)).exp());
     let snl = snl_base * ((y_ref + c.phi4) / c.phi4).ln();
@@ -273,8 +338,9 @@ fn compute(c: &Coeffs, i: &Input) -> LnMotion {
     let nl0 = snl_base * y_ref / (y_ref + c.phi4);
     let mt = m.clamp(5.0, 6.5) - 5.0;
     let tau = c.tau1 + (c.tau2 - c.tau1) / 1.5 * mt;
+    let sigma2 = if japan { c.sigma2_jp } else { c.sigma2 };
     let sigma_nl0 =
-        (c.sigma1 + (c.sigma2 - c.sigma1) / 1.5 * mt) * (c.sigma3 + (1.0 + nl0).powi(2)).sqrt();
+        (c.sigma1 + (sigma2 - c.sigma1) / 1.5 * mt) * (c.sigma3 + (1.0 + nl0).powi(2)).sqrt();
     let tau_eff = tau * (1.0 + nl0);
     LnMotion {
         mean,
@@ -343,6 +409,7 @@ mod tests {
             ),
         ] {
             let mk = |dpp| Input {
+                region: crate::gmpe::CrustRegion::Global,
                 mw,
                 rrup,
                 rjb: rrup,
@@ -384,6 +451,7 @@ mod tests {
             let f: Vec<&str> = line.split(',').collect();
             let num = |n: &str| f[col(n)].parse::<f64>().unwrap();
             let mut input = Input {
+                region: crate::gmpe::CrustRegion::Global,
                 mw: num("mag"),
                 rrup: num("rrup"),
                 rjb: num("rjb"),
@@ -435,6 +503,7 @@ mod tests {
     #[test]
     fn aralik_disi_none() {
         let i = Input {
+            region: crate::gmpe::CrustRegion::Global,
             mw: 7.0,
             rrup: 350.0,
             rjb: 350.0,
@@ -475,6 +544,7 @@ mod tests {
     #[test]
     fn fiziksel_egilimler() {
         let base = Input {
+            region: crate::gmpe::CrustRegion::Global,
             mw: 6.5,
             rrup: 20.0,
             rjb: 20.0,
@@ -501,5 +571,82 @@ mod tests {
                 ..base
             }) > pgv(base)
         );
+    }
+
+    /// Bölgesel kollar (Japonya, İtalya, Çin) pygmm 0.9.1 ile
+    /// (scripts/gen_gmpe_ref.py cy14_regions): ln biriminde 0,01 içinde.
+    /// Ayrıca Japonya/İtalya çarpanı yalnızca 6 < M < 6,9'da etkili.
+    #[test]
+    fn bolgesel_kollar_pygmm_ile_ayni() {
+        use crate::gmpe::CrustRegion;
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/test/cy14_region_ref.csv"
+        );
+        let csv = std::fs::read_to_string(path).expect("referans dosyası");
+        let mut lines = csv.lines();
+        let header: Vec<&str> = lines.next().unwrap().split(',').collect();
+        let col = |n: &str| header.iter().position(|h| *h == n).unwrap();
+        let mut n = 0;
+        for line in lines {
+            let f: Vec<&str> = line.split(',').collect();
+            let num = |k: &str| f[col(k)].parse::<f64>().unwrap();
+            let input = Input {
+                mw: num("mag"),
+                rrup: num("rrup"),
+                rjb: num("rrup"),
+                rx: 0.0,
+                ztor: 0.0,
+                dip: 90.0,
+                fault: FaultType::StrikeSlip,
+                vs30: num("vs30"),
+                dpp: 0.0,
+                region: match f[col("region")] {
+                    "japan" => CrustRegion::Japan,
+                    "italy" => CrustRegion::Italy,
+                    "china" => CrustRegion::China,
+                    r => panic!("{r}"),
+                },
+            };
+            for (imt, m, sd) in [
+                (Imt::Pga, "ln_pga", "sd_pga"),
+                (Imt::Pgv, "ln_pgv", "sd_pgv"),
+                (Imt::Sa(1.0), "ln_sa1.0", "sd_sa1.0"),
+            ] {
+                let p = predict(imt, &input).unwrap();
+                assert!((p.mean - num(m)).abs() < 0.01, "{line} {imt:?}: {}", p.mean);
+                assert!(
+                    (p.sigma - num(sd)).abs() < 0.01,
+                    "{line} {imt:?}: {}",
+                    p.sigma
+                );
+                n += 1;
+            }
+        }
+        assert_eq!(n, 540);
+        // Çarpanın büyüklük aralığı: M 7,5'te Japonya = temel model sönümü
+        // (yalnız φ1_JP ve σ farkı), M 6,5'te daha güçlü sönüm.
+        let at = |mw: f64, region, rrup: f64| {
+            predict(
+                Imt::Pgv,
+                &Input {
+                    mw,
+                    rrup,
+                    rjb: rrup,
+                    rx: 0.0,
+                    ztor: 0.0,
+                    dip: 90.0,
+                    fault: FaultType::StrikeSlip,
+                    vs30: 760.0,
+                    dpp: 0.0,
+                    region,
+                },
+            )
+            .unwrap()
+            .mean
+        };
+        let decay = |mw, r| at(mw, r, 200.0) - at(mw, r, 50.0);
+        assert!(decay(6.5, CrustRegion::Italy) < decay(6.5, CrustRegion::Global) - 0.05);
+        assert!((decay(7.5, CrustRegion::Italy) - decay(7.5, CrustRegion::Global)).abs() < 1e-12);
     }
 }

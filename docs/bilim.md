@@ -805,7 +805,10 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   rasterındaki ülkesi; denizdeyse 100 km içindeki en yakın kara. Her
   model kendi bölgelerini ayırır: BSSA14 Δc3 Çin/Türkiye ve
   İtalya/Japonya; ASK14 Tayvan, Çin, Japonya; CB14 Δc20 Japonya/İtalya,
-  Çin; CY14 bölgesel kolu bağlı değil (temel model).
+  Çin; CY14 Ek A (2026-11-27): Japonya/İtalya γ × γ_JP_IT (yalnız
+  6 < M < 6,9, rapor öyle diyor), Çin γ × γ_WN, Japonya φ1_JP ve σ2_JP;
+  pygmm ile 540 karşılaştırma < 0,01 ln. Etki: Kumamoto C +0,15 → +0,15,
+  Noto −0,38 → −0,38 (ikisi de M ≥ 7, çarpan dışı; φ1_JP ¼ ağırlıkla).
 - Ortalama ln uzayında eşit ağırlık (SEÇİM). σ: karışım varyansı
   σ² = Σw(σᵢ² + (μᵢ − μ̄)²), τ² aynı biçimde (modeller arası fark tüm
   sahalarda ortak olduğu için τ'ya eklenir; SEÇİM).
