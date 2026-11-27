@@ -1083,3 +1083,30 @@ içi dağılımdan kaynaklanmıyor (olası nedenler: bina stoku / kırılganlık
 ayrımı, Hatay'da 20 Şubat artçısı, Adana'da gözlenen konut paydası).
 KARAR: uygulama değiştirilmedi (veri biçimi değişikliğine değmez); deney
 kipi doğrulama aracında kalır.
+
+## Tsunami: kıyı noktası başına şelf eğimi (deney, 2026-11-27)
+
+Soru (inceleme 2026-11-24): yakın alan tırmanması (Riquelme vd. 2015 Eş. 3)
+tek bir şelf eğimiyle hesaplanıyor (tepeye en yakın kıyıdan 200 m eş
+derinliğe). Her kıyı noktası kendi eğimini (kendinden denizdeki en yakın
+kaynak hücresine doğru 200 m eş derinliğe) kullansa uyum artar mı? Makale
+deprem başına tek kesit alır; kesit başına uygulama formülün uzantısıdır.
+
+Komut: `seismira-data validate-tsunami data/raw/validation/tsunami/ncei_runups_<olay>.json
+<boylam,enlem> <Mw> <derinlik> <doğrultu> <eğim> <kayma> <ortam>` (Tōhoku 5413
+142.373,38.297 9.1 29 192 8 78 interface; Noto 5907 137.271,37.4874 7.5 10
+49 41 103 crust; Maule 4682 −72.898,−36.122 8.8 22.9 17 13 108 interface).
+
+| Deprem | Bölge aynı | Kategori farkı toplamı | Nokta aynı | Ort. model/gözlem |
+|---|---|---|---|---|
+| Tōhoku | 9/14 → 9/14 | 5 → 5 | %77 → %77 | ×5,15 → ×5,38 |
+| Noto | 8/13 → 8/13 | 5 → 5 | %52 → %54 | ×3,77 → ×3,97 |
+| Maule | 5/8 → 5/8 | 3 → 5 | %91 → %87 | ×1,62 → ×0,80 |
+
+Sonuç: kategori uyumu hiçbir depremde iyileşmedi, Maule'de kötüleşti
+(nokta bazında ortalama oran sıfıra yaklaştı ama kategori kaçırmaları
+arttı). KARAR: değişiklik alınmadı (kod geri alındı). "Fay dışına dik
+uzaklıkla azalma" için yayımlanmış basit bir bağıntı bulunamadı (Riquelme
+Eş. 2'nin dik terimi geliş açısı θ'ya bağlı; θ = 90° en kötü durum
+seçiminde sıfır); uydurulmadı. Yakın alan fazla tahmininin bilinen
+nedenleri (Lorentz azalması, koylar, adalar) yukarıdaki bölümlerde.
