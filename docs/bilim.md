@@ -843,10 +843,10 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   elektronik ekinden (62 periyot), pygmm 0.9.1 veri dosyası üzerinden;
   makalenin Tablo 3 ve 4.a'sıyla ortak 20 satırda birebir aynı
   (`scripts/gen_asb14.py` denetler). pygmm ile 630 senaryoda < 0,01 ln.
-- DOĞRULANAMADI: makalenin düzeltmesi (erratum, doi:10.1007/s10518-013-9508-6)
-  Springer giriş istediği için okunamadı. Ek katsayıları 2016'da
-  yazarlardan alındığı için düzeltmeden sonradır; pygmm ve OpenQuake aynı
-  katsayıları kullanıyor. Erratum PDF'i gelirse kontrol edilmeli.
+- Düzeltme notu (erratum, doi:10.1007/s10518-013-9508-6; kullanıcı
+  indirdi, 2026-11-27 okundu): yalnızca basılı Eş. (2)'deki fazladan "+S"
+  terimi silinmeli; elektronik ekin araçlarında hata yok. Uygulamamız
+  zaten düzeltilmiş Eş. (2)'yi kullanıyor; değişiklik gerekmedi.
 - Bileşen: makale GM_AR (kaydedildiği yönde geometrik ortalama) verir;
   Boore & Kishida (2017) ln(RotD50/GM_AR) "smooth" katsayılarıyla RotD50'ye
   çevrilir (USGS esi-shakelib, kamu malı; PGA +%1,3, PGV +%2,3). Oranın σ'sı

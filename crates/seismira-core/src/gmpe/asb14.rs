@@ -22,10 +22,12 @@
 //!
 //! Katsayılar: yazarların elektronik eki (62 periyot, 0,01–4 s), pygmm 0.9.1
 //! veri dosyası üzerinden; makalenin Tablo 3 ve Tablo 4.a'sıyla ortak 20
-//! satırda birebir aynı (`scripts/gen_asb14.py` denetler). Makalenin
-//! düzeltmesi (erratum, doi:10.1007/s10518-013-9508-6) OKUNAMADI (Springer
-//! giriş istiyor); ek katsayılar 2016'da yazarlardan alındığı için
-//! düzeltmeden sonradır (docs/bilim.md 7.4).
+//! satırda birebir aynı (`scripts/gen_asb14.py` denetler). Düzeltme notu
+//! (Erratum, BEE 12, 389–390, doi:10.1007/s10518-013-9508-6; okundu
+//! 2026-11-27, `data/raw/refs/asb14/erratum.pdf`): yalnızca basılı Eş. (2)'deki
+//! fazladan "+S" terimi silinmeli; "elektronik ekteki Excel ve Matlab
+//! araçlarında bu hata yok". Buradaki Eş. (2) düzeltilmiş hal; katsayı
+//! düzeltmesi yok.
 //!
 //! Kapsam ve seçimler:
 //! - Bileşen: makale geometrik ortalama (GM_AR, kaydedildiği yönde) verir.
