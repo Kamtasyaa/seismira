@@ -90,6 +90,12 @@ def main() -> int:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(DATA / p, dst)
 
+    # Lisansı ayrı veriler için klasör içi lisans notu (ODbL atıf ve
+    # türetilmiş veri tabanı bildirimi; CC BY atfı). Depodaki metinler.
+    notices = ROOT / "packaging" / "data-notices"
+    for src, dst in [("infra-LISANS.txt", "infra/LISANS.txt"), ("hazard-LISANS.txt", "hazard/LISANS.txt")]:
+        shutil.copy2(notices / src, out / "data" / dst)
+
     # Sıvılaşma: dağıtılabilir kıyı modeli (yeraltı suyu katmanı olmadan).
     tool = ROOT / "target" / "release" / ("seismira-data" + (".exe" if sys.platform == "win32" else ""))
     if not tool.exists():

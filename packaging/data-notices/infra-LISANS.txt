@@ -1,0 +1,32 @@
+Seismira — data/infra/infra.sinf (kritik tesisler / critical facilities)
+
+TÜRKÇE
+Bu dosya OpenStreetMap verisinden türetilmiştir ve Open Database License
+(ODbL) 1.0 ile dağıtılır: https://opendatacommons.org/licenses/odbl/1-0/
+© OpenStreetMap katkıcıları — https://www.openstreetmap.org/copyright
+
+Değişiklikler: Geofabrik kıta özütlerinden (download.geofabrik.de) yalnızca
+hastane, köprü / viyadük, baraj, trafo merkezi ve doğalgaz boru hattı
+nesneleri süzüldü; alan ve çizgiler temsil noktasına indirgendi, boru
+hatları sadeleştirildi, 20 m'den kısa ve ikiz köprüler ile tekrarlar
+ayıklandı; Seismira'nın ikili biçimine (.sinf) çevrildi. Bu türetilmiş veri
+tabanı yine ODbL 1.0 ile sunulur; üretim yöntemi (betikler) açık kaynaktır:
+  scripts/gen_infra.py, scripts/fetch_infra.py, crates/seismira-data/src/infra.rs
+  https://github.com/Kamtasyaa/seismira
+Özütlerin tarih ve SHA256 değerleri: data/SOURCES.toml ("openstreetmap-infra").
+
+Bu dosya Seismira'nın diğer verileriyle tek bir veri tabanında
+birleştirilmemiştir; ayrı dosya olarak durur.
+
+ENGLISH
+This file is derived from OpenStreetMap data and is distributed under the
+Open Database License (ODbL) 1.0: https://opendatacommons.org/licenses/odbl/1-0/
+© OpenStreetMap contributors — https://www.openstreetmap.org/copyright
+
+Changes: from Geofabrik continent extracts only hospitals, bridges /
+viaducts, dams, substations and gas pipelines were selected; areas and lines
+reduced to a representative point, pipelines simplified, bridges shorter than
+20 m, twin bridges and duplicates removed; converted to Seismira's binary
+format (.sinf). This derivative database is offered under ODbL 1.0; the
+method of making it (scripts) is open source (see paths and URL above).
+It is kept as a separate file, not merged with Seismira's other data.
