@@ -62,7 +62,27 @@ def main() -> int:
         with urllib.request.urlopen(req) as r:
             modified = r.headers.get("Last-Modified", "?").replace(" ", "_")
         print(f"{region}: indiriliyor ({modified})", flush=True)
-        subprocess.run(["curl", "-sSL", "-A", UA["User-Agent"], "-o", str(pbf), url], check=True)
+        # Kesilirse kaldığı yerden sürer (-C -), yeniden dener; sonra
+        # Geofabrik'in .md5 özetiyle doğrulanır (bozuksa silinip baştan).
+        for attempt in range(3):
+            subprocess.run(
+                ["curl", "-sSL", "-C", "-", "--retry", "20", "--retry-all-errors",
+                 "--retry-delay", "10", "-A", UA["User-Agent"], "-o", str(pbf), url],
+                check=False,
+            )
+            want = urllib.request.urlopen(
+                urllib.request.Request(url + ".md5", headers=UA)
+            ).read().split()[0].decode()
+            h = hashlib.md5()
+            with open(pbf, "rb") as f:
+                for c in iter(lambda: f.read(1 << 22), b""):
+                    h.update(c)
+            if h.hexdigest() == want:
+                break
+            print(f"{region}: MD5 uyuşmadı (deneme {attempt + 1}), baştan", flush=True)
+            pbf.unlink(missing_ok=True)
+        else:
+            raise SystemExit(f"{region}: indirilemedi")
         digest = sha256(pbf)
         subprocess.run([py, "-I", str(ROOT / "scripts" / "gen_infra.py"), str(pbf), str(part)], check=True)
         pbf.unlink()
