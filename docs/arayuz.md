@@ -713,3 +713,16 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   kilitlenir (CursorGrab::Locked; Wayland pointer-constraints) ve
   yakınlaştırma ham fare hareketinden hesaplanır; bırakınca serbest. Kilit
   desteklenmezse (X11) eski davranış (imleç hareket eder, çapa başlangıç).
+
+## Tehlike haritası (ESHM20, 2026-11-27)
+
+- Görünüm → "Tehlike haritası (ESHM20)": Kapalı ya da katman (PGA / SA ×
+  50 yılda %10 / %2). Harita: 10 sınıflı sıralı renk (0,02–1,5 g, sarı →
+  kırmızı → mor; < 0,02 g çizilmez), %67 opak doku, şehir kutularının
+  altında. Sol üstte açıklama (katman, sınıflar, atıf: ESHM20, Danciu vd.
+  2021, doi:10.12686/a15, CC BY 4.0). Sol alttaki koordinat satırına
+  imleçteki değer eklenir.
+- Tepki spektrumu penceresi: nokta kapsamdaysa ESHM20 eş tehlike spektrumları
+  (%10 yeşil, %2 pembe, noktalı + işaret) ve açıklama: olasılıksal (kaya)
+  ile senaryo (sahanın zemini, tek deprem) farkı.
+- Geliştirme: `SEISMIRA_HAZARD=<katman sırası>`.

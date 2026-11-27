@@ -16,6 +16,7 @@ use crate::timeline::{self, Clock};
 use crate::{fonts, i18n::Lang, panel, paths, shindo_style, text_test, theme};
 
 mod batch_ui;
+mod hazard_ui;
 mod infra_ui;
 mod observed_ui;
 mod real_ui;
@@ -448,6 +449,10 @@ pub struct SeismiraApp {
     infra: infra_ui::InfraState,
     /// Toplu senaryo penceresi ve sonucu ([`batch_ui`]).
     batch: batch_ui::BatchState,
+    /// ESHM20 tehlike haritaları (CC BY 4.0); yoksa `None`.
+    hazard_data: Option<Arc<hazard_ui::Hazard>>,
+    /// Tehlike haritası katmanı ([`hazard_ui`]).
+    hazard: hazard_ui::HazardState,
     /// Son hesabın tahmini bina hasarı.
     damage: Option<compute::DamageResults>,
     /// Zemin yenilmesi girdileri (`data/ground/`); yoksa katman gösterilmez.
@@ -566,6 +571,21 @@ impl SeismiraApp {
         let infra_data = compute::load_infra(&paths::data_dir().join("infra").join("infra.sinf"))
             .inspect_err(|e| log::info!("kritik tesis verisi yok: {e}"))
             .ok();
+        // ESHM20 tehlike haritaları (~1,5 MB, belleğe eşlenir; katmanlar
+        // ilk kullanımda açılır).
+        let hazard_data = {
+            let path = paths::data_dir().join("hazard").join("eshm20.shaz");
+            std::fs::File::open(&path)
+                .and_then(|f| {
+                    // SAFETY: load_vs30 ile aynı (salt okunur veri dosyası).
+                    #[allow(unsafe_code)]
+                    let m = unsafe { memmap2::Mmap::map(&f) }?;
+                    seismira_core::hazard::HazardMap::open(m)
+                })
+                .map(Arc::new)
+                .inspect_err(|e| log::info!("{}: {e} (tehlike haritası yok)", path.display()))
+                .ok()
+        };
         let stable_path = paths::data_dir().join("regions").join("stable.sout");
         let stable = std::fs::File::open(&stable_path)
             .and_then(|f| {
@@ -627,6 +647,15 @@ impl SeismiraApp {
             infra_data,
             infra: Default::default(),
             batch: Default::default(),
+            hazard_data,
+            // `SEISMIRA_HAZARD=<katman>`: tehlike katmanını açık başlatır
+            // (ekran görüntüsü / deneme).
+            hazard: hazard_ui::HazardState {
+                layer: std::env::var("SEISMIRA_HAZARD")
+                    .ok()
+                    .and_then(|v| v.parse().ok()),
+                ..Default::default()
+            },
             damage: None,
             ground,
             ground_failure: Default::default(),
@@ -816,6 +845,7 @@ impl SeismiraApp {
                 if self.infra_data.is_some() {
                     ui.checkbox(&mut self.infra.on_map, t("menu-infra-map"));
                 }
+                self.hazard_menu(ui);
                 if self.ground.as_ref().is_some_and(|g| g.has_landslide()) {
                     ui.checkbox(&mut self.show_landslide, t("menu-landslide"));
                 }
@@ -986,6 +1016,7 @@ impl SeismiraApp {
 
         // Tesis ve istasyon işaretleri şehir kutularının ve açıklamaların
         // ALTINDA (2026-11-27: kutuların üstüne çiziliyordu); etiketleri en son.
+        self.draw_hazard(ui, rect);
         let infra_tip = self.draw_infra(ui, rect);
         let observed_tip = self.draw_observed(ui, rect);
         // Şehirler, P işaretleri ve Shindo kutuları.
@@ -1037,6 +1068,7 @@ impl SeismiraApp {
         }
         self.draw_user_overlays(ui, rect);
         self.draw_spectrum_marker(ui, rect);
+        self.draw_hazard_legend(ui, rect);
         let labels = (lang.t("map-zoom-in"), lang.t("map-zoom-out"));
         self.map.zoom_buttons(ui, rect, (&labels.0, &labels.1));
         if let Some((id, at)) = self.region_card {
@@ -1072,7 +1104,10 @@ impl SeismiraApp {
         // Sol altta imlecin koordinatı.
         if let Some((lon, lat)) = self.hover {
             let galley = painter.layout_no_wrap(
-                lang.lonlat(lon, lat),
+                match self.hazard_at(lon, lat) {
+                    Some(h) => format!("{} · {h}", lang.lonlat(lon, lat)),
+                    None => lang.lonlat(lon, lat),
+                },
                 FontId::proportional(13.0),
                 ui.visuals().text_color(),
             );

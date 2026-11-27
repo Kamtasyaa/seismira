@@ -423,3 +423,14 @@ license_checked = "2026-11-27"
 snapshot = "Geofabrik kıta özütleri, tarih ve SHA256: data/raw/osm/manifest.txt (scripts/fetch_infra.py)"
 files = "data/infra/infra.sinf"
 
+[[dataset]]
+id = "eshm20-hazard"
+name = "ESHM20 Avrupa Sismik Tehlike Modeli: hazır tehlike haritaları (50 yılda %10 ve %2; PGA, SA 0,1–3 s; referans kaya)"
+url = "https://doi.org/10.12686/a15"
+license = "CC-BY-4.0"
+attribution = "Danciu L., Nandan S., Reyes C., Basili R., Weatherill G., Beauval C., Rovida A., Vilanova S., Sesetyan K., Bard P-Y., Cotton F., Wiemer S., Giardini D. (2021) The 2020 update of the European Seismic Hazard Model: Model Overview. EFEHR Technical Report 001, doi:10.12686/a15. Veri: EFEHR hazard API (efehr-services.ethz.ch), CC BY 4.0."
+modified = true            # 8 şiddet ölçüsü × 2 olasılık seçildi, 0,1° ızgarada 1·10⁻⁴ g'ye kuantalandı; ayrı alt modellerin (Kanarya vb.) noktaları atlandı
+license_checked = "2026-11-27"
+snapshot = "EFEHR API v1, model 81, 2026-11-27; ham yanıtlar data/raw/eshm20/ (scripts/fetch_eshm20.py)"
+files = "data/hazard/eshm20.shaz"
+

@@ -454,3 +454,26 @@ Lisans kuralları:
   baraj 2 661, trafo 1 428, gaz parçası 827), 275 KB. Kahramanmaraş hazır
   senaryosu: 5 338 tesis sorgulandı, 4 257 model sınırı içinde, 76 ms.
 
+## ESHM20 tehlike haritaları (2026-11-27, kullanıcı kararı)
+
+- Karar: PSHA için ESHM20 kaynak modelini yeniden HESAPLAMAK yerine resmi hazır
+  haritalar (tam model: alan + fay (9 dal) + düzleştirilmiş sismisite + derin +
+  dalma-batma + volkanik kaynak, 5 dallı kendi GMPE ağacı; yeniden yazmak
+  OpenQuake motorunu yazmak demek). Kullanıcı: lisanslı veriler ayrı dosya,
+  tek pakette tek tıkla.
+- Lisans: CC BY 4.0 (gitlab.seismo.ethz.ch/efehr/eshm20 LICENSE dosyası ve
+  rozet, 2026-11-27). Not: depo README'sindeki bir DC meta etiketi
+  "CC BY-SA 4.0" diyor; LICENSE dosyası ve rozet CC BY 4.0 → CC BY 4.0
+  esas alındı. Kapsam Avrupa–Akdeniz, İzlanda ve Türkiye dahil.
+- Kaynak: EFEHR REST API v1 (efehr-services.ethz.ch/hazard/api/v1, model 81),
+  `maps/area`, referans kaya `rock_vs30_800ms-1`, dallar üzerinden aritmetik
+  ortalama (`aggregationtype=arithmetic`, `aggregationlevel=0.5`). Eski site
+  hazard.efehr.org'un https sertifika zinciri eksik (http çalışıyor); API'de
+  sorun yok. Örnek: İzmit (40,8 K, 29,88 D) PGA 50 yılda %10 = 0,416 g.
+- Seçim: PGA ve SA 0,1 / 0,2 / 0,3 / 0,5 / 1 / 2 / 3 s; yıllık 0,002103
+  (50 yılda %10, 475 yıl) ve 0,000399999 (50 yılda ≈ %2, 2 500 yıl).
+- Izgara: 0,1° (boylam 0,0821339 + k·0,1, enlem j·0,1), yalnız kara / kıyı.
+  İspanya'nın güney ve batısındaki adalar ile (varsa) İzlanda ayrı alt
+  modellerin farklı ızgaralarında: atlandı (Kanarya: 448 nokta, PGA %10).
+- Biçim `.shaz` (seismira_core::hazard): katman başına zstd u16 (1·10⁻⁴ g),
+  ~90 KB / katman.

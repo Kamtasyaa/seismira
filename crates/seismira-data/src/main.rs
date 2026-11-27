@@ -30,6 +30,7 @@ mod exposure;
 mod gem;
 mod geotiff;
 mod ground_inputs;
+mod hazard;
 mod infra;
 mod land_cover;
 mod liq_static;
@@ -88,6 +89,7 @@ fn main() -> Result<()> {
             exposure::run(Path::new(esrm20), Path::new(regions), Path::new(output))
         }
         [cmd, tsv, output] if cmd == "infra" => infra::run(Path::new(tsv), Path::new(output)),
+        [cmd, csv, output] if cmd == "hazard" => hazard::run(Path::new(csv), Path::new(output)),
         [cmd, gem, regions, output] if cmd == "gem" => {
             gem::run(Path::new(gem), Path::new(regions), Path::new(output))
         }

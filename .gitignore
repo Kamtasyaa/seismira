@@ -32,3 +32,6 @@ __pycache__/
 
 # Kritik tesisler (OSM, ODbL): scripts/gen_infra.py + seismira-data infra ile üretilir.
 /data/infra/
+
+# ESHM20 tehlike haritaları (CC BY 4.0): scripts/fetch_eshm20.py + seismira-data hazard.
+/data/hazard/

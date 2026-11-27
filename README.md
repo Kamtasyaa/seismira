@@ -114,10 +114,10 @@ Veri ve analiz / Data and analysis:
 
 - **AFAD deprem listesi:** gerçek depremler penceresine AFAD kaynağı
   (kullanım izni istendi). / AFAD earthquake list (permission requested).
-- **Olasılıksal tehlike (PSHA):** ESHM20 kaynak modeliyle Avrupa ve
-  Türkiye için "50 yılda %10 aşılma" haritaları (fay üzerinde toplu
-  senaryo yapıldı). / Probabilistic hazard maps with ESHM20 (batch
-  scenarios on a fault are done).
+- **Küresel olasılıksal tehlike:** Avrupa ve Türkiye dışı için GEM küresel
+  tehlike haritası (ticari olmayan lisans; ESHM20 haritaları ve fay
+  üzerinde toplu senaryo yapıldı). / Global hazard outside Europe (GEM,
+  non-commercial; ESHM20 maps and batch scenarios are done).
 
 ### Normal öncelik / Normal
 

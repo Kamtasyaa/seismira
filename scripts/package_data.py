@@ -58,6 +58,7 @@ FILES = [
     # ODbL: ayrı dosya, başka veriyle birleştirilmez (kullanıcı kararı
     # 2026-11-27: ana pakette, herkese aynı veri).
     ("infra/infra.sinf", "openstreetmap-infra"),
+    ("hazard/eshm20.shaz", "eshm20-hazard"),
 ]
 
 

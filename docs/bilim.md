@@ -1115,3 +1115,15 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   1024 hücre/kenar, artımlı toplam (bellekte yalnız toplamlar). Kahramanmaraş
   hazır senaryosu, Mw 6,5–7,5 / 0,25 / 3 konum: 15 senaryo, 536 × 426 ızgara,
   2,3 s (referans makine).
+
+### ESHM20 olasılıksal tehlike (2026-11-27)
+
+- Uygulama PSHA HESAPLAMAZ: ESHM20'nin resmi sonuçlarını gösterir
+  (`seismira_core::hazard`; gerekçe ve veri: docs/veri.md "ESHM20").
+  Değerler referans kayada (Vs30 800 m/s), dallar üzerinden aritmetik
+  ortalama; sahanın zemini için düzeltilmez (TBDY / EC8 zemin katsayıları
+  kullanıcıya bırakılır). Noktada çift doğrusal ara değer (eksik düğümde
+  mevcutların ağırlıklı ortalaması).
+- Olasılık: 50 yılda p ↔ yıllık λ, Poisson: p = 1 − exp(−λ·50); yıllık
+  0,002103 → %10 (475 yıl), 0,000399999 → %1,98 (2 500 yıl); test
+  `olasilik_donusumu`.

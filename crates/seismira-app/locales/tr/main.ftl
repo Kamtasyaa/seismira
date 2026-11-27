@@ -533,3 +533,13 @@ edit-cut = Kes
 edit-copy = Kopyala
 edit-paste = Yapıştır
 edit-select-all = Tümünü seç
+
+# Tehlike haritası (ESHM20)
+menu-hazard = Tehlike haritası (ESHM20)
+hazard-off = Kapalı
+hazard-layer = { $imt }, 50 yılda %{ $p } ({ $rp } yıl)
+hazard-legend-title = Tehlike (kaya zemin, Vs30 800 m/s): { $layer }, g
+hazard-credit = ESHM20, Danciu vd. (2021), EFEHR, doi:10.12686/a15, CC BY 4.0
+spectrum-legend-uhs = ESHM20 kaya, 50 yılda %{ $p }
+spectrum-uhs-note = ESHM20 eğrileri bu noktanın olasılıksal tehlikesidir (bölgedeki tüm olası depremlerden, referans kaya Vs30 800 m/s; Danciu vd. 2021, CC BY 4.0). Senaryo eğrisi ise bu noktanın zemininde tek bir depremin tahminidir.
+spectrum-hover-uhs =  · ESHM20 %{ $p }: { $v } g

@@ -14,6 +14,11 @@ use std::fmt::Write as _;
 
 const MEDIAN: Color32 = Color32::from_rgb(0xFF, 0xB3, 0x47);
 const BAND: Color32 = Color32::from_rgba_premultiplied(0x60, 0x43, 0x1A, 0x60);
+/// ESHM20 eş tehlike spektrumları: 50 yılda %10 ve %2 (kaya).
+const UHS_COLORS: [Color32; 2] = [
+    Color32::from_rgb(0x9C, 0xE0, 0x8A),
+    Color32::from_rgb(0xF2, 0x8C, 0xC8),
+];
 const DESIGN: Color32 = Color32::from_rgb(0x7F, 0xD8, 0xFF);
 
 pub(super) struct SpectrumState {
@@ -112,6 +117,11 @@ impl SeismiraApp {
         let mut open = self.spectrum.show;
         let mut save = false;
         let mut save_synth = false;
+        // ESHM20 eş tehlike spektrumları (nokta kapsamdaysa).
+        let uhs = match (&self.hazard_data, self.spectrum.point) {
+            (Some(h), Some((lon, lat))) => super::hazard_ui::uhs_pair(h, lon, lat),
+            _ => Vec::new(),
+        };
         egui::Window::new(t("spectrum-title"))
             .open(&mut open)
             .default_pos([360.0, 90.0])
@@ -239,7 +249,7 @@ impl SeismiraApp {
                             .labelled_by(l);
                     }
                 });
-                plot(ui, lang, sp, design.as_ref(), st.t_max);
+                plot(ui, lang, sp, design.as_ref(), &uhs, st.t_max);
                 // Açıklama.
                 ui.horizontal_wrapped(|ui| {
                     ui.colored_label(MEDIAN, "━");
@@ -250,7 +260,24 @@ impl SeismiraApp {
                         ui.colored_label(DESIGN, "╍");
                         ui.label(RichText::new(t("spectrum-legend-design")).small());
                     }
+                    for (k, (poe, _)) in uhs.iter().enumerate().take(UHS_COLORS.len()) {
+                        let l = seismira_core::hazard::LayerInfo {
+                            period: 0.0,
+                            annual_poe: *poe,
+                        };
+                        ui.colored_label(UHS_COLORS[k], "┅");
+                        ui.label(
+                            RichText::new(lang.t_args(
+                                "spectrum-legend-uhs",
+                                &[("p", lang.num(l.poe_in(50.0) * 100.0, 0))],
+                            ))
+                            .small(),
+                        );
+                    }
                 });
+                if !uhs.is_empty() {
+                    ui.label(RichText::new(t("spectrum-uhs-note")).small().weak());
+                }
                 ui.label(RichText::new(t("spectrum-note")).small().weak());
                 if ui.button(t("spectrum-save")).clicked() {
                     save = true;
@@ -473,11 +500,13 @@ impl SeismiraApp {
 }
 
 /// Doğrusal eksenli spektrum grafiği: ±1σ bandı, medyan, tasarım spektrumu.
+/// `uhs`: ESHM20 eş tehlike spektrumları (yıllık olasılık, (T, g) noktaları).
 fn plot(
     ui: &mut egui::Ui,
     lang: crate::i18n::Lang,
     sp: &SiteSpectrum,
     design: Option<&DesignSpectrum>,
+    uhs: &[(f64, Vec<(f64, f64)>)],
     t_max: f64,
 ) {
     let w = ui.available_width().max(300.0);
@@ -527,6 +556,13 @@ fn plot(
     let mut y_max = pts.iter().map(|p| p.3).fold(0.0, f64::max);
     if let Some(d) = design {
         y_max = y_max.max(d.sds);
+    }
+    for (_, u) in uhs {
+        for &(t, v) in u {
+            if t <= t_max {
+                y_max = y_max.max(v);
+            }
+        }
     }
     let y_max = nice_ceil(y_max.max(0.01));
     let x = |t: f64| area.left() + (t / t_max) as f32 * area.width();
@@ -613,6 +649,23 @@ fn plot(
             4.0,
         ));
     }
+    // ESHM20 eş tehlike spektrumları (noktalı çizgi + işaretler).
+    for (k, (_, u)) in uhs.iter().enumerate().take(UHS_COLORS.len()) {
+        let line: Vec<Pos2> = u
+            .iter()
+            .filter(|p| p.0 <= t_max + 1e-9)
+            .map(|&(t, v)| pos2(x(t), y(v.min(y_max))))
+            .collect();
+        painter.extend(egui::Shape::dashed_line(
+            &line,
+            Stroke::new(2.0, UHS_COLORS[k]),
+            3.0,
+            3.0,
+        ));
+        for p in &line {
+            painter.circle_filled(*p, 2.5, UHS_COLORS[k]);
+        }
+    }
     // İmleç: en yakın periyottaki değer.
     if let Some(h) = resp.hover_pos()
         && area.contains(h)
@@ -639,6 +692,28 @@ fn plot(
         );
         if let Some(d) = design {
             s.push_str(&lang.t_args("spectrum-hover-design", &[("d", lang.num(d.sae(p.0), 3))]));
+        }
+        for (poe, u) in uhs {
+            // Doğrusal ara değer (ESHM20 periyotları seyrek).
+            let v = u.windows(2).find_map(|w| {
+                (w[0].0 <= p.0 && p.0 <= w[1].0).then(|| {
+                    let f = (p.0 - w[0].0) / (w[1].0 - w[0].0).max(1e-9);
+                    w[0].1 + f * (w[1].1 - w[0].1)
+                })
+            });
+            if let Some(v) = v {
+                let l = seismira_core::hazard::LayerInfo {
+                    period: 0.0,
+                    annual_poe: *poe,
+                };
+                s.push_str(&lang.t_args(
+                    "spectrum-hover-uhs",
+                    &[
+                        ("p", lang.num(l.poe_in(50.0) * 100.0, 0)),
+                        ("v", lang.num(v, 3)),
+                    ],
+                ));
+            }
         }
         let g = painter.layout_no_wrap(s, egui::FontId::proportional(12.0), text);
         let r = egui::Rect::from_min_size(pos2(area.left() + 8.0, area.top() + 6.0), g.size())
@@ -743,7 +818,13 @@ mod tests {
                 .with_context_setup(|ctx| {
                     crate::fonts::install(ctx, &crate::paths::assets_dir(), crate::i18n::Lang::Tr);
                 })
-                .build_ui(|ui| plot(ui, crate::i18n::Lang::Tr, &sp, d.as_ref(), t_max));
+                .build_ui(|ui| {
+                    let uhs = vec![(
+                        0.002103,
+                        vec![(0.0, 0.4), (0.2, 0.9), (1.0, 0.3), (3.0, 0.08)],
+                    )];
+                    plot(ui, crate::i18n::Lang::Tr, &sp, d.as_ref(), &uhs, t_max)
+                });
             h.run();
             h.hover_at(egui::pos2(260.0, 120.0));
             h.run();
