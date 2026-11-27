@@ -6,9 +6,11 @@ sonraki sürümün TASLAĞIDIR; yayımlarken GitHub'a aynen aktarılır.
 ## v0.1.4 (TASLAK, yayımlanmadı)
 
 Yayım öncesi yapılacaklar:
-- Dünya kritik tesis verisi (`data/infra/infra.sinf`) ve tam ESHM20 dosyası
-  (`data/hazard/eshm20.shaz`) üretilecek; yeni veri paketi (data-v0.2.0),
-  boyutu ≤ ~750 MB olmalı (CLAUDE.md Bölüm 12).
+- Tam ESHM20 dosyası (`data/hazard/eshm20.shaz`) üretildi (2026-11-27,
+  16 katman, 1,8 MB). Dünya kritik tesis verisi (`data/infra/infra.sinf`)
+  Avrupa işlenince üretilecek; yeni veri paketi data-v0.2.0 (boyut sınırı
+  yok, CLAUDE.md Bölüm 12); release.yml DATA_TAG / DATA_FILE /
+  DATA_SHA256 paket yüklenince güncellenecek.
 - Kullanıcıya sorulacak: GEM verisinin aynı pakete girmesi (paket satılamaz
   olur, CLAUDE.md Bölüm 13).
 
