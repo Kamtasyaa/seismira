@@ -225,6 +225,17 @@ struct CityEvent {
     kind: CityEventKind,
 }
 
+/// Haritadaki bir işaretin fare üstü etiketi (tesis, istasyon).
+fn paint_map_tip(ui: &egui::Ui, rect: egui::Rect, text: String, at: egui::Pos2) {
+    let painter = ui.painter_at(rect);
+    let galley =
+        painter.layout_no_wrap(text, FontId::proportional(13.0), ui.visuals().text_color());
+    let pos = at + egui::vec2(10.0, -galley.size().y - 6.0);
+    let bg = egui::Rect::from_min_size(pos, galley.size()).expand(4.0);
+    painter.rect_filled(bg, 4.0, ui.visuals().extreme_bg_color);
+    painter.galley(pos, galley, ui.visuals().text_color());
+}
+
 /// Varsayımsal erken uyarı (Bölüm 7.3; `seismira_core::warning`).
 #[derive(Clone, Debug)]
 struct Alert {
@@ -973,6 +984,10 @@ impl SeismiraApp {
             );
         }
 
+        // Tesis ve istasyon işaretleri şehir kutularının ve açıklamaların
+        // ALTINDA (2026-11-27: kutuların üstüne çiziliyordu); etiketleri en son.
+        let infra_tip = self.draw_infra(ui, rect);
+        let observed_tip = self.draw_observed(ui, rect);
         // Şehirler, P işaretleri ve Shindo kutuları.
         let hover_pos = ui
             .input(|i| i.pointer.hover_pos())
@@ -1022,8 +1037,6 @@ impl SeismiraApp {
         }
         self.draw_user_overlays(ui, rect);
         self.draw_spectrum_marker(ui, rect);
-        self.draw_observed(ui, rect);
-        self.draw_infra(ui, rect);
         let labels = (lang.t("map-zoom-in"), lang.t("map-zoom-out"));
         self.map.zoom_buttons(ui, rect, (&labels.0, &labels.1));
         if let Some((id, at)) = self.region_card {
@@ -1033,6 +1046,8 @@ impl SeismiraApp {
             self.city_card(ui, rect, i, p);
         } else if let Some((i, p)) = self.dev_card(rect) {
             self.city_card(ui, rect, i, p);
+        } else if let Some((text, at)) = infra_tip.or(observed_tip) {
+            paint_map_tip(ui, rect, text, at);
         }
 
         let painter = ui.painter_at(rect);

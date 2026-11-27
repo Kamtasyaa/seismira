@@ -279,12 +279,18 @@ impl SeismiraApp {
     }
 
     /// Haritada işaretler (sarsıntı ulaşmış, Shindo 5- / MMI VII ve üstü).
-    pub(super) fn draw_infra(&self, ui: &egui::Ui, rect: egui::Rect) {
+    /// Fare üstündeki işaretin etiketi (metin, nokta) döner; etiket en son
+    /// çizilir ([`SeismiraApp::paint_map_tip`]) ki kutuların üstünde kalsın.
+    pub(super) fn draw_infra(
+        &self,
+        ui: &egui::Ui,
+        rect: egui::Rect,
+    ) -> Option<(String, egui::Pos2)> {
         if !self.infra.on_map {
-            return;
+            return None;
         }
         let (Some(r), Some(_)) = (&self.infra.results, &self.sim) else {
-            return;
+            return None;
         };
         let now = self.clock.t;
         let painter = ui.painter_at(rect);
@@ -343,16 +349,9 @@ impl SeismiraApp {
                     ("pgv", lang.num(a.pgv, 0)),
                 ],
             );
-            let galley = painter.layout_no_wrap(
-                text,
-                egui::FontId::proportional(13.0),
-                ui.visuals().text_color(),
-            );
-            let pos = c + vec2(10.0, -galley.size().y - 6.0);
-            let bg = egui::Rect::from_min_size(pos, galley.size()).expand(4.0);
-            painter.rect_filled(bg, 4.0, ui.visuals().extreme_bg_color);
-            painter.galley(pos, galley, ui.visuals().text_color());
+            return Some((text, c));
         }
+        None
     }
 }
 
