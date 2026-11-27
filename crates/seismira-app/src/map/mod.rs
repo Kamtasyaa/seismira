@@ -61,6 +61,10 @@ pub struct MapOutput {
 const LINE_POINTS: f32 = 40.0;
 /// Sağ tuşla sürüklemede nokta başına yakınlaştırma üssü (100 nokta ≈ ×2,7).
 const DRAG_ZOOM_PER_POINT: f64 = 0.01;
+/// Aynısı, imleç kilitliyken ham (hızlandırılmamış) hareket birimi için.
+/// Dokunmatik yüzeyin ham birimi ekran noktasından büyük; kullanıcı
+/// "parmak hareketine göre fazla" dedi (2026-11-27): 0,01 → 0,004.
+const RAW_DRAG_ZOOM_PER_UNIT: f64 = 0.004;
 /// Fare tekerleğinin bir çentiği için yakınlaştırma üssü (önceki
 /// davranış: 50 nokta × 0,0025 ≈ 0,125).
 const WHEEL_ZOOM_PER_LINE: f64 = 0.125;
@@ -328,10 +332,12 @@ impl MapWidget {
                     .reduce(|a, b| a + b)
                     .map(|y| y / i.pixels_per_point)
             });
-            let dy = f64::from(raw.unwrap_or(response.drag_delta().y));
+            let k = match raw {
+                Some(y) => f64::from(y) * RAW_DRAG_ZOOM_PER_UNIT,
+                None => f64::from(response.drag_delta().y) * DRAG_ZOOM_PER_POINT,
+            };
             let at = self.zoom_anchor.unwrap_or(rect.center());
-            self.view
-                .zoom_at(rect, at, (-dy * DRAG_ZOOM_PER_POINT).exp());
+            self.view.zoom_at(rect, at, (-k).exp());
         } else if response.dragged() {
             self.view.pan(rect, response.drag_delta());
         }
