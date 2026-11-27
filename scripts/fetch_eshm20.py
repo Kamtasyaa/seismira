@@ -11,8 +11,8 @@ ortalama (aggregationtype=arithmetic, level=0.5). Izgara 0,1° (boylam
 
 Katmanlar (SEÇİM): PGA ve SA 0,1 / 0,2 / 0,3 / 0,5 / 1 / 2 / 3 s; yıllık
 aşılma olasılığı 0,002103 (50 yılda %10) ve 0,000399999 (50 yılda ≈ %2).
-Döşeme 10° × 10°, sırayla (sunucuyu yormamak için), kesilirse kaldığı
-yerden sürer. Sonra: `seismira-data hazard data/raw/eshm20/eshm20.csv
+Döşeme 10° × 10°; ilk katmanda boş çıkan döşemeler sonrakilerde sorulmaz
+(veri kaybı yok), en çok 3 eşzamanlı istek; kesilirse kaldığı yerden sürer. Sonra: `seismira-data hazard data/raw/eshm20/eshm20.csv
 data/hazard/eshm20.shaz`.
 
 Çalıştırma: python3 scripts/fetch_eshm20.py
@@ -50,21 +50,44 @@ def tile(imt, poe, lat0, lon0):
     raise SystemExit("indirilemedi")
 
 
+def layer_dir(imt, tag):
+    return RAW / f"{imt.replace('[', '_').replace(']', '')}_{tag}"
+
+
 def main() -> int:
     RAW.mkdir(parents=True, exist_ok=True)
     tiles = [(lat, lon) for lat in range(20, 80, 10) for lon in range(-40, 50, 10)]
+    # İlk katman (PGA, %10) tümüyle indirilir; onda boş çıkan döşemeler
+    # (okyanus, model dışı) diğer katmanlarda da boştur, sorulmaz
+    # (2026-11-27: sunucu yanıtı ~4 s'den ~46 s'ye çıktı, boş döşemeler dahil).
+    first = layer_dir(IMTS[0], POES[0][1])
+    jobs = []
     for imt in IMTS:
         for poe, tag in POES:
-            d = RAW / f"{imt.replace('[', '_').replace(']', '')}_{tag}"
+            d = layer_dir(imt, tag)
             d.mkdir(exist_ok=True)
             for lat0, lon0 in tiles:
                 f = d / f"{lat0}_{lon0}.json"
                 if f.exists():
                     continue
-                data = tile(imt, poe, lat0, lon0)
-                f.write_text(json.dumps(data))
-                print(f"{imt} {tag} {lat0},{lon0}: {len(data.get('points', []))} nokta", flush=True)
-                time.sleep(0.5)
+                ref = first / f"{lat0}_{lon0}.json"
+                if d != first and ref.exists() and not json.loads(ref.read_text()).get("points"):
+                    f.write_text(json.dumps({"points": [], "skipped": "ilk katmanda boş"}))
+                    continue
+                jobs.append((imt, poe, tag, lat0, lon0, f))
+
+    def work(job):
+        imt, poe, tag, lat0, lon0, f = job
+        data = tile(imt, poe, lat0, lon0)
+        f.write_text(json.dumps(data))
+        print(f"{imt} {tag} {lat0},{lon0}: {len(data.get('points', []))} nokta", flush=True)
+
+    # Sunucu yavaşken en çok 3 eşzamanlı istek (nazik sınır).
+    from concurrent.futures import ThreadPoolExecutor
+
+    print(f"{len(jobs)} döşeme indirilecek", flush=True)
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        list(ex.map(work, jobs))
     # Birleşik CSV: imt, poe etiketi, boylam, enlem, değer (g). Döşeme
     # kenarındaki noktalar iki döşemede de gelebilir: tekrarlar atılır.
     out = RAW / "eshm20.csv"
