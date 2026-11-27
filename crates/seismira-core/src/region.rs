@@ -119,6 +119,32 @@ pub fn country_near<B: AsRef<[u8]>>(
     None
 }
 
+/// Noktadan en yakın karaya (bölge kimliği ≠ 0) uzaklık (km), `max_km`
+/// içinde; nokta karadaysa 0. 2 km'lik halkalarda 5°'lik yönlerle aranır
+/// (halka üzerinde nokta aralığı 100 km'de ~9 km: küçük adacıklar
+/// kaçabilir). Bulunamazsa `None`. Erken uyarıda açık deniz depremlerinin
+/// ilk istasyonu için ([`crate::warning::first_station_km`]).
+pub fn nearest_land_km<B: AsRef<[u8]>>(
+    map: &RegionMap<B>,
+    lonlat: (f64, f64),
+    max_km: f64,
+) -> Option<f64> {
+    let land = |p: (f64, f64)| map.id_at(p.0, p.1).is_ok_and(|id| id != 0);
+    if land(lonlat) {
+        return Some(0.0);
+    }
+    let mut r = 2.0;
+    while r <= max_km {
+        for k in 0..72 {
+            if land(crate::geo::destination(lonlat, f64::from(k) * 5.0, r)) {
+                return Some(r);
+            }
+        }
+        r += 2.0;
+    }
+    None
+}
+
 /// Kimlik rasterı okuyucu.
 pub struct RegionMap<B> {
     raster: Raster<B>,
@@ -831,5 +857,23 @@ mod tests {
             r.state(30.0, Some(8.0), Some(25.0)),
             RegionState::Settled(Shindo::S5Upper)
         );
+    }
+
+    /// Açık deniz: 2011 Tōhoku JMA merkez üssünden en yakın kara (Oshika
+    /// yarımadası / Kinkasan) ~110–125 km; karadaki nokta 0.
+    #[test]
+    fn en_yakin_kara() {
+        let p = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/regions/admin1.sras"
+        );
+        let map = RegionMap::open(std::fs::read(p).unwrap()).unwrap();
+        let t = std::time::Instant::now();
+        let d = nearest_land_km(&map, (142.86, 38.1033), 300.0).unwrap();
+        eprintln!("Tōhoku en yakın kara: {d} km ({:?})", t.elapsed());
+        assert!((100.0..130.0).contains(&d), "{d}");
+        assert_eq!(nearest_land_km(&map, (37.0, 37.2), 300.0), Some(0.0));
+        // Orta Pasifik: 300 km içinde kara yok.
+        assert_eq!(nearest_land_km(&map, (-150.0, 30.0), 300.0), None);
     }
 }

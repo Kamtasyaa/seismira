@@ -236,13 +236,18 @@ fn early_warning(
     results: &[compute::RegionResult],
     tt: &seismira_core::traveltime::TravelTimes,
     depth_km: f64,
+    station_km: f64,
 ) -> Option<Alert> {
     use seismira_core::warning;
     let max = results.iter().map(|r| r.summary.max).max()?;
     if !warning::issued(max) {
         return None;
     }
-    let t = warning::System::DENSE.alert_time(tt, depth_km)?;
+    let sys = warning::System {
+        station_km,
+        ..warning::System::DENSE
+    };
+    let t = sys.alert_time(tt, depth_km)?;
     let mut covered: Vec<_> = results
         .iter()
         .filter(|r| warning::region_covered(r.summary.max))
@@ -2417,7 +2422,15 @@ impl eframe::App for SeismiraApp {
                         self.map.set_region_lines(lines);
                         self.region_events = region_events(&r);
                         self.alert = match (&self.travel_times, &self.sim) {
-                            (Ok(tt), Some(sim)) => early_warning(&r, tt, sim.quake.depth_km),
+                            (Ok(tt), Some(sim)) => early_warning(
+                                &r,
+                                tt,
+                                sim.quake.depth_km,
+                                self.results.as_ref().map_or(
+                                    seismira_core::warning::System::DENSE.station_km,
+                                    |c| c.station_km,
+                                ),
+                            ),
                             _ => None,
                         };
                         self.region_results = r;

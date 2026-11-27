@@ -298,6 +298,9 @@ pub struct CityResults {
     pub sites: Vec<SiteResult>,
     /// Hissedilme sınırı (derece); halkalar ötesinde soluk çizilir.
     pub felt_radius_deg: Option<f64>,
+    /// Varsayımsal erken uyarının ilk istasyon uzaklığı (km): açık denizde
+    /// en yakın kara ([`seismira_core::warning::first_station_km`]).
+    pub station_km: f64,
     /// Yer hareketi modelinin mesafe sınırı (Rrup eş-uzaklık eğrisi);
     /// ötesinde şiddet gösterilmez (Bölüm 7.4 "model dışı").
     pub model_limit: Option<Vec<(f64, f64)>>,
@@ -757,6 +760,14 @@ impl Job {
                     }));
                 }
                 let felt_radius_deg = scenario.felt_radius_deg();
+                let station_km =
+                    seismira_core::warning::first_station_km(regions.as_deref().and_then(|r| {
+                        seismira_core::region::nearest_land_km(
+                            &r.map,
+                            quake.epicenter,
+                            seismira_core::warning::MAX_STATION_KM,
+                        )
+                    }));
                 let model_limit = scenario
                     .max_rrup_km()
                     .map(|max| scenario.fault.rrup_contour(max, 180));
@@ -770,6 +781,7 @@ impl Job {
                     .send(JobMsg::Cities(CityResults {
                         sites,
                         felt_radius_deg,
+                        station_km,
                         model_limit,
                     }))
                     .is_err()

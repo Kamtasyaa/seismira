@@ -83,7 +83,14 @@ Erken uyarı (VARSAYIMSAL sistem; arayüzde böyle etiketlenir, çünkü
   ek tablo "地震検知から第1報までの時間", 2007-10 – 2008-12 arası 44 olay:
   medyan 4,55 s (çeyrekler 4,0–5,8; uyarılı 9 olayda medyan 4,1); ikinci
   istasyonu beklemeyi içerir. D = 10 km VARSAYIM (K-NET aralığı ~20 km'nin
-  yarısı). Önceki model: 20 km'deki ikinci istasyon + 5 s (kaynaksız). İleri seviyede:
+  yarısı). Önceki model: 20 km'deki ikinci istasyon + 5 s (kaynaksız).
+  Açık deniz (2026-11-27): sanal ağ KARADA; ilk istasyon en az en yakın
+  kara kadar uzakta (`region::nearest_land_km`, 300 km'ye kadar). 2011
+  Tōhoku (JMA: oluş 14:46:18,1, algılama +22,1 s, ilk rapor +27,5 s, uyarı
+  +30,7 s): en yakın kara 118 km → model uyarısı ~25 s (eski: ~9 s,
+  gerçekten 20 s erken). Büyüklük doygunluğu (büyük depremde ilk
+  raporların büyüklüğü düşük tahmin etmesi) MODELLENMEDİ: uyarı kapsamı
+  nihai tahminle. İleri seviyede:
   yoğun ağ / seyrek ağ / sistem yok (henüz yok).
 - Bölge değeri: bölgenin yerleşim hücrelerindeki en yüksek tahmini Shindo
   (docs/arayuz.md "İl değeri").

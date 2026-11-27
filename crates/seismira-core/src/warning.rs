@@ -23,6 +23,14 @@
 //!   rastgele bir merkez üssünün en yakın istasyonu aralığın yaklaşık yarısı
 //!   uzaklıktadır. (Önceki model: 20 km'deki ikinci istasyon + 5 s,
 //!   kaynaksız; uyarıyı derinliğe göre ~2 s geç veriyordu.)
+//! - Açık deniz (2026-11-27): sanal ağ KARADA (deniz tabanı ağları, ör.
+//!   Japonya S-net / DONET, varsayılmaz; çoğu ülkede yok). İlk istasyon
+//!   merkez üssünden en az 10 km, en az en yakın kara kadar uzakta
+//!   ([`first_station_km`]). Doğrulama, 2011 Tōhoku (JMA 災害時地震・津波
+//!   速報 2011-01 ve 緊急地震速報の発表状況 2011-03; data/raw/refs/misc/):
+//!   oluş 14:46:18,1; algılama 40,2 (+22,1 s); ilk rapor (予報) 45,6
+//!   (+27,5 s); uyarı (警報) 48,8 (+30,7 s). Model: test
+//!   `tohoku_acik_deniz`.
 
 use crate::geo;
 use crate::intensity::Shindo;
@@ -52,6 +60,19 @@ impl System {
         Some(t_p + self.latency_s)
     }
 }
+
+/// İlk istasyonun uzaklığı (km): yoğun ağın [`System::DENSE`] uzaklığı ya
+/// da merkez üssünden en yakın karaya uzaklık, hangisi büyükse. Kara
+/// aranan yarıçapta bulunamadıysa (`None`) [`MAX_STATION_KM`].
+pub fn first_station_km(nearest_land_km: Option<f64>) -> f64 {
+    nearest_land_km
+        .unwrap_or(MAX_STATION_KM)
+        .max(System::DENSE.station_km)
+}
+
+/// Kara aramasının yarıçapı (km). Bunun ötesindeki açık deniz
+/// depremlerinde karada Shindo 5- beklenmez; uyarı zaten çıkmaz.
+pub const MAX_STATION_KM: f64 = 300.0;
 
 /// Uyarı yayımlanır mı? (tahmini en yüksek Shindo 5- ve üstü)
 pub fn issued(predicted_max: Shindo) -> bool {
@@ -110,5 +131,26 @@ mod tests {
         // 150 km'de onlarca saniye önceden uyarı.
         let ts_far = t.time(Phase::S, 10.0, geo::km_to_deg(150.0)).unwrap();
         assert!(lead_time(ts_far, a) > 20.0);
+    }
+
+    /// 2011 Tōhoku: JMA merkezi 38°06,2′ K 142°51,6′ D, 24 km; JMA
+    /// algılaması oluştan 22,1 s, ilk rapor 27,5 s, uyarı 30,7 s sonra.
+    /// En yakın kara (Oshika yarımadası) ~110–125 km: model ilk raporu
+    /// 22–32 s arasında vermeli (eski model: 10 km → ~9 s).
+    #[test]
+    fn tohoku_acik_deniz() {
+        let tt = tt();
+        let old = System::DENSE.alert_time(&tt, 24.0).unwrap();
+        assert!(old < 10.0, "{old}");
+        for land in [110.0, 125.0] {
+            let sys = System {
+                station_km: first_station_km(Some(land)),
+                ..System::DENSE
+            };
+            let t = sys.alert_time(&tt, 24.0).unwrap();
+            assert!((22.0..32.0).contains(&t), "{land} km: {t}");
+        }
+        assert_eq!(first_station_km(Some(0.0)), 10.0);
+        assert_eq!(first_station_km(None), MAX_STATION_KM);
     }
 }
