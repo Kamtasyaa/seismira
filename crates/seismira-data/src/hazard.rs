@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 const STEP: f64 = 0.1;
+/// (yıllık olasılık bitleri, periyot bitleri) → (boylam, enlem, g) noktaları.
+type Layers = BTreeMap<(u64, u64), Vec<(f64, f64, f32)>>;
 /// Ana bölge kafesinin boylam kayması.
 const LON_ORIGIN: f64 = 0.0821339;
 
@@ -27,8 +29,7 @@ fn period_of(imt: &str) -> Result<f64> {
 
 pub fn run(csv_path: &Path, out: &Path) -> Result<()> {
     let mut rdr = csv::Reader::from_path(csv_path)?;
-    // (yıllık olasılık bitleri, periyot bitleri) → noktalar
-    let mut layers: BTreeMap<(u64, u64), Vec<(f64, f64, f32)>> = BTreeMap::new();
+    let mut layers: Layers = BTreeMap::new();
     let (mut w, mut s, mut e, mut n) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
     let on_lattice = |lon: f64, lat: f64| {
         let fx = (lon - LON_ORIGIN) / STEP;
