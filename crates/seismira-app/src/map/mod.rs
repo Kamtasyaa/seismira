@@ -63,8 +63,10 @@ const LINE_POINTS: f32 = 40.0;
 const DRAG_ZOOM_PER_POINT: f64 = 0.01;
 /// Aynısı, imleç kilitliyken ham (hızlandırılmamış) hareket birimi için.
 /// Dokunmatik yüzeyin ham birimi ekran noktasından büyük; kullanıcı
-/// "parmak hareketine göre fazla" dedi (2026-11-27): 0,01 → 0,004.
-const RAW_DRAG_ZOOM_PER_UNIT: f64 = 0.004;
+/// "parmak hareketine göre fazla" dedi (2026-11-27): 0,01 → 0,004 → 0,002
+/// (kullanıcının GNOME kaydırma / sıkıştırma çarpanı 0,20 ile uyumlu; o
+/// çarpan ham harekete uygulanmaz).
+const RAW_DRAG_ZOOM_PER_UNIT: f64 = 0.002;
 /// Fare tekerleğinin bir çentiği için yakınlaştırma üssü (önceki
 /// davranış: 50 nokta × 0,0025 ≈ 0,125).
 const WHEEL_ZOOM_PER_LINE: f64 = 0.125;

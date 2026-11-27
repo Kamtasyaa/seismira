@@ -701,6 +701,11 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   S_1, dosya yolu). Seçim yoksa tüm metin; menü platforma kes / kopyala /
   yapıştır isteği gönderir (ViewportCommand::Request*).
 - Etiket metinleri seçilebilir (egui varsayılanı); seçilen metin Ctrl+C ile.
+- Doğrulama (2026-11-27): kittest `kopyala_menuden` / `yapistir_menuden`
+  (menü → Copy / Paste olayı → pano / değer); gerçek Wayland oturumunda
+  `SEISMIRA_CLIPTEST=1` panoya yazıp RequestPaste ile geri okudu
+  (smithay; arboard GNOME'da data-control olmadığı için X11'e düşüyor,
+  yalnız uyarı).
 
 ## Sağ tuşla yakınlaştırmada imleç kilidi (2026-11-27, kullanıcı isteği)
 

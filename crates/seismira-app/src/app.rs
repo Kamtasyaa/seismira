@@ -2562,6 +2562,7 @@ impl eframe::App for SeismiraApp {
             .show(ui.ctx(), |ui| crate::sources::ui(ui, lang, &self.sources));
         self.show_sources = open;
 
+        crate::clip::self_test(ui.ctx());
         #[cfg(feature = "screenshot")]
         // Arka plan hesabı (ızgara, bölgeler) bitmeden görüntü alınmasın.
         crate::devshot::tick(
