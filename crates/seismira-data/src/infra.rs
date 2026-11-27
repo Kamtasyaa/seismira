@@ -23,7 +23,9 @@ pub fn run(tsv: &Path, out: &Path) -> Result<()> {
         }
         let kind = Kind::parse(f[0]).with_context(|| format!("tür {}", f[0]))?;
         let lonlat = (f[1].parse::<f64>()?, f[2].parse::<f64>()?);
-        let attr = f[3].parse::<u32>()?.min(u32::from(u16::MAX)) as u16;
+        // OSM'de hatalı büyük gerilim etiketleri var (ör. "1100000000"):
+        // u64 okunur, u16'ya kırpılır.
+        let attr = f[3].parse::<u64>()?.min(u64::from(u16::MAX)) as u16;
         let line_pts: Vec<(f32, f32)> = if f[5].is_empty() {
             Vec::new()
         } else {
