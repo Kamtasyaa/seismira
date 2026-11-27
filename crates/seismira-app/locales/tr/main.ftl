@@ -471,3 +471,31 @@ obs-col-pred = Tahmin (cm/s)
 obs-col-d = ΔI
 obs-tip = { $code }: ΔI { $d } · gözlenen { $obs } / tahmin { $pred } cm/s · { $r } km
 obs-method = Gözlem: istasyonun en büyük yer hızı (PGV), iki yatay bileşenin geometrik ortalaması. Tahmin: bu simülasyonun ayarlarıyla (fay, zemin, model). İkisi de aynı dönüşümle JMA şiddetine çevrilir; ΔI = 1,82 · log10(gözlenen / tahmin). Gerçek depremin kendi olaylar arası sapması (ör. gerilme düşümü) bu farkın önemli bir kısmıdır.
+
+# Kritik tesisler (OSM)
+menu-infra = Kritik tesisler…
+menu-infra-map = Kritik tesisler
+infra-title = Kritik tesisler
+infra-nodata = Kritik tesis verisi bulunamadı (data/infra/infra.sinf). Veri paketini güncelle.
+infra-start = Bir deprem başlatınca hastane, köprü, baraj, trafo merkezi ve doğalgaz hatlarında tahmini sarsıntı burada listelenir.
+infra-count = Modelin sınırı içinde { $n } tesis (bölgede { $q }). Kutu işaretli türler listede.
+infra-col-kind = Tür
+infra-col-total = Toplam
+infra-col-5 = Shindo 5- ve üstü
+infra-col-6 = Shindo 6- ve üstü
+infra-col-7 = MMI VII ve üstü
+infra-col-8 = MMI VIII ve üstü
+infra-hospital = Hastane
+infra-bridge = Köprü
+infra-viaduct = Viyadük
+infra-dam = Baraj
+infra-substation = Trafo merkezi
+infra-gas = Doğalgaz hattı
+infra-unnamed = (adsız)
+infra-on-map = Haritada göster (Shindo 4 / MMI VI ve üstü)
+infra-export = CSV olarak dışa aktar
+infra-list-note = En güçlü sarsılandan başlayarak; ada tıklayınca harita oraya gider. Değerler medyan tahmin; gerçekte yaklaşık yarısı ile iki katı arası olabilir.
+infra-goto = Haritada göster
+infra-tip = { $name } ({ $kind }): { $level } · PGA { $pga } g · PGV { $pgv } cm/s
+infra-method = Tahmin: bu simülasyonun ayarlarıyla (fay, zemin, model), tesisin konumunda; boru hattında en güçlü sarsılan nokta. Tesisin kendi dayanımı ve hasar olasılığı hesaplanmaz.
+infra-credit = Veri: © OpenStreetMap katkıcıları (ODbL 1.0). Kapsam OSM'deki işaretlemeye bağlıdır; eksik tesisler olabilir.

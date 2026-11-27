@@ -19,6 +19,28 @@ use std::sync::mpsc::{Receiver, TryRecvError, channel};
 /// Vs30 haritası (dosya belleğe eşlenir; yalnızca gereken döşemeler okunur).
 pub type Vs30 = Vs30Map<memmap2::Mmap>;
 
+/// Kritik tesis dosyası (OSM, ODbL; [`seismira_core::infra`]), belleğe eşli.
+pub type InfraMap = seismira_core::infra::InfraFile<memmap2::Mmap>;
+
+/// `data/infra/infra.sinf`'i belleğe eşler (yalnızca dizin okunur).
+pub fn load_infra(path: &std::path::Path) -> Result<Arc<InfraMap>, String> {
+    let err = |e: std::io::Error| format!("{}: {e}", path.display());
+    let file = std::fs::File::open(path).map_err(err)?;
+    // SAFETY: load_vs30 ile aynı (salt okunur veri dosyası).
+    #[allow(unsafe_code)]
+    let map = unsafe { memmap2::Mmap::map(&file) }.map_err(err)?;
+    seismira_core::infra::InfraFile::open(map)
+        .map(Arc::new)
+        .map_err(err)
+}
+
+/// Depremin çevresindeki kritik tesisler ve tahminleri (en yüksek PGA'dan).
+pub struct InfraResults {
+    pub facilities: Vec<seismira_core::infra::Facility>,
+    /// Model sınırı içindekiler; `index` `facilities`'e gösterir.
+    pub assessed: Vec<seismira_core::infra::Assessed>,
+}
+
 /// GEM kırılganlık eğrileri. Hazırlanması ~1,7 s sürdüğü için açılışta arka
 /// planda yüklenir (docs/inceleme bulgu 4; CLAUDE.md Bölüm 11). İç değer
 /// `None`: GEM paketi yok ya da okunamadı. Hesap iş parçacığı gerekirse
@@ -360,6 +382,8 @@ pub enum JobMsg {
     Tsunami(crate::tsunami::TsunamiResult),
     /// Kullanıcının bina envanteri (hasardan sonra).
     Inventory(InventoryResults),
+    /// Kritik tesisler (şehirlerden hemen sonra).
+    Infra(Arc<InfraResults>),
 }
 
 /// Zemin yenilmesi türü.
@@ -570,6 +594,8 @@ pub struct Datasets {
     /// GEM paketi (isteğe bağlı): bölge başına birleşik zafiyet eğrileri.
     /// GEM kırılganlık eğrileri ([`GemSlot`]).
     pub vuln: GemSlot,
+    /// Kritik tesisler (yoksa `None`).
+    pub infra: Option<Arc<InfraMap>>,
     pub ground: Option<Arc<Ground>>,
     pub tsunami: Option<Arc<crate::tsunami::TsunamiData>>,
     pub quality: Quality,
@@ -690,6 +716,7 @@ impl Job {
             quality,
             user_vs30,
             inventory,
+            infra,
         } = data;
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = channel();
@@ -789,6 +816,52 @@ impl Job {
                     return;
                 }
                 ctx.request_repaint();
+                // Kritik tesisler: modelin mesafe sınırı içindekiler.
+                if let (Some(inf), Some(max)) = (&infra, scenario.max_rrup_km()) {
+                    let t = std::time::Instant::now();
+                    let (w, s, e, n) = seismira_core::infra::query_box(&scenario, max);
+                    match inf.query(w, s, e, n) {
+                        Ok(facilities) => {
+                            let mut assessed = seismira_core::infra::assess(
+                                &scenario,
+                                &facilities,
+                                |(lon, lat)| {
+                                    if let Some(v) =
+                                        user_vs30.as_ref().and_then(|u| u.sample(lon, lat))
+                                    {
+                                        return Site {
+                                            vs30: v,
+                                            vs30_ln_sd: None,
+                                            source: seismira_core::site::Vs30Source::User,
+                                        };
+                                    }
+                                    vs30.as_ref()
+                                        .and_then(|m| m.site(lon, lat).ok())
+                                        .unwrap_or_else(Site::reference)
+                                },
+                            );
+                            assessed.sort_by(|a, b| b.pga_g.total_cmp(&a.pga_g));
+                            log::info!(
+                                "kritik tesis: {} sorgu, {} model içinde ({} ms)",
+                                facilities.len(),
+                                assessed.len(),
+                                t.elapsed().as_millis()
+                            );
+                            if flag.load(Ordering::Relaxed)
+                                || tx
+                                    .send(JobMsg::Infra(Arc::new(InfraResults {
+                                        facilities,
+                                        assessed,
+                                    })))
+                                    .is_err()
+                            {
+                                return;
+                            }
+                            ctx.request_repaint();
+                        }
+                        Err(e) => log::error!("kritik tesis okunamadı: {e}"),
+                    }
+                }
                 if scenario.gmm.is_some() {
                     // GEM eğrileri açılışta arka planda hazırlanıyor olabilir.
                     let vuln = vuln.wait().clone();
@@ -1260,6 +1333,7 @@ mod tests {
                 slab: None,
                 exposure: Some(exposure.clone()),
                 vuln: gem_none(),
+                infra: None,
                 ground: None,
                 tsunami: None,
                 quality: Quality::Low,

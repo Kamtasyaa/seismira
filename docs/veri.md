@@ -429,3 +429,28 @@ Lisans kuralları:
   boyunca bellekte (`realquakes::parse_stations`). Canlı test: Pazarcık
   261 istasyon.
 
+## Kritik tesisler: OpenStreetMap (2026-11-27, kullanıcı kararı)
+
+- Karar (kullanıcı): ODbL verisi AYRI dosya (`data/infra/infra.sinf`;
+  başka veriyle tek veri tabanında birleşmez, CLAUDE.md Bölüm 12) ama ayrı
+  indirme YOK: ana veri paketinde, herkes aynı veriyi alır ("UX herkeste
+  aynı olmalı").
+- Lisans (openstreetmap.org/copyright, 2026-11-27): ODbL 1.0; atıf
+  "© OpenStreetMap contributors". Uygulamada Veri Kaynakları sayfası,
+  tesis penceresi ve CSV başlığında. Dosyamız ODbL anlamında "türetilmiş
+  veri tabanı": aynı lisansla dağıtılır, üretim betikleri depoda
+  (scripts/gen_infra.py, scripts/fetch_infra.py, seismira-data infra).
+- Kaynak: Geofabrik kıta özütleri (.osm.pbf; openstreetmap.org döşeme ya da
+  API sunucuları KULLANILMAZ). "latest" dosyaları günlük değişir; her
+  özütün tarihi ve SHA256'sı data/raw/osm/manifest.txt'de.
+- Etiketler ve ayıklama: scripts/gen_infra.py başlığı. Özet: hastane
+  (amenity / healthcare=hospital), köprü ve viyadük (motorway, trunk,
+  primary ve _link yolları, rail; < 20 m ve 40 m içindeki ikizler atlanır),
+  baraj (waterway=dam; adsız ve < 100 m atlanır), trafo (power=substation,
+  ≥ 66 kV ya da substation=transmission), doğalgaz hattı (man_made=pipeline,
+  substance=gas; ~100 m sadeleştirme, ≤ 50 km parçalar).
+- Türkiye denemesi (Geofabrik turkey-latest, sha256 e9c6cd6c…, 2026-11-27):
+  20 757 kayıt → 16 821 tesis (hastane 2 110, köprü 9 269, viyadük 526,
+  baraj 2 661, trafo 1 428, gaz parçası 827), 275 KB. Kahramanmaraş hazır
+  senaryosu: 5 338 tesis sorgulandı, 4 257 model sınırı içinde, 76 ms.
+

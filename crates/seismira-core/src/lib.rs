@@ -13,6 +13,7 @@ pub mod geo;
 pub mod gmpe;
 pub mod grid;
 pub mod groundfailure;
+pub mod infra;
 pub mod intensity;
 pub mod mapfile;
 pub mod mercator;

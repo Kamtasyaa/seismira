@@ -55,6 +55,9 @@ FILES = [
     ("tsunami/bathy.sras", "etopo-2022-60s"),
     ("tsunami/coast.bin", "etopo-2022-60s + geonames-cities15000"),
     ("scenarios/scenarios.json", "usgs-scenarios"),
+    # ODbL: ayrı dosya, başka veriyle birleştirilmez (kullanıcı kararı
+    # 2026-11-27: ana pakette, herkese aynı veri).
+    ("infra/infra.sinf", "openstreetmap-infra"),
 ]
 
 

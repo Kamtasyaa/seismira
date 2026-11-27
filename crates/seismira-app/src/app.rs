@@ -15,6 +15,7 @@ use crate::map::{MapWidget, view::MapView};
 use crate::timeline::{self, Clock};
 use crate::{fonts, i18n::Lang, panel, paths, shindo_style, text_test, theme};
 
+mod infra_ui;
 mod observed_ui;
 mod real_ui;
 mod report;
@@ -429,6 +430,10 @@ pub struct SeismiraApp {
     exposure: Option<Arc<seismira_core::exposure::Exposure>>,
     /// GEM paketi (isteğe bağlı, CC BY-NC-SA; data/gem/gem.svul).
     vuln: compute::GemSlot,
+    /// Kritik tesis dosyası (OSM, ODbL); yoksa `None`.
+    infra_data: Option<Arc<compute::InfraMap>>,
+    /// Kritik tesisler penceresi ve sonuçları ([`infra_ui`]).
+    infra: infra_ui::InfraState,
     /// Son hesabın tahmini bina hasarı.
     damage: Option<compute::DamageResults>,
     /// Zemin yenilmesi girdileri (`data/ground/`); yoksa katman gösterilmez.
@@ -543,6 +548,10 @@ impl SeismiraApp {
             .inspect_err(|e| log::warn!("Slab2 yok, dalma-batmada küresel model: {e}"))
             .ok();
         // 17 KB: arayüz iş parçacığında okunması sorun değil.
+        // Kritik tesisler (~30 MB, belleğe eşlenir; yalnızca dizin okunur).
+        let infra_data = compute::load_infra(&paths::data_dir().join("infra").join("infra.sinf"))
+            .inspect_err(|e| log::info!("kritik tesis verisi yok: {e}"))
+            .ok();
         let stable_path = paths::data_dir().join("regions").join("stable.sout");
         let stable = std::fs::File::open(&stable_path)
             .and_then(|f| {
@@ -601,6 +610,8 @@ impl SeismiraApp {
             stable,
             exposure,
             vuln,
+            infra_data,
+            infra: Default::default(),
             damage: None,
             ground,
             ground_failure: Default::default(),
@@ -672,6 +683,17 @@ impl SeismiraApp {
             // aktarma denemesi; `SEISMIRA_EXPORT=1` ile birlikte).
             if std::env::var("SEISMIRA_PRESET_START").is_ok_and(|v| v == "1") {
                 self.start_sim(ctx);
+                // `SEISMIRA_T=<s>`: simülasyon saatini ileri alır, durdurur;
+                // `SEISMIRA_SHOW_INFRA=1`: kritik tesis penceresini açar
+                // (ekran görüntüsü için).
+                if let Some(t) = std::env::var("SEISMIRA_T")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                {
+                    self.clock.t = t;
+                    self.clock.playing = false;
+                }
+                self.infra.show |= std::env::var("SEISMIRA_SHOW_INFRA").is_ok_and(|v| v == "1");
             }
         }
         let Some(v) = std::env::var("SEISMIRA_DEMO").ok().map(|s| {
@@ -758,12 +780,18 @@ impl SeismiraApp {
                 if ui.button(t("menu-observed")).clicked() {
                     self.observed.show = true;
                 }
+                if ui.button(t("menu-infra")).clicked() {
+                    self.infra.show = true;
+                }
             });
             ui.menu_button(t("menu-view"), |ui| {
                 ui.checkbox(&mut self.show_disclaimer, t("menu-disclaimer"));
                 ui.checkbox(&mut self.show_grid, t("menu-shake-grid"));
                 ui.checkbox(&mut self.show_fault_trace, t("menu-fault-trace"));
                 ui.checkbox(&mut self.show_ground, t("menu-liquefaction"));
+                if self.infra_data.is_some() {
+                    ui.checkbox(&mut self.infra.on_map, t("menu-infra-map"));
+                }
                 if self.ground.as_ref().is_some_and(|g| g.has_landslide()) {
                     ui.checkbox(&mut self.show_landslide, t("menu-landslide"));
                 }
@@ -981,6 +1009,7 @@ impl SeismiraApp {
         self.draw_user_overlays(ui, rect);
         self.draw_spectrum_marker(ui, rect);
         self.draw_observed(ui, rect);
+        self.draw_infra(ui, rect);
         let labels = (lang.t("map-zoom-in"), lang.t("map-zoom-out"));
         self.map.zoom_buttons(ui, rect, (&labels.0, &labels.1));
         if let Some((id, at)) = self.region_card {
@@ -1820,6 +1849,7 @@ impl SeismiraApp {
         self.user.grid = None;
         self.user.inventory_results = None;
         self.spectrum.clear();
+        self.infra.results = None;
         self.clock = Clock {
             speed: self.clock.speed,
             ..Clock::default()
@@ -1868,6 +1898,7 @@ impl SeismiraApp {
                 slab: self.slab.clone(),
                 exposure: self.exposure.clone(),
                 vuln: self.vuln.clone(),
+                infra: self.infra_data.clone(),
                 ground: self.ground.clone(),
                 tsunami: self.tsunami_data.clone(),
                 quality: self.quality,
@@ -2418,6 +2449,7 @@ impl eframe::App for SeismiraApp {
                         self.map.set_grid(Some(grid));
                     }
                     compute::JobMsg::Inventory(r) => self.user.inventory_results = Some(r),
+                    compute::JobMsg::Infra(r) => self.infra.results = Some(r),
                     compute::JobMsg::Regions(r, lines) => {
                         self.map.set_region_lines(lines);
                         self.region_events = region_events(&r);
@@ -2503,6 +2535,7 @@ impl eframe::App for SeismiraApp {
         self.real_window(ui.ctx());
         self.observed_update(ui.ctx());
         self.observed_window(ui.ctx());
+        self.infra_window(ui.ctx());
 
         let mut open = self.show_sources;
         egui::Window::new(t("sources-title"))

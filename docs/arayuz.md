@@ -658,3 +658,21 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   doğrulama aracıyla birebir (docs/dogrulama.md).
 - Geliştirme: `SEISMIRA_OBSERVED=<stationlist.json>` (SEISMIRA_PRESET ile)
   yerel listeyi yükleyip pencereyi açar.
+
+## Kritik tesisler (2026-11-27, README "Önemli")
+
+- Veri → "Kritik tesisler…" penceresi; Görünüm → "Kritik tesisler" harita
+  katmanı (varsayılan açık). Simülasyon başlayınca modelin mesafe sınırı
+  içindeki tesislerde tahmin (`seismira_core::infra::assess`, uygulamanın
+  zinciri: fay, Vs30, model ağırlıkları); boru hattında en güçlü sarsılan
+  köşe.
+- Pencere: türe göre toplam / Shindo 5- ve üstü / 6- ve üstü (MMI ölçeğinde
+  VII / VIII), tür süzgeci, en güçlüden sıralı liste (ada tıklayınca harita
+  oraya gider), CSV dışa aktarma (ODbL atfı başlıkta).
+- Harita: sarsıntı tesise ulaşınca (ilk S; bölge durumları zamanın saf
+  fonksiyonu), Shindo 4 / MMI VI ve üstü. Biçim türü, renk şiddeti verir
+  (hastane kare + artı, köprü çubuk, viyadük çubuk + ayak, baraj üçgen,
+  trafo eşkenar dörtgen, boru hattı daire + çizgi). Seyreltme: 16 piksellik
+  her hücrede en güçlü tesis; yakınlaştıkça daha fazlası.
+- Geliştirme: `SEISMIRA_T=<s>` (saat), `SEISMIRA_SHOW_INFRA=1` (pencere),
+  SEISMIRA_PRESET_START ile.

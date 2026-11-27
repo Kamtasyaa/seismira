@@ -471,3 +471,31 @@ obs-col-pred = Predicted (cm/s)
 obs-col-d = ΔI
 obs-tip = { $code }: ΔI { $d } · observed { $obs } / predicted { $pred } cm/s · { $r } km
 obs-method = Observed: peak ground velocity (PGV) at the station, geometric mean of the two horizontal components. Predicted: with this simulation's settings (fault, site, model). Both are converted to JMA intensity the same way; ΔI = 1.82 · log10(observed / predicted). The real event's own between-event deviation (e.g. stress drop) is a large part of this difference.
+
+# Kritik tesisler (OSM)
+menu-infra = Critical facilities…
+menu-infra-map = Critical facilities
+infra-title = Critical facilities
+infra-nodata = Critical facility data not found (data/infra/infra.sinf). Update the data package.
+infra-start = Start an earthquake to list the estimated shaking at hospitals, bridges, dams, substations and gas pipelines.
+infra-count = { $n } facilities within the model limit ({ $q } in the area). Checked types are listed.
+infra-col-kind = Type
+infra-col-total = Total
+infra-col-5 = Shindo 5- or more
+infra-col-6 = Shindo 6- or more
+infra-col-7 = MMI VII or more
+infra-col-8 = MMI VIII or more
+infra-hospital = Hospital
+infra-bridge = Bridge
+infra-viaduct = Viaduct
+infra-dam = Dam
+infra-substation = Substation
+infra-gas = Gas pipeline
+infra-unnamed = (unnamed)
+infra-on-map = Show on map (Shindo 4 / MMI VI or more)
+infra-export = Export as CSV
+infra-list-note = Strongest shaking first; click a name to move the map there. Values are median estimates; actual values may be about half to twice as large.
+infra-goto = Show on map
+infra-tip = { $name } ({ $kind }): { $level } · PGA { $pga } g · PGV { $pgv } cm/s
+infra-method = Estimate with this simulation's settings (fault, site, model) at the facility location; for pipelines the most strongly shaken point. The facility's own capacity and damage probability are not computed.
+infra-credit = Data: © OpenStreetMap contributors (ODbL 1.0). Coverage depends on OSM mapping; some facilities may be missing.

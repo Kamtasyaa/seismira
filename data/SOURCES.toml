@@ -411,3 +411,15 @@ modified = true            # 30″ ızgaraya en yakın komşu, kıyı boşluklar
 license_checked = "2026-11-23"
 snapshot = "hartmann-moosdorf_2012.zip sha256 43b4ce3276b155d804db8ff9fb227d620b4c35015a4cf564eac4d06d2b69d88e"
 files = "data/ground/lith.sras yerine (scripts/gen_glim05.py; dağıtılan pakete alınması karara bağlı)"
+
+[[dataset]]
+id = "openstreetmap-infra"
+name = "OpenStreetMap kritik tesisler (hastane, köprü, viyadük, baraj, trafo merkezi, doğalgaz hattı)"
+url = "https://www.openstreetmap.org/copyright"
+license = "ODbL-1.0"
+attribution = "© OpenStreetMap contributors. Veri Open Database License (ODbL) 1.0 ile; özütler Geofabrik GmbH (download.geofabrik.de)."
+modified = true            # etiket süzgeci, temsil noktası, köprü ayıklama (< 20 m, ikiz), boru hattı sadeleştirme; AYRI dosya (başka veriyle birleştirilmez)
+license_checked = "2026-11-27"
+snapshot = "Geofabrik kıta özütleri, tarih ve SHA256: data/raw/osm/manifest.txt (scripts/fetch_infra.py)"
+files = "data/infra/infra.sinf"
+

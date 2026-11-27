@@ -30,6 +30,7 @@ mod exposure;
 mod gem;
 mod geotiff;
 mod ground_inputs;
+mod infra;
 mod land_cover;
 mod liq_static;
 mod lith;
@@ -86,6 +87,7 @@ fn main() -> Result<()> {
         [cmd, esrm20, regions, output] if cmd == "exposure" => {
             exposure::run(Path::new(esrm20), Path::new(regions), Path::new(output))
         }
+        [cmd, tsv, output] if cmd == "infra" => infra::run(Path::new(tsv), Path::new(output)),
         [cmd, gem, regions, output] if cmd == "gem" => {
             gem::run(Path::new(gem), Path::new(regions), Path::new(output))
         }
