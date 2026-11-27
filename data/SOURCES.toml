@@ -420,7 +420,16 @@ license = "ODbL-1.0"
 attribution = "© OpenStreetMap contributors. Veri Open Database License (ODbL) 1.0 ile; özütler Geofabrik GmbH (download.geofabrik.de)."
 modified = true            # etiket süzgeci, temsil noktası, köprü ayıklama (< 20 m, ikiz), boru hattı sadeleştirme; AYRI dosya (başka veriyle birleştirilmez)
 license_checked = "2026-11-27"
-snapshot = "Geofabrik kıta özütleri, tarih ve SHA256: data/raw/osm/manifest.txt (scripts/fetch_infra.py)"
+snapshot = "Geofabrik kıta özütleri (*-latest.osm.pbf), 26–27 Kasım 2026; SHA256 aşağıda ve data/raw/osm/manifest.txt (scripts/fetch_infra.py)"
+# antarctica         Thu, 26 Nov 2026 23:05:03 GMT  sha256 908a5a17df16deb5ec16f30eaa8c661e6877ca460b9d96c33cd0ce92b810c1d3
+# australia-oceania  Thu, 26 Nov 2026 23:21:25 GMT  sha256 52c3e7d5160ac44086ce0d96996b2ac5d20afe5396c70823fcde395668b56272
+# central-america    Thu, 26 Nov 2026 23:10:49 GMT  sha256 aa9a4f935f3325714ec95a4c4a27e64adb7a5d90a1e8dbd4f7b95101fbdc4768
+# south-america      Thu, 26 Nov 2026 23:50:06 GMT  sha256 7a0bef634c716cc60df4ca26581206f0bb47377b3e74187bacf3b490cf84bdae
+# africa             Thu, 26 Nov 2026 23:18:55 GMT  sha256 9d4044bf2cc001b3c9a860a7a1c711f5d28a86917f3fe6ed468730529c70f354
+# russia             Thu, 26 Nov 2026 23:25:59 GMT  sha256 aecb333c9c849ceb6b615b40ca6e46a9b2c53f84311eab4ab15577c7bb57fb31
+# asia               Thu, 26 Nov 2026 23:25:14 GMT  sha256 47919154136105b2e0865e1a4988ba8bbefef28fc34b214531a9274c19bf2c8c
+# north-america      Fri, 27 Nov 2026 00:00:23 GMT  sha256 8f75ae3cc38b7499d28be4b8c7c441058a8193f915db49f1a9dfa14f8f1aba38
+# europe             Thu, 26 Nov 2026 23:35:26 GMT  sha256 988d057d364f7bf2a939282d52a401d33277d708d45a83fa0d3760a47921c1e8
 files = "data/infra/infra.sinf"
 
 [[dataset]]
