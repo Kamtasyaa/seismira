@@ -5,6 +5,7 @@ Kullanım (depo kökünden):
     python3 scripts/prepare_data.py            # temel veri
     python3 scripts/prepare_data.py --ground   # + sıvılaşma girdileri (ağır)
     python3 scripts/prepare_data.py --gem      # + GEM paketi (CC BY-NC-SA)
+    python3 scripts/prepare_data.py --infra    # + kritik tesisler (OSM, ~90 GB indirme)
 
 Adımlar:
 1. Yazı tipleri (CJK dahil) indirilir ve doğrulanır.
@@ -57,6 +58,15 @@ data/exposure/esrm20.sexp`.
    paket): scripts/fetch_gem.py (~96 MB) + `seismira-data gem` →
    data/gem/gem.svul (2,6 MB, ~10 s). Avrupa dışı bölgelerde ortalama
    yapısal hasar oranı için.
+
+10. Tehlike haritaları (ESHM20, CC BY 4.0): scripts/fetch_eshm20.py (EFEHR
+    API, ~25 MB JSON; sunucu yavaşsa ~2 saat) + `seismira-data hazard` →
+    data/hazard/eshm20.shaz (~1,5 MB). Temel pakette.
+
+11. (`--infra`) Kritik tesisler (OSM, ODbL, ayrı dosya ama temel pakette):
+    scripts/fetch_infra.py (Geofabrik kıta özütleri sırayla, ~90 GB indirme,
+    her biri işlenip silinir; .venv'de `osmium`) → data/infra/infra.sinf.
+    Saatler sürer; ayrı bayrakla.
 
 Her adım tekrar çalıştırılabilir; var olan doğru dosyalar yeniden indirilmez.
 """
@@ -214,6 +224,18 @@ def main() -> int:
                 "gem", "data/raw/gem", "data/regions/admin1.sras",
                 str(gem.relative_to(ROOT)),
             )
+    hazard = ROOT / "data" / "hazard" / "eshm20.shaz"
+    if not hazard.exists():
+        run(py, "scripts/fetch_eshm20.py")
+        hazard.parent.mkdir(parents=True, exist_ok=True)
+        run(
+            "cargo", "run", "--release", "-q", "-p", "seismira-data", "--",
+            "hazard", "data/raw/eshm20/eshm20.csv", str(hazard.relative_to(ROOT)),
+        )
+    if "--infra" in sys.argv[1:]:
+        infra = ROOT / "data" / "infra" / "infra.sinf"
+        if not infra.exists():
+            run(py, "scripts/fetch_infra.py")
     print("Veri hazır.")
     return 0
 
