@@ -38,8 +38,8 @@ Paketler:
   doğrula): harita ve idari sınırlar, şehirler, seyahat süresi
   tablosu, ~1 km çözünürlükte küresel ızgaralar, alt örneklenmiş
   batimetri, ESRM20.
-- GEM paketi (ayrı indirme): lisansı farklı olduğu için uygulamayla
-  birlikte paketlenmez. Üretim: `python3 scripts/prepare_data.py --gem`
+- GEM (2026-11-28 kullanıcı kararı): veri paketinin içinde AYRI klasör
+  `data/gem/` + LISANS.txt (CC BY-NC-SA; paket satılamaz, bağış serbest). Üretim: `python3 scripts/prepare_data.py --gem`
   (scripts/fetch_gem.py ~125 MB ham (yapısal + yapısal olmayan), `seismira-data gem` → data/gem/gem.svul,
   8 MB). Bölge kimlikleri Natural Earth'ten (kamu malı); ODbL verisiyle
   birleştirilmez. Uygulama dosyayı bulursa Avrupa dışı bölge kartlarında

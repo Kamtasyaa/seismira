@@ -39,8 +39,9 @@ LİSANSLAR
 ---------
 Kod: GPL-3.0-or-later (LICENSE). Veriler kendi lisanslarıyla gelir;
 listesi ve atıflar uygulamada Yardım → "Veri kaynakları ve lisanslar"
-penceresinde ve data/SOURCES.toml dosyasındadır. GEM hasar verisi bu
-pakette YOKTUR (ayrı lisans / ayrı paket).
+penceresinde ve data/SOURCES.toml dosyasındadır. GEM bina verisi
+(data/gem/) ticari kullanıma KAPALIDIR (CC BY-NC-SA 4.0): bu paket
+satılamaz; ayrıntı data/gem/LISANS.txt.
 
 Kaynak kod: https://github.com/Kamtasyaa/seismira
 
@@ -87,7 +88,8 @@ LICENSES
 --------
 Code: GPL-3.0-or-later (LICENSE). Data ships under its own licenses; the
 list and attributions are in the app under Help → "Data sources and
-licenses" and in data/SOURCES.toml. GEM damage data is NOT included
-(separate licence / separate package).
+licenses" and in data/SOURCES.toml. GEM building data
+(data/gem/) is NON-COMMERCIAL (CC BY-NC-SA 4.0): this package must not be
+sold; see data/gem/LISANS.txt.
 
 Source code: https://github.com/Kamtasyaa/seismira

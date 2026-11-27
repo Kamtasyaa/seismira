@@ -1,0 +1,35 @@
+Seismira — data/gem/gem.svul (GEM bina stoku ve zafiyet / GEM exposure and vulnerability)
+
+TÜRKÇE
+Bu dosya GEM Vakfı'nın iki veri setinden türetilmiştir ve Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0) ile dağıtılır:
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+TİCARİ KULLANIM YASAKTIR. Bu dosyayı içeren paket satılamaz.
+
+Atıf:
+  Yepes-Estrada C. vd. (2023) Global Building Exposure Model for Earthquake
+  Risk Assessment. Earthquake Spectra, doi:10.1177/87552930231194048.
+  Veri: Global Exposure Model (2026.0.0), doi:10.5281/zenodo.8117363.
+  Nafeh A.M.B., Aljawhari K., Silva V. (2025) The 2025 Global Vulnerability
+  Model of the GEM Foundation, doi:10.5281/zenodo.8391742.
+  Aljawhari K., Nafeh A.M.B., Silva V. (2026) A new global vulnerability model
+  for regional seismic risk assessments: Part 1 – structural vulnerability.
+  Bulletin of Earthquake Engineering, doi:10.1007/s10518-026-02443-7.
+
+Değişiklikler: Adm1 özetleri Natural Earth Admin-1 bölgelerine eşlendi,
+yerleşim türleri toplandı, bina sınıfları zafiyet fonksiyonlarına eşlendi;
+zafiyet fonksiyonlarından yalnızca ortalama kayıp oranı alındı, aynı
+fonksiyonlar tekilleştirildi; Seismira'nın ikili biçimine (.svul) çevrildi.
+Üretim: scripts/fetch_gem.py, `seismira-data gem`. Kaynak sürümleri:
+data/SOURCES.toml ("gem-exposure", "gem-vulnerability"). Bu türetilmiş
+dosya da CC BY-NC-SA 4.0 ile sunulur. GEM Vakfı bu dağıtımı onaylamış
+sayılmaz. Diğer verilerle tek veri tabanında birleştirilmemiştir.
+
+ENGLISH
+Derived from the GEM Foundation's Global Exposure Model and Global
+Vulnerability Model; distributed under CC BY-NC-SA 4.0. NO COMMERCIAL USE:
+a package containing this file must not be sold. Citations and changes as
+above (mapped to Natural Earth Admin-1, aggregated, mean loss ratios only,
+converted to .svul). This derivative file is offered under the same
+licence; no endorsement by the GEM Foundation is implied. Kept as a
+separate file, not merged with Seismira's other data.

@@ -220,7 +220,7 @@ attribution = "Yepes-Estrada, C., Calderon, A., Costa, C., Crowley, H., Dabbeek,
 modified = true            # Natural Earth Admin-1 bölgelerine eşlendi (ISO kodu, ad; eşlenemeyenler ülke içinde yerleşim hücresi oranında dağıtıldı), yerleşim türleri toplandı, sınıflar zafiyet fonksiyonlarına eşlendi
 license_checked = "2026-11-23"
 snapshot = "gem/global_exposure_model commit e2a74b9ff5c85ee8f1ab8bfd571f3662c28dea30; dosya özetleri data/raw/gem/MANIFEST.sha256 (scripts/fetch_gem.py)"
-files = "data/gem/gem.svul (seismira-data gem; AYRI PAKET, ticari kullanım yok, depoda değil)"
+files = "data/gem/gem.svul (seismira-data gem; veri paketinde AYRI klasör + LISANS.txt, ticari kullanım yok, depoda değil)"
 
 [[dataset]]
 id = "gem-vulnerability"
@@ -231,7 +231,7 @@ attribution = "Nafeh, A.M.B., Aljawhari, K., Silva, V. (2025). The 2025 Global V
 modified = true            # yalnızca ortalama kayıp oranı (covLRs atıldı); aynı içerikli fonksiyonlar tekilleştirildi; bölge başına ağırlıklı birleştirme uygulamada
 license_checked = "2026-11-23"
 snapshot = "gem/global_vulnerability_model commit 5974372ac3f4a99f25d0649eb030fbe596f23b36; dosya özetleri data/raw/gem/MANIFEST.sha256 (scripts/fetch_gem.py)"
-files = "data/gem/gem.svul (seismira-data gem; AYRI PAKET)"
+files = "data/gem/gem.svul (seismira-data gem; veri paketinde AYRI klasör)"
 
 [[dataset]]
 id = "usgs-slab2"

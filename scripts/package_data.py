@@ -16,7 +16,6 @@ satırın lisansı data/SOURCES.toml'dadır. Girmeyenler:
 - data/ground/wtd.sras ve onunla üretilmiş liq_static: Fan vd. (2017) yeraltı
   su seviyesi "yalnızca araştırma", izin bekleniyor → sıvılaşma KIYI modeliyle
   (`liq-static --coastal`, yeraltı suyu istemez) yeniden üretilir.
-- data/gem/: CC BY-NC-SA, AYRI paket (ticari kullanım yok).
 - data/raw, data/validation, data/test, ara katmanlar (inputs30, slope75,
   landcover, lith).
 
@@ -58,6 +57,9 @@ FILES = [
     # ODbL: ayrı dosya, başka veriyle birleştirilmez (kullanıcı kararı
     # 2026-11-27: ana pakette, herkese aynı veri).
     ("infra/infra.sinf", "openstreetmap-infra"),
+    # CC BY-NC-SA: ayrı klasör, kendi lisans notu; paket satılamaz (kullanıcı
+    # kararı 2026-11-28, CLAUDE.md Bölüm 12–13).
+    ("gem/gem.svul", "gem-exposure + gem-vulnerability"),
     ("hazard/eshm20.shaz", "eshm20-hazard"),
 ]
 
@@ -93,7 +95,7 @@ def main() -> int:
     # Lisansı ayrı veriler için klasör içi lisans notu (ODbL atıf ve
     # türetilmiş veri tabanı bildirimi; CC BY atfı). Depodaki metinler.
     notices = ROOT / "packaging" / "data-notices"
-    for src, dst in [("infra-LISANS.txt", "infra/LISANS.txt"), ("hazard-LISANS.txt", "hazard/LISANS.txt")]:
+    for src, dst in [("infra-LISANS.txt", "infra/LISANS.txt"), ("hazard-LISANS.txt", "hazard/LISANS.txt"), ("gem-LISANS.txt", "gem/LISANS.txt")]:
         shutil.copy2(notices / src, out / "data" / dst)
 
     # Sıvılaşma: dağıtılabilir kıyı modeli (yeraltı suyu katmanı olmadan).

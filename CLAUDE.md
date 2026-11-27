@@ -172,7 +172,9 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
 
 - Her veri indirilmeden önce lisansı yeniden kontrol edilir; kaynak,
   lisans, atıf ve "değiştirildi" notu data/SOURCES.toml'a yazılır.
-- GADM KULLANILMAZ. GEM verisi (CC BY-NC-SA) ayrı paket; ODbL verisiyle
+- GADM KULLANILMAZ. GEM verisi (CC BY-NC-SA) temel paketin içinde AYRI
+  klasörde (data/gem/ + LISANS.txt; 2026-11-28 kullanıcı kararı, paket
+  satılmayacak); ODbL verisiyle
   tek veri tabanında birleştirilmez.
 - Temel paket için boyut sınırı YOK (2026-11-27 kullanıcı kararı; önceki
   ~750 MB hedefi kaldırıldı; v0.1.0 veri paketi 699 MB). Yine de gereksiz
