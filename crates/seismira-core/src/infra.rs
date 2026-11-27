@@ -332,14 +332,17 @@ pub struct Assessed {
 
 /// Tesislerde tahmin: noktasal tesislerde temsil noktası, boru hattında
 /// tüm köşeler (en yüksek PGV'li köşe raporlanır). Model dışı (mesafe,
-/// ortam) tesisler atlanır. `site`: zemin (uygulamada kullanıcı Vs30 →
-/// harita → referans). Paralel (rayon).
+/// ortam) tesisler atlanır. Aynı hattın komşu parçaları ortak köşelerinde
+/// en güçlü sarsılırsa aynı ad ve noktayla tek kayıt kalır (2026-11-27,
+/// CSV'de çift satır). `site`: zemin (uygulamada kullanıcı Vs30 → harita →
+/// referans). Paralel (rayon).
 pub fn assess(
     sc: &Scenario,
     facilities: &[Facility],
     site: impl Fn((f64, f64)) -> Site + Sync,
 ) -> Vec<Assessed> {
     use rayon::prelude::*;
+    let mut seen = std::collections::HashSet::new();
     facilities
         .par_iter()
         .enumerate()
@@ -369,6 +372,12 @@ pub fn assess(
                     })
                 })
                 .max_by(|a, b| a.pgv.total_cmp(&b.pgv))
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .filter(|a| {
+            let f = &facilities[a.index];
+            f.line.is_empty() || seen.insert((f.name.clone(), a.at.0.to_bits(), a.at.1.to_bits()))
         })
         .collect()
 }
@@ -486,9 +495,11 @@ mod tests {
             mk(37.5, vec![]),
             mk(42.0, vec![]), // ~490 km
             mk(37.2, vec![(37.2, 37.0), (36.55, 37.0), (37.4, 37.0)]),
+            // Aynı hattın komşu parçası: en güçlü köşe ortak → tekrar sayılmaz.
+            mk(36.55, vec![(36.55, 37.0), (36.0, 37.0)]),
         ];
         let a = assess(&sc, &fs, |_| Site::reference());
-        assert_eq!(a.len(), 3);
+        assert_eq!(a.len(), 3, "{a:?}");
         let by = |i: usize| a.iter().find(|x| x.index == i).unwrap();
         assert!(by(0).pga_g > by(1).pga_g && by(0).jma > by(1).jma);
         assert!((by(3).at.0 - 36.55).abs() < 1e-6, "{:?}", by(3).at);

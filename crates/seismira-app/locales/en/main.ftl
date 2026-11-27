@@ -492,7 +492,7 @@ infra-dam = Dam
 infra-substation = Substation
 infra-gas = Gas pipeline
 infra-unnamed = (unnamed)
-infra-on-map = Show on map (Shindo 4 / MMI VI or more)
+infra-on-map = Show on map (Shindo 5- / MMI VII or more)
 infra-export = Export as CSV
 infra-list-note = Strongest shaking first; click a name to move the map there. Values are median estimates; actual values may be about half to twice as large.
 infra-goto = Show on map
@@ -527,3 +527,9 @@ batch-whole-note = * Rupture is the whole fault: the fault is short for this mag
 batch-cities = Most affected cities (by mean)
 batch-col-city = City
 batch-method = Scenarios are equally weighted; this is NOT a probability (exceedance) calculation. How often earthquakes occur is not taken into account; probabilistic hazard maps (ESHM20) are the next step. Places outside the model limit of a scenario count as unshaken in that scenario.
+
+# Metin kutusu sağ tık menüsü
+edit-cut = Cut
+edit-copy = Copy
+edit-paste = Paste
+edit-select-all = Select all

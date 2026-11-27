@@ -670,9 +670,9 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   VII / VIII), tür süzgeci, en güçlüden sıralı liste (ada tıklayınca harita
   oraya gider), CSV dışa aktarma (ODbL atfı başlıkta).
 - Harita: sarsıntı tesise ulaşınca (ilk S; bölge durumları zamanın saf
-  fonksiyonu), Shindo 4 / MMI VI ve üstü. Biçim türü, renk şiddeti verir
+  fonksiyonu), Shindo 5- / MMI VII ve üstü (2026-11-27: Shindo 4'te kalabalıktı). Biçim türü, renk şiddeti verir
   (hastane kare + artı, köprü çubuk, viyadük çubuk + ayak, baraj üçgen,
-  trafo eşkenar dörtgen, boru hattı daire + çizgi). Seyreltme: 16 piksellik
+  trafo eşkenar dörtgen, boru hattı daire + çizgi). Seyreltme: 24 piksellik
   her hücrede en güçlü tesis; yakınlaştıkça daha fazlası.
 - Geliştirme: `SEISMIRA_T=<s>` (saat), `SEISMIRA_SHOW_INFRA=1` (pencere),
   SEISMIRA_PRESET_START ile.
@@ -690,3 +690,21 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
 - Açık uyarı: eşit ağırlıklı, olasılık hesabı değil.
 - Geliştirme: `SEISMIRA_BATCH=1` (SEISMIRA_PRESET ile) başlatır; ekran
   görüntüsü aracı hesap bitene kadar bekler.
+
+## Kopyala / yapıştır (2026-11-27, kullanıcı isteği)
+
+- eframe `clipboard` ve `links` özellikleri açıldı (varsayılanlar sistem
+  yazı tipleri yüzünden kapatılınca bunlar da kapanmıştı; Ctrl+C / Ctrl+V
+  hiç çalışmıyordu, bağlantılar açılmıyordu).
+- Metin ve sayı kutularında sağ tık menüsü: Kes / Kopyala / Yapıştır /
+  Tümünü seç (`clip.rs`; `number()` kutuları, toplu senaryo, TBDY S_S /
+  S_1, dosya yolu). Seçim yoksa tüm metin; menü platforma kes / kopyala /
+  yapıştır isteği gönderir (ViewportCommand::Request*).
+- Etiket metinleri seçilebilir (egui varsayılanı); seçilen metin Ctrl+C ile.
+
+## Sağ tuşla yakınlaştırmada imleç kilidi (2026-11-27, kullanıcı isteği)
+
+- Sağ tuş / dokunmatik yüzeyde iki parmak basılı sürüklemede imleç
+  kilitlenir (CursorGrab::Locked; Wayland pointer-constraints) ve
+  yakınlaştırma ham fare hareketinden hesaplanır; bırakınca serbest. Kilit
+  desteklenmezse (X11) eski davranış (imleç hareket eder, çapa başlangıç).

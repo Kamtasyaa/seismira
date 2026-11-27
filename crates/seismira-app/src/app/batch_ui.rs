@@ -302,21 +302,23 @@ impl SeismiraApp {
                         .spacing([10.0, 6.0])
                         .show(ui, |ui| {
                             let l = ui.label(t("batch-mw-min")).id;
-                            ui.add(
+                            ui.add(crate::clip::WithMenu(
                                 egui::DragValue::new(&mut st.spec.mw_min)
                                     .range(5.0..=9.0)
                                     .speed(0.05)
                                     .fixed_decimals(2),
-                            )
+                                lang,
+                            ))
                             .labelled_by(l);
                             ui.end_row();
                             let l = ui.label(t("batch-mw-max")).id;
-                            ui.add(
+                            ui.add(crate::clip::WithMenu(
                                 egui::DragValue::new(&mut st.spec.mw_max)
                                     .range(5.0..=9.0)
                                     .speed(0.05)
                                     .fixed_decimals(2),
-                            )
+                                lang,
+                            ))
                             .labelled_by(l);
                             ui.end_row();
                             let l = ui.label(t("batch-mw-step")).id;

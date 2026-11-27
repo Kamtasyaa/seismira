@@ -306,19 +306,38 @@ impl MapWidget {
         // parmak basılı dokunmatik yüzey) sürükleme = yakınlaştır: yukarı
         // yakın, aşağı uzak, çapa sürüklemenin başladığı nokta (Google
         // Earth; kullanıcı isteği 2026-11-26).
+        // İmleç sürükleme boyunca yerinde kalır (kullanıcı isteği
+        // 2026-11-27): imleç kilitlenir (Wayland: pointer-constraints) ve
+        // yakınlaştırma ham fare hareketinden (Event::MouseMoved) hesaplanır.
+        // Kilit desteklenmezse (ör. X11) ya da ham hareket gelmezse imleç
+        // hareket eder ve sürükleme farkı kullanılır.
         if response.drag_started_by(egui::PointerButton::Secondary) {
             self.zoom_anchor = response.interact_pointer_pos();
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::CursorGrab(egui::CursorGrab::Locked));
         }
         if response.dragged_by(egui::PointerButton::Secondary) {
-            let dy = f64::from(response.drag_delta().y);
+            let raw: Option<f32> = ui.input(|i| {
+                i.raw
+                    .events
+                    .iter()
+                    .filter_map(|e| match e {
+                        egui::Event::MouseMoved(d) => Some(d.y),
+                        _ => None,
+                    })
+                    .reduce(|a, b| a + b)
+                    .map(|y| y / i.pixels_per_point)
+            });
+            let dy = f64::from(raw.unwrap_or(response.drag_delta().y));
             let at = self.zoom_anchor.unwrap_or(rect.center());
             self.view
                 .zoom_at(rect, at, (-dy * DRAG_ZOOM_PER_POINT).exp());
         } else if response.dragged() {
             self.view.pan(rect, response.drag_delta());
         }
-        if response.drag_stopped() {
-            self.zoom_anchor = None;
+        if response.drag_stopped() && self.zoom_anchor.take().is_some() {
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::CursorGrab(egui::CursorGrab::None));
         }
         if let Some(p) = response.hover_pos() {
             let (wheel, pan, zoom) = ui.input(|i| {

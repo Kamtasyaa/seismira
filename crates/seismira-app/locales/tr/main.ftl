@@ -492,7 +492,7 @@ infra-dam = Baraj
 infra-substation = Trafo merkezi
 infra-gas = Doğalgaz hattı
 infra-unnamed = (adsız)
-infra-on-map = Haritada göster (Shindo 4 / MMI VI ve üstü)
+infra-on-map = Haritada göster (Shindo 5- / MMI VII ve üstü)
 infra-export = CSV olarak dışa aktar
 infra-list-note = En güçlü sarsılandan başlayarak; ada tıklayınca harita oraya gider. Değerler medyan tahmin; gerçekte yaklaşık yarısı ile iki katı arası olabilir.
 infra-goto = Haritada göster
@@ -527,3 +527,9 @@ batch-whole-note = * Kırılma fayın tamamı: bu büyüklük için fay kısa (g
 batch-cities = En çok etkilenen şehirler (ortalamaya göre)
 batch-col-city = Şehir
 batch-method = Senaryolar eşit ağırlıklıdır; bu bir olasılık (aşılma) hesabı DEĞİLDİR. Depremlerin ne sıklıkla olduğu hesaba katılmaz; olasılıksal tehlike haritaları (ESHM20) sonraki adımda. Bir senaryonun model sınırı dışında kalan yerler o senaryoda sarsıntısız sayılır.
+
+# Metin kutusu sağ tık menüsü
+edit-cut = Kes
+edit-copy = Kopyala
+edit-paste = Yapıştır
+edit-select-all = Tümünü seç

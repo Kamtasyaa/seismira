@@ -84,19 +84,22 @@ pub enum Action {
     Stop,
 }
 
-/// Dile göre ondalık ayraçlı sayı kutusu.
+/// Dile göre ondalık ayraçlı sayı kutusu (sağ tık menüsüyle, [`crate::clip`]).
 fn number<'a>(
     lang: Lang,
     v: &'a mut f64,
     range: std::ops::RangeInclusive<f64>,
     decimals: usize,
     speed: f64,
-) -> egui::DragValue<'a> {
-    egui::DragValue::new(v)
-        .range(range)
-        .speed(speed)
-        .custom_formatter(move |v, _| lang.num(v, decimals))
-        .custom_parser(|s| s.trim().replace(',', ".").parse().ok())
+) -> crate::clip::WithMenu<egui::DragValue<'a>> {
+    crate::clip::WithMenu(
+        egui::DragValue::new(v)
+            .range(range)
+            .speed(speed)
+            .custom_formatter(move |v, _| lang.num(v, decimals))
+            .custom_parser(|s| s.trim().replace(',', ".").parse().ok()),
+        lang,
+    )
 }
 
 fn setting_key(s: Setting) -> &'static str {

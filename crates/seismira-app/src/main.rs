@@ -6,6 +6,7 @@
 
 mod app;
 mod city_layer;
+mod clip;
 mod compute;
 #[cfg(feature = "screenshot")]
 mod devshot;

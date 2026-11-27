@@ -164,20 +164,22 @@ impl SeismiraApp {
                 let auto = SiteClass::from_vs30(*vs30_raw);
                 ui.horizontal_wrapped(|ui| {
                     let l = ui.label("S_S").id;
-                    ui.add(
+                    ui.add(crate::clip::WithMenu(
                         egui::DragValue::new(&mut st.ss)
                             .range(0.0..=4.0)
                             .speed(0.01)
                             .max_decimals(3),
-                    )
+                        lang,
+                    ))
                     .labelled_by(l);
                     let l = ui.label("S_1").id;
-                    ui.add(
+                    ui.add(crate::clip::WithMenu(
                         egui::DragValue::new(&mut st.s1)
                             .range(0.0..=2.0)
                             .speed(0.01)
                             .max_decimals(3),
-                    )
+                        lang,
+                    ))
                     .labelled_by(l);
                     let l = ui.label(t("spectrum-class")).id;
                     let cur = st.class.unwrap_or(auto);

@@ -2,7 +2,7 @@
 //! köprü / viyadük, baraj, trafo merkezi, doğalgaz boru hattı. Veri:
 //! OpenStreetMap (ODbL), ana veri paketinde ayrı dosya.
 //!
-//! Harita: sarsıntı tesise ulaşınca (ilk S), Shindo 4 / MMI VI ve üstü
+//! Harita: sarsıntı tesise ulaşınca (ilk S), Shindo 5- / MMI VII ve üstü
 //! tesisler türüne özgü biçimde, şiddet rengiyle (biçim + renk: renk tek
 //! bilgi taşıyıcı değil). Kalabalığı önlemek için ekranda [`DECLUTTER_PX`]
 //! piksellik her hücrede yalnızca en güçlü sarsılan tesis çizilir;
@@ -38,13 +38,14 @@ impl Default for InfraState {
 }
 
 /// Seyreltme hücresi (piksel).
-const DECLUTTER_PX: f32 = 16.0;
+const DECLUTTER_PX: f32 = 24.0;
 
-/// Haritada gösterilme eşiği: Shindo 4 / MMI VI.
+/// Haritada gösterilme eşiği: Shindo 5- / MMI VII (2026-11-27: Shindo 4'te
+/// harita kutuları örtecek kadar kalabalıktı; liste ve CSV tümünü içerir).
 fn notable(scale: Scale, a: &Assessed) -> bool {
     match scale {
-        Scale::Shindo => Shindo::from_instrumental(a.jma) >= Shindo::S4,
-        Scale::Mmi => a.mmi >= 6.0,
+        Scale::Shindo => Shindo::from_instrumental(a.jma) >= Shindo::S5Lower,
+        Scale::Mmi => a.mmi >= 7.0,
     }
 }
 
@@ -277,7 +278,7 @@ impl SeismiraApp {
         }
     }
 
-    /// Haritada işaretler (sarsıntı ulaşmış, Shindo 4 / MMI VI ve üstü).
+    /// Haritada işaretler (sarsıntı ulaşmış, Shindo 5- / MMI VII ve üstü).
     pub(super) fn draw_infra(&self, ui: &egui::Ui, rect: egui::Rect) {
         if !self.infra.on_map {
             return;

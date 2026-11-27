@@ -235,6 +235,7 @@ impl SeismiraApp {
                                 .desired_width(ui.available_width() - 80.0),
                         )
                         .labelled_by(l);
+                    let r = crate::clip::EditMenu::edit_menu(r, lang);
                     let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                     let busy = self.user.loading.is_some();
                     if (ui
