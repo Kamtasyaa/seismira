@@ -174,8 +174,9 @@ açılışta yeniden görünür ve Görünüm menüsünden geri açılır.
   lisans, atıf ve "değiştirildi" notu data/SOURCES.toml'a yazılır.
 - GADM KULLANILMAZ. GEM verisi (CC BY-NC-SA) ayrı paket; ODbL verisiyle
   tek veri tabanında birleştirilmez.
-- Temel paket hedefi ~750 MB altı (2026-11-23 kullanıcı kararı: heyelan
-  katmanı için 500 MB'tan yükseltildi; v0.1.0 veri paketi 699 MB).
+- Temel paket için boyut sınırı YOK (2026-11-27 kullanıcı kararı; önceki
+  ~750 MB hedefi kaldırıldı; v0.1.0 veri paketi 699 MB). Yine de gereksiz
+  büyütme yapılmaz; lisansı gerektiren veriler ayrı dosya, tek pakette.
 
 ## 13. Lisans
 
