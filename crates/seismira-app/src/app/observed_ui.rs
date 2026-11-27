@@ -223,9 +223,7 @@ impl SeismiraApp {
         if !self.observed.on_map {
             return None;
         }
-        let Some((rows, _)) = self.observed_current() else {
-            return None;
-        };
+        let (rows, _) = self.observed_current()?;
         let painter = ui.painter_at(rect);
         let hover = ui.input(|i| i.pointer.hover_pos());
         let mut hovered: Option<(&Residual, egui::Pos2)> = None;
