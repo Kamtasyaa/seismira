@@ -906,6 +906,49 @@ impl Drop for Job {
     }
 }
 
+/// Alanın Vs30 penceresi (taban çözünürlük; deniz NaN): harita, üstüne
+/// kullanıcının Vs30'u (kapsadığı kara hücrelerinde). Harita da kullanıcı
+/// verisi de yoksa `None` (her yerde referans zemin).
+pub fn vs30_window(
+    vs30: Option<&Vs30>,
+    user_vs30: Option<&crate::userdata::UserVs30>,
+    domain: &seismira_core::grid::Domain,
+) -> Option<Vec<f32>> {
+    let base = domain.base;
+    let mut window = match vs30.map(|m| m.window(domain.col0, domain.row0, domain.w, domain.h)) {
+        Some(Ok(w)) => Some(w),
+        Some(Err(e)) => {
+            log::error!("Vs30 penceresi okunamadı: {e}");
+            None
+        }
+        None => None,
+    };
+    // Kullanıcının Vs30 haritası: kapsadığı kara hücrelerinde (deniz NaN
+    // kalır; harita yoksa her yer referans zeminden başlar).
+    if let Some(u) = user_vs30 {
+        let win = window.get_or_insert_with(|| {
+            vec![seismira_core::site::REFERENCE_VS30 as f32; domain.w as usize * domain.h as usize]
+        });
+        let mut n = 0usize;
+        for r in 0..domain.h as usize {
+            let lat = base.north - (domain.row0 as f64 + r as f64 + 0.5) * base.cell;
+            for c in 0..domain.w as usize {
+                let k = r * domain.w as usize + c;
+                if win[k].is_nan() {
+                    continue;
+                }
+                let lon = base.west + (domain.col0 as f64 + c as f64 + 0.5) * base.cell;
+                if let Some(v) = u.sample(lon, lat) {
+                    win[k] = v as f32;
+                    n += 1;
+                }
+            }
+        }
+        log::info!("kullanıcı Vs30: {n} hücre ({})", u.name);
+    }
+    window
+}
+
 /// Sarsıntı ızgarası: Vs30 penceresi bir kez okunur, önce kaba sonra ince
 /// geçiş gönderilir. Referans makinede Mw 8 için ince geçiş ~0,2 s.
 #[allow(clippy::too_many_arguments)]
@@ -939,37 +982,7 @@ fn shake_grid(
         }
     });
     let domain = Domain::for_scenario(scenario, base);
-    let mut window = match vs30.map(|m| m.window(domain.col0, domain.row0, domain.w, domain.h)) {
-        Some(Ok(w)) => Some(w),
-        Some(Err(e)) => {
-            log::error!("Vs30 penceresi okunamadı: {e}");
-            None
-        }
-        None => None,
-    };
-    // Kullanıcının Vs30 haritası: kapsadığı kara hücrelerinde (deniz NaN
-    // kalır; harita yoksa her yer referans zeminden başlar).
-    if let Some(u) = user_vs30 {
-        let win = window.get_or_insert_with(|| {
-            vec![seismira_core::site::REFERENCE_VS30 as f32; domain.w as usize * domain.h as usize]
-        });
-        let mut n = 0usize;
-        for r in 0..domain.h as usize {
-            let lat = base.north - (domain.row0 as f64 + r as f64 + 0.5) * base.cell;
-            for c in 0..domain.w as usize {
-                let k = r * domain.w as usize + c;
-                if win[k].is_nan() {
-                    continue;
-                }
-                let lon = base.west + (domain.col0 as f64 + c as f64 + 0.5) * base.cell;
-                if let Some(v) = u.sample(lon, lat) {
-                    win[k] = v as f32;
-                    n += 1;
-                }
-            }
-        }
-        log::info!("kullanıcı Vs30: {n} hücre ({})", u.name);
-    }
+    let window = vs30_window(vs30, user_vs30, &domain);
     let step = domain.fine_step_for(quality.max_dim());
     for (s, fine) in [(step * COARSE_FACTOR, false), (step, true)] {
         let Some(g) = grid::compute(scenario, &domain, s, window.as_deref(), cancel) else {

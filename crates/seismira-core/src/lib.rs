@@ -3,6 +3,7 @@
 //! Bu crate arayüzden tamamen bağımsızdır: egui, eframe, wgpu veya
 //! herhangi bir pencere / çizim kütüphanesine bağımlılık EKLENMEZ.
 
+pub mod batch;
 pub mod cities;
 pub mod component;
 pub mod damage;

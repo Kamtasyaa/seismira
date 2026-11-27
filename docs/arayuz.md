@@ -676,3 +676,17 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
   her hücrede en güçlü tesis; yakınlaştıkça daha fazlası.
 - Geliştirme: `SEISMIRA_T=<s>` (saat), `SEISMIRA_SHOW_INFRA=1` (pencere),
   SEISMIRA_PRESET_START ile.
+
+## Toplu senaryo (2026-11-27)
+
+- Veri → "Toplu senaryo…": sağ paneldeki depremin fayında Mw aralığı,
+  adım (0,1 / 0,25 / 0,5), fay boyunca konum (1 / 3 / 5); en çok 60
+  senaryo. Arka planda, ilerleme çubuğu ve iptal.
+- Sonuç: "Ortalama" / "En kötü" görünümü haritada sabit ızgara olarak
+  (açık simülasyon yokken; simülasyon başlayınca kalkar, "Haritada göster"
+  ile geri gelir), büyüklüklere göre tablo (kırılma uzunluğu, konum, en
+  yüksek Shindo), en çok etkilenen 15 şehir (ortalama ve en kötü, seçili
+  ölçekte; MMI haritadaki dönüşümle, üyelerin ortalama Mw'si).
+- Açık uyarı: eşit ağırlıklı, olasılık hesabı değil.
+- Geliştirme: `SEISMIRA_BATCH=1` (SEISMIRA_PRESET ile) başlatır; ekran
+  görüntüsü aracı hesap bitene kadar bekler.

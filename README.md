@@ -114,10 +114,10 @@ Veri ve analiz / Data and analysis:
 
 - **AFAD deprem listesi:** gerçek depremler penceresine AFAD kaynağı
   (kullanım izni istendi). / AFAD earthquake list (permission requested).
-- **Toplu senaryo ve olasılıksal analiz (PSHA başlangıcı):** bir fay
-  üzerinde Mw 6,5–7,8 arası çok sayıda senaryo; ortalama hasar ve
-  "50 yılda %10 aşılma" haritaları. / Batch scenarios and first steps
-  towards probabilistic hazard maps.
+- **Olasılıksal tehlike (PSHA):** ESHM20 kaynak modeliyle Avrupa ve
+  Türkiye için "50 yılda %10 aşılma" haritaları (fay üzerinde toplu
+  senaryo yapıldı). / Probabilistic hazard maps with ESHM20 (batch
+  scenarios on a fault are done).
 
 ### Normal öncelik / Normal
 

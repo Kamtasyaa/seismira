@@ -1096,3 +1096,22 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   öncelikli, benzeştirilmiş kayıt koşullu ve en az 11 → TASARIM İÇİN DEĞİL
   (arayüzde ve dosya başlığında). Taban düzeltmesi yalnızca ortalama.
 
+### Toplu senaryo (2026-11-27; PSHA'ya ilk adım)
+
+- Kullanıcı kararı (2026-11-27): önce fay üzerinde toplu senaryo, sonra
+  ESHM20 ile Avrupa + Türkiye olasılıksal tehlike.
+- `seismira_core::batch`: verilen depremin kırılma izi (çok parçalı iz ya
+  da tek düzlemin üst kenarı) fay kabul edilir. Her büyüklükte kırılma
+  uzunluğu otomatik (WC94 / TMG17, `Fault::from_quake`), kırılma fay
+  boyunca eşit aralıklı konumlara kaydırılır (yüzen kırılma); uzunluk fayı
+  aşarsa fayın tamamı (arayüz "*" ile belirtir). Merkez üssü kırılmanın
+  ortası; derinlik, eğim, kayma, ortam ve model ağırlıkları verilen
+  depremden. Parçaya özel eğimler alt izde kullanılmaz (ortak eğim).
+- Birleştirme: her hücrede senaryoların ortalama ve en yüksek JMA şiddeti
+  ve PGV'si; EŞİT ağırlık (SEÇİM). OLASILIK DEĞİL: oluş hızı ve
+  büyüklük–sıklık dağılımı yok (ESHM20 aşaması). Bir senaryonun model
+  sınırı dışındaki kara hücreleri o senaryoda şiddet 0 sayılır.
+- Hesap: ortak alan (fayın tamamı en büyük Mw ile kırılsa), adım en çok
+  1024 hücre/kenar, artımlı toplam (bellekte yalnız toplamlar). Kahramanmaraş
+  hazır senaryosu, Mw 6,5–7,5 / 0,25 / 3 konum: 15 senaryo, 536 × 426 ızgara,
+  2,3 s (referans makine).

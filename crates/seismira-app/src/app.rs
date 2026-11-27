@@ -15,6 +15,7 @@ use crate::map::{MapWidget, view::MapView};
 use crate::timeline::{self, Clock};
 use crate::{fonts, i18n::Lang, panel, paths, shindo_style, text_test, theme};
 
+mod batch_ui;
 mod infra_ui;
 mod observed_ui;
 mod real_ui;
@@ -434,6 +435,8 @@ pub struct SeismiraApp {
     infra_data: Option<Arc<compute::InfraMap>>,
     /// Kritik tesisler penceresi ve sonuçları ([`infra_ui`]).
     infra: infra_ui::InfraState,
+    /// Toplu senaryo penceresi ve sonucu ([`batch_ui`]).
+    batch: batch_ui::BatchState,
     /// Son hesabın tahmini bina hasarı.
     damage: Option<compute::DamageResults>,
     /// Zemin yenilmesi girdileri (`data/ground/`); yoksa katman gösterilmez.
@@ -612,6 +615,7 @@ impl SeismiraApp {
             vuln,
             infra_data,
             infra: Default::default(),
+            batch: Default::default(),
             damage: None,
             ground,
             ground_failure: Default::default(),
@@ -694,6 +698,12 @@ impl SeismiraApp {
                     self.clock.playing = false;
                 }
                 self.infra.show |= std::env::var("SEISMIRA_SHOW_INFRA").is_ok_and(|v| v == "1");
+            }
+            // `SEISMIRA_BATCH=1`: hazır senaryonun fayında toplu senaryoyu
+            // başlatır, pencereyi açar (ekran görüntüsü / deneme).
+            if std::env::var("SEISMIRA_BATCH").is_ok_and(|v| v == "1") {
+                self.batch.show = true;
+                self.batch_start_dev(ctx);
             }
         }
         let Some(v) = std::env::var("SEISMIRA_DEMO").ok().map(|s| {
@@ -783,6 +793,9 @@ impl SeismiraApp {
                 if ui.button(t("menu-infra")).clicked() {
                     self.infra.show = true;
                 }
+                if ui.button(t("menu-batch")).clicked() {
+                    self.batch.show = true;
+                }
             });
             ui.menu_button(t("menu-view"), |ui| {
                 ui.checkbox(&mut self.show_disclaimer, t("menu-disclaimer"));
@@ -864,6 +877,7 @@ impl SeismiraApp {
         );
         let mw = self.sim.as_ref().map_or(0.0, |s| s.quake.mw);
         self.map.set_intensity_scale(self.scale, mw);
+        self.batch_map_frame();
         let out = self.map.ui(ui, frame, crate::MSAA);
         if let Some(pts) = &mut self.draft.drawing {
             // Fay izi çizimi: tık nokta ekler, çift tık / Enter bitirir,
@@ -1850,6 +1864,7 @@ impl SeismiraApp {
         self.user.inventory_results = None;
         self.spectrum.clear();
         self.infra.results = None;
+        self.batch.on_map = false;
         self.clock = Clock {
             speed: self.clock.speed,
             ..Clock::default()
@@ -2536,6 +2551,8 @@ impl eframe::App for SeismiraApp {
         self.observed_update(ui.ctx());
         self.observed_window(ui.ctx());
         self.infra_window(ui.ctx());
+        self.batch_update(ui.ctx());
+        self.batch_window(ui.ctx());
 
         let mut open = self.show_sources;
         egui::Window::new(t("sources-title"))
@@ -2547,7 +2564,10 @@ impl eframe::App for SeismiraApp {
 
         #[cfg(feature = "screenshot")]
         // Arka plan hesabı (ızgara, bölgeler) bitmeden görüntü alınmasın.
-        crate::devshot::tick(ui.ctx(), self.map.is_ready() && self.job.is_none());
+        crate::devshot::tick(
+            ui.ctx(),
+            self.map.is_ready() && self.job.is_none() && !self.batch_busy(),
+        );
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
