@@ -1,5 +1,6 @@
 //! Tema: koyu (varsayılan; haritayı öne çıkaran, sade renkler) ve açık
-//! (kullanıcı isteği 2026-11-27; Görünüm → Tema, hatırlanır).
+//! (kullanıcı isteği 2026-11-27; Görünüm → Tema, oturumluk: her açılışta
+//! koyu).
 //!
 //! Harita ve harita üstü çizimler sabit renk yerine buradaki işlevleri
 //! kullanır ([`map_bg`], [`map_land`], [`box_bg`], [`box_text`],
@@ -18,13 +19,6 @@ pub enum Mode {
 }
 
 impl Mode {
-    pub fn code(self) -> &'static str {
-        match self {
-            Mode::Dark => "dark",
-            Mode::Light => "light",
-        }
-    }
-
     pub fn from_code(s: &str) -> Option<Mode> {
         match s {
             "dark" => Some(Mode::Dark),
@@ -99,6 +93,25 @@ pub fn map_ink(alpha: f32) -> Color32 {
         Color32::from_gray(30).gamma_multiply(alpha)
     } else {
         Color32::WHITE.gamma_multiply(alpha)
+    }
+}
+
+/// Erken uyarı kapsamındaki ilin sınırı ve yanıp sönen dolgusu (`pulse`
+/// 0–1). Koyu temada beyaz; açık temada beyaz / koyu gri açık kara üzerinde
+/// okunmadığı için (kullanıcı, 2026-11-27) mavi-mor ton, daha yoğun dolgu.
+pub fn warning_edge() -> Color32 {
+    if light() {
+        Color32::from_rgb(0x3F, 0x3D, 0xB8)
+    } else {
+        Color32::WHITE
+    }
+}
+
+pub fn warning_fill(pulse: f32) -> Color32 {
+    if light() {
+        Color32::from_rgb(0x3F, 0x3D, 0xB8).gamma_multiply(0.10 + 0.22 * pulse)
+    } else {
+        Color32::WHITE.gamma_multiply(0.04 + 0.10 * pulse)
     }
 }
 

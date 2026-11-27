@@ -729,8 +729,10 @@ okunur. Kart, kutunun ya da noktanın üstüne gelince açılır.
 
 ## Açık tema (2026-11-27, kullanıcı isteği)
 
-- Görünüm → Tema: Koyu (varsayılan) / Açık; seçim hatırlanır
-  (`theme`), geliştirme için `SEISMIRA_THEME=light|dark`.
+- Görünüm → Tema: Koyu (varsayılan) / Açık; seçim HATIRLANMAZ, her açılış
+  koyu (kullanıcı isteği 2026-11-27); geliştirme için
+  `SEISMIRA_THEME=light|dark`. Açık temada erken uyarı il sınırı ve yanıp
+  sönen dolgusu mavi-mor (#3F3DB8; beyaz / koyu gri okunmuyordu).
 - `theme.rs` renk işlevleri: harita zemini / karası / sınırlar
   (açıkta OSM benzeri açık mavi deniz, krem kara), harita üstü kutu zemini
   ve yazısı (`box_bg`, `box_text`), haritada doğrudan çizilen nötr çizgi

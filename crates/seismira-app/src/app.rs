@@ -40,7 +40,6 @@ const STORAGE_LANDSLIDE: &str = "landslide";
 const STORAGE_TSUNAMI: &str = "tsunami";
 const STORAGE_QUALITY: &str = "quality";
 const STORAGE_SCALE: &str = "intensity_scale";
-const STORAGE_THEME: &str = "theme";
 
 /// Bölge sınırı yanıp sönme frekansı (Hz). Bölüm 3 / 9: ≤ ~1 Hz, yumuşak.
 const BLINK_HZ: f64 = 1.0;
@@ -151,9 +150,9 @@ fn region_styles(
             // olabilir (ör. 41 il) ve tüm haritayı grileştirmesin.
             RegionState::Warning => Some((
                 0u8,
-                theme::map_ink(1.0),
+                theme::warning_edge(),
                 2.0,
-                theme::map_ink(0.04 + 0.10 * pulse),
+                theme::warning_fill(pulse),
                 true,
             )),
             RegionState::Shaking(now) => {
@@ -454,7 +453,7 @@ pub struct SeismiraApp {
     hazard_data: Option<Arc<hazard_ui::Hazard>>,
     /// Tehlike haritası katmanı ([`hazard_ui`]).
     hazard: hazard_ui::HazardState,
-    /// Koyu / açık tema (Görünüm → Tema; hatırlanır).
+    /// Koyu / açık tema (Görünüm → Tema; oturumluk, her açılışta koyu).
     theme_mode: theme::Mode,
     /// Son hesabın tahmini bina hasarı.
     damage: Option<compute::DamageResults>,
@@ -523,10 +522,11 @@ impl SeismiraApp {
             .unwrap_or_else(Lang::from_system);
         let assets = paths::assets_dir();
         log::info!("veri klasörü: {}", assets.display());
-        // Tema: kayıtlı seçim; geliştirme için `SEISMIRA_THEME=light|dark`.
+        // Tema: her açılışta koyu (kullanıcı isteği 2026-11-27: açık tema
+        // yalnızca o oturum için, hatırlanmaz); geliştirme için
+        // `SEISMIRA_THEME=light|dark`.
         let theme_mode = std::env::var("SEISMIRA_THEME")
             .ok()
-            .or_else(|| cc.storage.and_then(|s| s.get_string(STORAGE_THEME)))
             .and_then(|v| theme::Mode::from_code(&v))
             .unwrap_or_default();
         theme::apply(&cc.egui_ctx, theme_mode);
@@ -2666,7 +2666,6 @@ impl eframe::App for SeismiraApp {
         );
         storage.set_string(STORAGE_QUALITY, self.quality.code().to_owned());
         storage.set_string(STORAGE_SCALE, self.scale.code().to_owned());
-        storage.set_string(STORAGE_THEME, self.theme_mode.code().to_owned());
     }
 }
 
