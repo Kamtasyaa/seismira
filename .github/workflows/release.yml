@@ -23,9 +23,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  DATA_TAG: data-v0.1.0
-  DATA_FILE: seismira-data-v0.1.0.tar.zst
-  DATA_SHA256: fb0267342d08440cb66e84efb83f5eb8452b3b376a05a48433b88920a320d3d2
+  DATA_TAG: data-v0.2.0
+  DATA_FILE: seismira-data-v0.2.0.tar.zst
+  DATA_SHA256: fed8e5e2932f4448866e5e03e1be22623ea7ec415763dc6762afff85840b63c7
 
 permissions:
   contents: write
