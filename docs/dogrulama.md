@@ -1110,3 +1110,17 @@ uzaklıkla azalma" için yayımlanmış basit bir bağıntı bulunamadı (Riquel
 Eş. 2'nin dik terimi geliş açısı θ'ya bağlı; θ = 90° en kötü durum
 seçiminde sıfır); uydurulmadı. Yakın alan fazla tahmininin bilinen
 nedenleri (Lorentz azalması, koylar, adalar) yukarıdaki bölümlerde.
+
+## SAPMA: Tōhoku hazır senaryosunda tsunami yüksekliği ~74 m (2026-11-28)
+
+Kullanıcı ekran testi (v0.1.4 öncesi): Miyagi kartı "tahmini ~74 m".
+Gözlenen en yüksek 38,6 m (NCEI, Miyagi). Neden: Faz 8 doğrulaması
+(`validate-tsunami`, R0 34,3–38,6 m) fay boyutunu ölçek ilişkisinden
+alıyor; hazır senaryo ise ShakeMap boyutlarını kullanıyor (435 × 191 km),
+alan daha küçük → ortalama kayma daha büyük → Okada en yüksek kabarma
+H 8,49 m (doğrulamada 5,19 m) → Riquelme R0 74,2 m (uygulama günlüğü).
+v0.1.3'te de aynı (senaryo değişmedi); gerileme değil. Bölge kategorisi
+yine "büyük tsunami uyarısı" (> 3 m), yani renk / uyarı aynı, yalnız metin
+yüksekliği abartılı. Düzeltme v0.1.5'e: doğrulamayı hazır senaryonun
+gerçek geometrisiyle tekrarla; R0'ın H'ye duyarlılığını ve heterojen
+kaymanın ortalama kaymaya göre etkisini incele (kaynak: Riquelme vd. 2015).
