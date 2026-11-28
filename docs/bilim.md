@@ -547,9 +547,14 @@ geçişinde kullanılır (doğrula: makalenin veri aralığı).
   `tsunami::runup`: Eş. (3) R = 2,831 H (H/d)^¼ (1 + H/d)^¼ |b|^(−½)
   (çok eğimli kıyı, son eğim b) ve Eş. (2)'nin kıyı boyunca Lorentz
   azalması f(p) = 1/(1 + (2p/L)²), p = α·y (θ = 90°, makalenin en kötü
-  durum önerisi). Kaynak: `tsunami::source::uplift`: düzgün kaymalı fay
-  (uygulamanın sarsıntı düzlemi), D = M0/(μA), μ = 30 GPa, Okada uz; H =
-  en büyük |uz|. Geçerlilik (makale): dalma-batma yakın alanı; doğrultu
+  durum önerisi). Kaynak: `tsunami::source::uplift`: düzgün kaymalı fay,
+  D = M0/(μA), μ = 30 GPa, Okada uz; H = en büyük |uz|. ARAYÜZDE (2026-11-28)
+  H makalenin kalibrasyon kaynağından: aynı merkez / doğrultu / eğim /
+  kayma açısı, boyut Blaser vd. (2010) log L = −2,81 + 0,62 Mw, log W =
+  −1,79 + 0,45 Mw (Riquelme s. 6496; `forecast::riquelme_quake`); tepe
+  konumu, d, şelf eğimi ve varışlar gerçek kırılmadan (ShakeMap boyutlu
+  Tōhoku H 8,5 m → R0 74 m sorunu, docs/dogrulama.md). Kabuk içi ve levha
+  içinde uygulamanın düzlemi (makale kapsamı dışı). Geçerlilik (makale): dalma-batma yakın alanı; doğrultu
   atımlı, ada, koy, haliç kapsam dışı; ilk dalga. UZAK ALANDA YÜKSEKLİK
   VERİLMEZ (yayımlanmış basit yöntem bulunamadı; PTWC RIFT sığ su modeli
   kullanır = Aşama 3): yalnızca PTWC tehdit bölgesi ve varış süresi.

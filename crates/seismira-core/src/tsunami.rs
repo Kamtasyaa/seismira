@@ -1243,6 +1243,28 @@ pub mod forecast {
         if seeds.is_empty() || q.mw < 6.5 {
             return Some(empty);
         }
+        // Yükseklik zinciri (H, d, b, R0, kıyı boyunca azalma) Riquelme vd.
+        // (2015) yöntemiyle: "given any moment tensor, we assume fault
+        // dimensions from Blaser et al. [2010] with uniform slip" (JGR 120,
+        // s. 6493); formül bu kaynakla kalibre edildi. Kullanıcının /
+        // hazır senaryonun kırılma boyutu (ör. ShakeMap) daha küçükse kayma
+        // ve H büyür, R0 abartılır (Tōhoku 435 × 191 km: H 8,5 m, R0 74 m;
+        // gözlenen en yüksek 38,6 m, docs/dogrulama.md 2026-11-28). Varış
+        // süreleri, kaynak hücreleri, tepe konumu (d, şelf eğimi, kıyı boyunca
+        // konum) yine gerçek kırılmadan (`up`): küçük Blaser düzlemi odağa
+        // göre yerleşince tepesi kıyıya kayıyor, d düşüp R0 şişiyordu
+        // (Maule hazır senaryosu d 1530 → 320 m, R0 15 → 31 m). Riquelme
+        // kaynağından yalnız H (ve kıyı boyunca azalmadaki L) alınır.
+        // Yalnız dalma-batma arayüzünde: makalenin kapsamı ve kalibrasyonu
+        // bu; kabuk içi (Noto) Blaser boyutuyla sığ suda R0 57 m veriyordu
+        // (gözlenen 6,6 m), orada önceki gibi uygulamanın düzlemi.
+        let rq = if q.setting == crate::quake::Setting::Interface {
+            riquelme_quake(q)
+        } else {
+            *q
+        };
+        let rfault = Rupture::from_quake(&rq);
+        let up_r = source::uplift(&rq, &rfault, depth.cell.max(1.0 / 60.0), 50.0);
         // d: en büyük yükselmenin derinliği; karadaysa tohumların medyanı.
         let d = depth.at(up.at.0, up.at.1).unwrap_or_else(|| {
             let mut v: Vec<f32> = seeds.iter().map(|s| depth.depth[s.0]).collect();
@@ -1279,8 +1301,8 @@ pub mod forecast {
                 .unwrap_or_else(|| (d - d0).max(1.0) / (km.max(1.0) * 1000.0))
                 .clamp(SLOPE_MIN, SLOPE_MAX)
         });
-        let r0 = runup::max_runup(up.h_max, d, slope);
-        let alpha = runup::alpha(up.h_max, d);
+        let r0 = runup::max_runup(up_r.h_max, d, slope);
+        let alpha = runup::alpha(up_r.h_max, d);
         // Varış süreleri.
         let g = travel::Grid {
             west: depth.west,
@@ -1337,7 +1359,7 @@ pub mod forecast {
             };
             let island = near && !shelter && on_small_island(depth, pt);
             let runup_m = (near && !shelter && !island)
-                .then(|| r0 * runup::along_coast(alpha * along, fault.length));
+                .then(|| r0 * runup::along_coast(alpha * along, rfault.length));
             let threat = match threat_radius {
                 Some(Some(r)) => geo::distance_azimuth(q.epicenter, pt).0 <= r,
                 Some(None) => t <= trigger::BASIN_ETA_S,
@@ -1357,15 +1379,48 @@ pub mod forecast {
             d,
             slope,
             r0,
+            h_max: up_r.h_max,
+            at: up.at,
+            slip: up_r.slip,
             coast: out,
             eta,
-            ..empty
         })
+    }
+
+    /// Riquelme vd. (2015) yükseklik kaynağı: aynı merkez üssü, derinlik,
+    /// doğrultu / eğim / kayma açısı ve odak konumu; tek düzlem, boyut
+    /// Blaser vd. (2010): log L = −2,81 + 0,62 Mw, log W = −1,79 + 0,45 Mw
+    /// (km; Riquelme vd. 2015 JGR 120, s. 6496, "the scaling laws was taken
+    /// from Blaser et al. [2010]"). Genişlik arayüz sınırına sığmazsa
+    /// `Rupture::from_quake` kırpar (uygulamanın sarsıntı düzlemiyle aynı).
+    pub fn riquelme_quake(q: &Quake) -> Quake {
+        let mut r = *q;
+        r.trace = None;
+        r.rupture_km = Some([blaser_length_km(q.mw), blaser_width_km(q.mw)]);
+        r
+    }
+
+    pub fn blaser_length_km(mw: f64) -> f64 {
+        10f64.powf(-2.81 + 0.62 * mw)
+    }
+
+    pub fn blaser_width_km(mw: f64) -> f64 {
+        10f64.powf(-1.79 + 0.45 * mw)
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        /// Blaser vd. (2010) Riquelme vd. (2015)'teki biçimiyle: Mw 9,1 →
+        /// L ≈ 679 km, W ≈ 202 km; Mw 8,0 → L ≈ 141 km, W ≈ 65 km.
+        #[test]
+        fn blaser_boyutlari() {
+            assert!((blaser_length_km(9.1) - 679.2).abs() < 1.0);
+            assert!((blaser_width_km(9.1) - 201.8).abs() < 0.5);
+            assert!((blaser_length_km(8.0) - 141.3).abs() < 0.5);
+            assert!((blaser_width_km(8.0) - 64.6).abs() < 0.2);
+        }
 
         /// 3° × 1° deniz (1′), arada `wall` derece genişlikte kara şeridi
         /// (1,0°D'den başlayarak).

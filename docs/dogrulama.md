@@ -1121,6 +1121,22 @@ alan daha küçük → ortalama kayma daha büyük → Okada en yüksek kabarma
 H 8,49 m (doğrulamada 5,19 m) → Riquelme R0 74,2 m (uygulama günlüğü).
 v0.1.3'te de aynı (senaryo değişmedi); gerileme değil. Bölge kategorisi
 yine "büyük tsunami uyarısı" (> 3 m), yani renk / uyarı aynı, yalnız metin
-yüksekliği abartılı. Düzeltme v0.1.5'e: doğrulamayı hazır senaryonun
-gerçek geometrisiyle tekrarla; R0'ın H'ye duyarlılığını ve heterojen
-kaymanın ortalama kaymaya göre etkisini incele (kaynak: Riquelme vd. 2015).
+yüksekliği abartılı.
+
+DÜZELTİLDİ (2026-11-28, kullanıcı "önce düzelt" dedi): Riquelme vd.
+(2015) formülü Blaser vd. (2010) boyutlu düzgün kaymalı kaynakla
+kalibre (makale s. 6493, 6496). Arayüzde H artık bu kaynaktan; tepe
+konumu, d, eğim gerçek kırılmadan (ilk denemede d de Blaser düzleminden
+alınınca Maule hazır senaryosunda tepe kıyıya kayıp d 1530 → 320 m, R0
+15 → 31 m oldu; geri alındı). Kabuk içi değişmedi (Noto aynı, eski kodla
+karşılaştırıldı). Sonuçlar (uygulama, hazır senaryo):
+
+| Senaryo | Önce R0 | Sonra R0 | Gözlenen en yüksek (NCEI yakın alan) |
+|---|---|---|---|
+| Tōhoku (435 × 191 km) | 74,2 m | 41,1 m | 38,6 m |
+| Maule (518 × 167 km) | 15,4 m | 20,9 m | 17,2 m (Fritz vd. 2011: ~29 m) |
+| Noto (kabuk) | 9,1 m | 9,1 m | 6,6 m |
+
+`validate-tsunami` (düğüm düzlemi, otomatik boyut): Tōhoku R0 35,1 m,
+bölge kategorisi 9/14 aynı (önce 34,3 m, 9/14); Maule 15,9 m, 5/8 (önce
+16,1 m, 5/8); Noto değişmedi (13,8 m, 8/13).
